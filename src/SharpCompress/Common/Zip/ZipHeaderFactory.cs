@@ -66,6 +66,7 @@ internal partial class ZipHeaderFactory
                 )
                 {
                     _lastEntryHeader.Crc = reader.ReadUInt32();
+                    _lastEntryHeader.IsCrcAvailable = true;
                     _lastEntryHeader.CompressedSize = zip64
                         ? (long)reader.ReadUInt64()
                         : reader.ReadUInt32();

@@ -36,7 +36,9 @@ public static class IAsyncReaderExtensions
             string destinationFileName,
             ExtractionOptions? options = null,
             CancellationToken cancellationToken = default
-        ) =>
+        )
+        {
+            options ??= new ExtractionOptions();
             await reader
                 .Entry.WriteEntryToFileAsync(
                     destinationFileName,
@@ -44,12 +46,12 @@ public static class IAsyncReaderExtensions
                     async (x, fm, ct) =>
                     {
                         using var fs = File.Open(x, fm);
-                        await CopyEntryToAsync(reader, fs, options?.BufferSize, ct)
-                            .ConfigureAwait(false);
+                        await CopyEntryToAsync(reader, fs, options, ct).ConfigureAwait(false);
                     },
                     cancellationToken
                 )
                 .ConfigureAwait(false);
+        }
 
         /// <summary>
         /// Extract all remaining unread entries to specific directory asynchronously, retaining filename
@@ -72,7 +74,9 @@ public static class IAsyncReaderExtensions
             string destinationFileName,
             ExtractionOptions? options = null,
             CancellationToken cancellationToken = default
-        ) =>
+        )
+        {
+            options ??= new ExtractionOptions();
             await reader
                 .Entry.WriteEntryToFileAsync(
                     destinationFileName,
@@ -80,12 +84,12 @@ public static class IAsyncReaderExtensions
                     async (x, fm, ct) =>
                     {
                         using var fs = File.Open(x, fm);
-                        await CopyEntryToAsync(reader, fs, options?.BufferSize, ct)
-                            .ConfigureAwait(false);
+                        await CopyEntryToAsync(reader, fs, options, ct).ConfigureAwait(false);
                     },
                     cancellationToken
                 )
                 .ConfigureAwait(false);
+        }
 
         public async ValueTask WriteEntryToAsync(
             FileInfo destinationFileInfo,
@@ -100,7 +104,7 @@ public static class IAsyncReaderExtensions
     private static async ValueTask CopyEntryToAsync(
         IAsyncReader reader,
         Stream writableStream,
-        int? bufferSize,
+        ExtractionOptions options,
         CancellationToken cancellationToken
     )
     {
@@ -113,9 +117,14 @@ public static class IAsyncReaderExtensions
             .OpenEntryStreamAsync(cancellationToken)
             .ConfigureAwait(false);
 #endif
-        var sourceStream = WrapWithProgress(entryStream, reader.Entry);
+        var checkedStream = IEntryExtensions.WrapWithChecksumValidation(
+            reader.Entry,
+            entryStream,
+            options
+        );
+        var sourceStream = WrapWithProgress(checkedStream, reader.Entry);
         await sourceStream
-            .CopyToAsync(writableStream, bufferSize ?? Constants.BufferSize, cancellationToken)
+            .CopyToAsync(writableStream, options.BufferSize, cancellationToken)
             .ConfigureAwait(false);
     }
 

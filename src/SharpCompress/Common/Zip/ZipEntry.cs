@@ -89,6 +89,49 @@ public class ZipEntry : Entry
 
     public override long Crc => _filePart?.Header.Crc ?? 0;
 
+    internal override ChecksumDescriptor Checksum
+    {
+        get
+        {
+            if (
+                _filePart is null
+                || IsDirectory
+                || !_filePart.Header.IsCrcAvailable
+                || !IsReliableCrcMetadata(_filePart.Header)
+            )
+            {
+                return default;
+            }
+
+            return new ChecksumDescriptor(
+                ChecksumKind.Crc32,
+                _filePart.Header.Crc,
+                IsAvailable: true
+            );
+        }
+    }
+
+    private static bool IsReliableCrcMetadata(ZipFileEntry header)
+    {
+        if (header.CompressionMethod != ZipCompressionMethod.WinzipAes)
+        {
+            return true;
+        }
+
+        var aesExtraData = header.Extra.FirstOrDefault(x => x.Type == ExtraDataType.WinZipAes);
+        if (aesExtraData is null || aesExtraData.DataBytes.Length < MinimumWinZipAesExtraDataLength)
+        {
+            return false;
+        }
+
+        var vendorVersion = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(
+            aesExtraData.DataBytes
+        );
+
+        // WinZip AES AE-2 stores a zero CRC field by design and relies on AES authentication.
+        return vendorVersion == 0x0001;
+    }
+
     public override string? Key => _filePart?.Header.Name;
 
     public override string? LinkTarget => null;

@@ -306,6 +306,7 @@ public class OptionsUsabilityTests : TestBase
         Assert.True(preserveMetadata.PreserveAttributes);
 
         Assert.Equal(Constants.BufferSize, new ExtractionOptions().BufferSize);
+        Assert.True(new ExtractionOptions().CheckCrc);
     }
 
     [Fact]

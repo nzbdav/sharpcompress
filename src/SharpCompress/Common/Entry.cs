@@ -84,6 +84,8 @@ public abstract class Entry : IEntry
 
     internal virtual void Close() { }
 
+    internal virtual ChecksumDescriptor Checksum => default;
+
     /// <summary>
     /// Entry file attribute.
     /// </summary>

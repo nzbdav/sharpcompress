@@ -44,6 +44,7 @@ internal partial class ZipHeaderFactory
                 )
                 {
                     _lastEntryHeader.Crc = await reader.ReadUInt32Async().ConfigureAwait(false);
+                    _lastEntryHeader.IsCrcAvailable = true;
                     _lastEntryHeader.CompressedSize = zip64
                         ? (long)await reader.ReadUInt64Async().ConfigureAwait(false)
                         : await reader.ReadUInt32Async().ConfigureAwait(false);

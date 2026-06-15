@@ -44,6 +44,15 @@ public sealed record ExtractionOptions : IExtractionOptions
     public int BufferSize { get; set; } = Constants.BufferSize;
 
     /// <summary>
+    /// Validate archive entry checksums during extraction when checksum metadata is available.
+    /// </summary>
+    /// <remarks>
+    /// Formats without payload checksums skip this validation. Compression-format integrity
+    /// checks that are required to decode data may still fail even when this is disabled.
+    /// </remarks>
+    public bool CheckCrc { get; set; } = true;
+
+    /// <summary>
     /// Delegate for writing symbolic links to disk.
     /// The first parameter is the source path (where the symlink is created).
     /// The second parameter is the target path (what the symlink refers to).

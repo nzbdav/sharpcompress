@@ -17,6 +17,7 @@ internal partial class DirectoryEntryHeader : ZipFileEntry
         OriginalLastModifiedTime = LastModifiedTime = reader.ReadUInt16();
         OriginalLastModifiedDate = LastModifiedDate = reader.ReadUInt16();
         Crc = reader.ReadUInt32();
+        IsCrcAvailable = true;
         CompressedSize = reader.ReadUInt32();
         UncompressedSize = reader.ReadUInt32();
         var nameLength = reader.ReadUInt16();

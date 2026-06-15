@@ -119,7 +119,7 @@ public sealed class Crc32Stream : Stream
     public static uint Compute(uint polynomial, uint seed, ReadOnlySpan<byte> buffer) =>
         ~CalculateCrc(InitializeTable(polynomial), seed, buffer);
 
-    private static uint[] InitializeTable(uint polynomial)
+    internal static uint[] InitializeTable(uint polynomial)
     {
         if (polynomial == DEFAULT_POLYNOMIAL && _defaultTable != null)
         {
@@ -153,7 +153,7 @@ public sealed class Crc32Stream : Stream
         return createTable;
     }
 
-    private static uint CalculateCrc(uint[] table, uint crc, ReadOnlySpan<byte> buffer)
+    internal static uint CalculateCrc(uint[] table, uint crc, ReadOnlySpan<byte> buffer)
     {
         unchecked
         {
@@ -165,6 +165,6 @@ public sealed class Crc32Stream : Stream
         return crc;
     }
 
-    private static uint CalculateCrc(uint[] table, uint crc, byte b) =>
+    internal static uint CalculateCrc(uint[] table, uint crc, byte b) =>
         (crc >> 8) ^ table[(crc ^ b) & 0xFF];
 }

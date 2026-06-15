@@ -51,26 +51,35 @@ public static class IReaderExtensions
         /// <summary>
         /// Extract to specific file
         /// </summary>
-        public void WriteEntryToFile(
-            string destinationFileName,
-            ExtractionOptions? options = null
-        ) =>
+        public void WriteEntryToFile(string destinationFileName, ExtractionOptions? options = null)
+        {
+            options ??= new ExtractionOptions();
             reader.Entry.WriteEntryToFile(
                 destinationFileName,
                 options,
                 (x, fm) =>
                 {
                     using var fs = File.Open(x, fm);
-                    CopyEntryTo(reader, fs, options?.BufferSize ?? Constants.BufferSize);
+                    CopyEntryTo(reader, fs, options ?? new ExtractionOptions());
                 }
             );
+        }
     }
 
-    private static void CopyEntryTo(IReader reader, Stream writableStream, int bufferSize)
+    private static void CopyEntryTo(
+        IReader reader,
+        Stream writableStream,
+        ExtractionOptions options
+    )
     {
         using var entryStream = reader.OpenEntryStream();
-        var sourceStream = WrapWithProgress(entryStream, reader.Entry);
-        sourceStream.CopyTo(writableStream, bufferSize);
+        var checkedStream = IEntryExtensions.WrapWithChecksumValidation(
+            reader.Entry,
+            entryStream,
+            options
+        );
+        var sourceStream = WrapWithProgress(checkedStream, reader.Entry);
+        sourceStream.CopyTo(writableStream, options.BufferSize);
     }
 
     private static Stream WrapWithProgress(Stream source, IEntry entry)

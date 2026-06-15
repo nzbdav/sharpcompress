@@ -105,6 +105,7 @@ using (var archive = RarArchive.OpenArchive("Test.rar", ReaderOptions.ForFilePat
             ExtractFullPath = true,
             Overwrite = true,
             BufferSize = 131072,
+            CheckCrc = true, // Default: validate payload checksums when available
         }
     );
 }
@@ -141,7 +142,7 @@ using (var archive = RarArchive.OpenArchive("archive.rar",
 {
     archive.WriteToDirectory(
         @"D:\output",
-        new ExtractionOptions { ExtractFullPath = true, Overwrite = true }
+        new ExtractionOptions { ExtractFullPath = true, Overwrite = true, CheckCrc = true }
     );
 }
 ```

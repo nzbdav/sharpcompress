@@ -20,6 +20,7 @@ internal partial class LocalEntryHeader
             .ReadUInt16Async()
             .ConfigureAwait(false);
         Crc = await reader.ReadUInt32Async().ConfigureAwait(false);
+        IsCrcAvailable = !Flags.HasFlag(HeaderFlags.UsePostDataDescriptor);
         CompressedSize = await reader.ReadUInt32Async().ConfigureAwait(false);
         UncompressedSize = await reader.ReadUInt32Async().ConfigureAwait(false);
         var nameLength = await reader.ReadUInt16Async().ConfigureAwait(false);

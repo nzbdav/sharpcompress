@@ -22,6 +22,7 @@ internal partial class DirectoryEntryHeader
             .ReadUInt16Async()
             .ConfigureAwait(false);
         Crc = await reader.ReadUInt32Async().ConfigureAwait(false);
+        IsCrcAvailable = true;
         CompressedSize = await reader.ReadUInt32Async().ConfigureAwait(false);
         UncompressedSize = await reader.ReadUInt32Async().ConfigureAwait(false);
         var nameLength = await reader.ReadUInt16Async().ConfigureAwait(false);

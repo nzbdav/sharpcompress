@@ -59,6 +59,7 @@ internal partial class StreamingZipHeaderFactory : ZipHeaderFactory
                         crc = reader.ReadUInt32();
                     }
                     _lastEntryHeader.Crc = crc;
+                    _lastEntryHeader.IsCrcAvailable = true;
 
                     //attempt 32bit read
                     ulong compSize = reader.ReadUInt32();
@@ -121,6 +122,7 @@ internal partial class StreamingZipHeaderFactory : ZipHeaderFactory
                         crc = reader.ReadUInt32();
                     }
                     _lastEntryHeader.Crc = crc;
+                    _lastEntryHeader.IsCrcAvailable = true;
 
                     // The DataDescriptor can be either 64bit or 32bit
                     var compressed_size = reader.ReadUInt32();
@@ -188,6 +190,7 @@ internal partial class StreamingZipHeaderFactory : ZipHeaderFactory
                         local_header.UncompressedSize = dir_header.Size;
                         local_header.CompressedSize = dir_header.CompressedSize;
                         local_header.Crc = (uint)dir_header.Crc;
+                        local_header.IsCrcAvailable = true;
                     }
 
                     // If we have CompressedSize, there is data to be read

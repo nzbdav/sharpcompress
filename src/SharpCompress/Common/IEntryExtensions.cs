@@ -5,6 +5,24 @@ namespace SharpCompress.Common;
 
 internal static partial class IEntryExtensions
 {
+    internal static Stream WrapWithChecksumValidation(
+        IEntry entry,
+        Stream source,
+        ExtractionOptions? options
+    )
+    {
+        if (options?.CheckCrc != false && entry is Entry typedEntry)
+        {
+            var checksum = typedEntry.Checksum;
+            if (checksum.IsAvailable)
+            {
+                return new ChecksumValidationStream(source, checksum, entry.Key);
+            }
+        }
+
+        return source;
+    }
+
     extension(IEntry entry)
     {
         /// <summary>

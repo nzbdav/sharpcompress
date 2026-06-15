@@ -80,6 +80,8 @@ internal abstract partial class ZipFileEntry(ZipHeaderType type, IArchiveEncodin
 
     internal uint Crc { get; set; }
 
+    internal bool IsCrcAvailable { get; set; }
+
     protected void LoadExtra(byte[] extra)
     {
         for (var i = 0; i < extra.Length; )

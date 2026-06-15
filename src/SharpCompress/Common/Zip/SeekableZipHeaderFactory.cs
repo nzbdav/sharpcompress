@@ -159,6 +159,7 @@ internal sealed partial class SeekableZipHeaderFactory : ZipHeaderFactory
         if (FlagUtility.HasFlag(localEntryHeader.Flags, HeaderFlags.UsePostDataDescriptor))
         {
             localEntryHeader.Crc = directoryEntryHeader.Crc;
+            localEntryHeader.IsCrcAvailable = true;
             localEntryHeader.CompressedSize = directoryEntryHeader.CompressedSize;
             localEntryHeader.UncompressedSize = directoryEntryHeader.UncompressedSize;
         }
