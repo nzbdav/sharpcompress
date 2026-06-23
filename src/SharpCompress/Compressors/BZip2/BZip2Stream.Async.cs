@@ -25,12 +25,22 @@ public sealed partial class BZip2Stream : IAsyncDisposable
     /// <param name="stream">The stream to read from</param>
     /// <param name="compressionMode">Compression Mode</param>
     /// <param name="decompressConcatenated">Decompress Concatenated</param>
+    /// <param name="leaveOpen">Leave the underlying stream open when this stream is disposed</param>
+    /// <param name="tolerateTruncatedStream">
+    /// Decompression only. When true, an end-of-stream reached at a bzip2 block boundary is treated as a
+    /// normal end of stream rather than throwing. This allows decoding a truncated or partial stream - for
+    /// example a sub-range of blocks extracted for random access - that has no trailing stream footer. EOF
+    /// in the middle of a block is still reported as an error. Because a partial decode's running combined
+    /// CRC won't match the whole-stream value stored in the footer, that whole-stream CRC is not verified
+    /// in this mode (per-block CRCs are still checked).
+    /// </param>
     /// <param name="cancellationToken">Cancellation Token</param>
     public static async ValueTask<BZip2Stream> CreateAsync(
         Stream stream,
         CompressionMode compressionMode,
         bool decompressConcatenated,
         bool leaveOpen = false,
+        bool tolerateTruncatedStream = false,
         CancellationToken cancellationToken = default
     )
     {
@@ -43,7 +53,13 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         else
         {
             bZip2Stream.stream = await CBZip2InputStream
-                .CreateAsync(stream, decompressConcatenated, leaveOpen, cancellationToken)
+                .CreateAsync(
+                    stream,
+                    decompressConcatenated,
+                    leaveOpen,
+                    tolerateTruncatedStream,
+                    cancellationToken
+                )
                 .ConfigureAwait(false);
         }
 

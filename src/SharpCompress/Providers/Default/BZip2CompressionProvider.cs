@@ -30,7 +30,13 @@ public sealed class BZip2CompressionProvider : CompressionProviderBase
     {
         // BZip2 doesn't use compressionLevel parameter in this implementation
         return await BZip2Stream
-            .CreateAsync(destination, CompressionMode.Compress, false, false, cancellationToken)
+            .CreateAsync(
+                destination,
+                CompressionMode.Compress,
+                false,
+                false,
+                cancellationToken: cancellationToken
+            )
             .ConfigureAwait(false);
     }
 
@@ -45,7 +51,13 @@ public sealed class BZip2CompressionProvider : CompressionProviderBase
     )
     {
         return await BZip2Stream
-            .CreateAsync(source, CompressionMode.Decompress, false, false, cancellationToken)
+            .CreateAsync(
+                source,
+                CompressionMode.Decompress,
+                false,
+                false,
+                cancellationToken: cancellationToken
+            )
             .ConfigureAwait(false);
     }
 }

@@ -58,6 +58,19 @@ internal partial class CBZip2InputStream : Stream
         throw new ArchiveOperationException("BZip2 compressed file ends unexpectedly");
     }
 
+    // Handles the underlying stream running out while BsR needs more bits. In tolerateTruncatedStream
+    // mode an EOF that lands on a block boundary (expectingBlockStart) ends the stream cleanly; anywhere
+    // else - or when not tolerating truncation - it is an unexpected truncation and throws.
+    private void HandleCompressedStreamEof()
+    {
+        if (tolerateTruncatedStream && expectingBlockStart)
+        {
+            hitEof = true;
+            return;
+        }
+        CompressedStreamEOF();
+    }
+
     private void MakeMaps()
     {
         int i;
@@ -151,6 +164,18 @@ internal partial class CBZip2InputStream : Stream
     private readonly bool decompressConcatenated;
     private readonly bool leaveOpen;
 
+    // When true, an end-of-stream reached at a bzip2 block boundary (i.e. while reading a block header)
+    // is treated as a normal end of stream rather than throwing. Lets a caller decode a truncated or
+    // partial stream - e.g. a sub-range of blocks extracted for random access - that has no stream footer.
+    private readonly bool tolerateTruncatedStream;
+
+    // true only while reading the 6 bytes of a block/stream-footer header, where a clean EOF is allowed
+    // (in tolerateTruncatedStream mode). EOF anywhere else is still an unexpected truncation.
+    private bool expectingBlockStart;
+
+    // set by BsR when a tolerated end-of-stream is hit; checked by InitBlock to end the stream.
+    private bool hitEof;
+
     private int i2,
         count,
         chPrev,
@@ -163,19 +188,29 @@ internal partial class CBZip2InputStream : Stream
     private char z;
     private bool isDisposed;
 
-    private CBZip2InputStream(bool decompressConcatenated, bool leaveOpen)
+    private CBZip2InputStream(
+        bool decompressConcatenated,
+        bool leaveOpen,
+        bool tolerateTruncatedStream
+    )
     {
         this.decompressConcatenated = decompressConcatenated;
         this.leaveOpen = leaveOpen;
+        this.tolerateTruncatedStream = tolerateTruncatedStream;
     }
 
     public static CBZip2InputStream Create(
         Stream zStream,
         bool decompressConcatenated,
-        bool leaveOpen
+        bool leaveOpen,
+        bool tolerateTruncatedStream = false
     )
     {
-        var cbZip2InputStream = new CBZip2InputStream(decompressConcatenated, leaveOpen);
+        var cbZip2InputStream = new CBZip2InputStream(
+            decompressConcatenated,
+            leaveOpen,
+            tolerateTruncatedStream
+        );
         cbZip2InputStream.ll8 = null;
         cbZip2InputStream.tt = null;
         cbZip2InputStream.BsSetStream(zStream);
@@ -290,12 +325,25 @@ internal partial class CBZip2InputStream : Stream
 
         while (true)
         {
+            // A clean EOF is only acceptable here, at the start of a block/footer header.
+            expectingBlockStart = tolerateTruncatedStream;
             magic1 = BsGetUChar();
             magic2 = BsGetUChar();
             magic3 = BsGetUChar();
             magic4 = BsGetUChar();
             magic5 = BsGetUChar();
             magic6 = BsGetUChar();
+            expectingBlockStart = false;
+
+            if (hitEof)
+            {
+                // tolerateTruncatedStream: the input ended at a block boundary (no stream footer). Treat
+                // it as the end of the stream rather than throwing.
+                BsFinishedWithStream();
+                streamEnd = true;
+                return;
+            }
+
             if (
                 magic1 != 0x17
                 || magic2 != 0x72
@@ -362,7 +410,11 @@ internal partial class CBZip2InputStream : Stream
     private bool Complete()
     {
         storedCombinedCRC = BsGetInt32();
-        if (storedCombinedCRC != computedCombinedCRC)
+        // In tolerateTruncatedStream mode the input may be only part of a stream (e.g. a sub-range of
+        // blocks decoded for random access), so the running combined CRC won't match the stored
+        // whole-stream value in the footer. Per-block CRCs are still validated; only this whole-stream
+        // check is skipped.
+        if (!tolerateTruncatedStream && storedCombinedCRC != computedCombinedCRC)
         {
             CrcError();
         }
@@ -408,7 +460,11 @@ internal partial class CBZip2InputStream : Stream
         {
             if (bsStream is null)
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             int zzi;
             int thech = '\0';
@@ -418,11 +474,19 @@ internal partial class CBZip2InputStream : Stream
             }
             catch (IOException)
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             if (thech == '\uffff')
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             zzi = thech;
             bsBuff = (bsBuff << 8) | (zzi & 0xff);

@@ -99,12 +99,25 @@ internal partial class CBZip2InputStream
 
         while (true)
         {
+            // A clean EOF is only acceptable here, at the start of a block/footer header.
+            expectingBlockStart = tolerateTruncatedStream;
             magic1 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
             magic2 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
             magic3 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
             magic4 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
             magic5 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
             magic6 = await BsGetUCharAsync(cancellationToken).ConfigureAwait(false);
+            expectingBlockStart = false;
+
+            if (hitEof)
+            {
+                // tolerateTruncatedStream: the input ended at a block boundary (no stream footer). Treat
+                // it as the end of the stream rather than throwing.
+                BsFinishedWithStream();
+                streamEnd = true;
+                return;
+            }
+
             if (
                 magic1 != 0x17
                 || magic2 != 0x72
@@ -158,7 +171,9 @@ internal partial class CBZip2InputStream
     private async ValueTask<bool> CompleteAsync(CancellationToken cancellationToken)
     {
         storedCombinedCRC = await BsGetInt32Async(cancellationToken).ConfigureAwait(false);
-        if (storedCombinedCRC != computedCombinedCRC)
+        // See Complete() in CBZip2InputStream.cs: the whole-stream combined CRC is not verified in
+        // tolerateTruncatedStream mode (a partial decode won't match); per-block CRCs still are.
+        if (!tolerateTruncatedStream && storedCombinedCRC != computedCombinedCRC)
         {
             CrcError();
         }
@@ -877,7 +892,11 @@ internal partial class CBZip2InputStream
         {
             if (bsStream is null)
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             int zzi;
             int thech = '\0';
@@ -889,7 +908,11 @@ internal partial class CBZip2InputStream
             }
             catch (IOException)
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             finally
             {
@@ -897,7 +920,11 @@ internal partial class CBZip2InputStream
             }
             if (thech == '\uffff')
             {
-                CompressedStreamEOF();
+                HandleCompressedStreamEof();
+                if (hitEof)
+                {
+                    return 0;
+                }
             }
             zzi = thech;
             bsBuff = (bsBuff << 8) | (zzi & 0xff);
@@ -924,10 +951,15 @@ internal partial class CBZip2InputStream
         Stream zStream,
         bool decompressConcatenated,
         bool leaveOpen = false,
+        bool tolerateTruncatedStream = false,
         CancellationToken cancellationToken = default
     )
     {
-        var cbZip2InputStream = new CBZip2InputStream(decompressConcatenated, leaveOpen);
+        var cbZip2InputStream = new CBZip2InputStream(
+            decompressConcatenated,
+            leaveOpen,
+            tolerateTruncatedStream
+        );
         cbZip2InputStream.ll8 = null;
         cbZip2InputStream.tt = null;
         cbZip2InputStream.BsSetStream(zStream);
