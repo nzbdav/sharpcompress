@@ -35,13 +35,27 @@ public class TarArchiveAsyncTests : ArchiveTests
         );
     }
 
-    [Fact]
-    public async ValueTask TarArchiveOpenAsyncArchive_RejectsCompressedTar()
+    [Theory]
+    [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.Z")]
+    public async ValueTask TarArchiveOpenAsyncArchive_RejectsCompressedTar(string archiveName)
     {
-        using Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
+        using Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
 
         await Assert.ThrowsAsync<InvalidFormatException>(async () =>
             await TarArchive.OpenAsyncArchive(stream)
+        );
+    }
+
+    [Theory]
+    [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.Z")]
+    public async ValueTask ArchiveFactoryOpenAsyncArchive_RejectsCompressedTar(string archiveName)
+    {
+        using Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
+
+        await Assert.ThrowsAsync<ArchiveOperationException>(async () =>
+            await ArchiveFactory.OpenAsyncArchive(stream)
         );
     }
 
