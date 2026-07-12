@@ -42,9 +42,7 @@ public sealed class SystemGZipCompressionProvider : CompressionProviderBase
         {
             0 => global::System.IO.Compression.CompressionLevel.NoCompression,
             <= 2 => global::System.IO.Compression.CompressionLevel.Fastest,
-#if NET7_0_OR_GREATER
             >= 8 => global::System.IO.Compression.CompressionLevel.SmallestSize,
-#endif
             _ => global::System.IO.Compression.CompressionLevel.Optimal,
         };
     }

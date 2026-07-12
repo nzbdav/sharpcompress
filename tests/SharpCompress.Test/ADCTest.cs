@@ -140,7 +140,6 @@ public class AdcTest : TestBase
         Assert.Equal(crc32, crcStream.Crc);
     }
 
-#if !LEGACY_DOTNET
     [Fact]
     public async Task TestCrc32StreamWriteMemoryAsync()
     {
@@ -155,5 +154,4 @@ public class AdcTest : TestBase
         Assert.Equal(buffer, memory.ToArray());
         Assert.Equal(crc32, crcStream.Crc);
     }
-#endif
 }

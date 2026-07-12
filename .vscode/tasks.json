@@ -99,22 +99,6 @@
       "dependsOn": "build"
     },
     {
-      "label": "test-net48",
-      "command": "dotnet",
-      "type": "process",
-      "args": [
-        "test",
-        "${workspaceFolder}/tests/SharpCompress.Test/SharpCompress.Test.csproj",
-        "-f",
-        "net48",
-        "--no-build",
-        "--verbosity=normal"
-      ],
-      "problemMatcher": "$msCompile",
-      "group": "test",
-      "dependsOn": "build"
-    },
-    {
       "label": "format",
       "command": "dotnet",
       "type": "process",

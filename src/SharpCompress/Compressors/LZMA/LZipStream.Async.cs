@@ -162,7 +162,6 @@ public sealed partial class LZipStream
         }
     }
 
-#if !LEGACY_DOTNET
     /// <summary>
     /// Asynchronously reads bytes from the current stream into a buffer.
     /// </summary>
@@ -170,7 +169,6 @@ public sealed partial class LZipStream
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
     ) => ReadAndValidateAsync(buffer, cancellationToken);
-#endif
 
     /// <summary>
     /// Asynchronously reads bytes from the current stream into a buffer.
@@ -196,7 +194,6 @@ public sealed partial class LZipStream
         return read;
     }
 
-#if !LEGACY_DOTNET
     private async ValueTask<int> ReadAndValidateAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken
@@ -206,7 +203,6 @@ public sealed partial class LZipStream
         UpdateAndValidateAtEof(buffer.Span[..read], read);
         return read;
     }
-#endif
 
     /// <summary>
     /// Asynchronously writes bytes from a buffer to the current stream.

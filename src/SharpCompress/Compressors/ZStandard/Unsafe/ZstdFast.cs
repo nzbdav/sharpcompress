@@ -347,13 +347,11 @@ public static unsafe partial class Methods
             if (ip2 >= nextStep)
             {
                 step++;
-#if NETCOREAPP3_0_OR_GREATER
                 if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                 {
                     System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 64);
                     System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 128);
                 }
-#endif
 
                 nextStep += kStepIncr;
             }
@@ -599,12 +597,10 @@ public static unsafe partial class Methods
                 nuint _pos;
                 for (_pos = 0; _pos < _size; _pos += 64)
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                     {
                         System.Runtime.Intrinsics.X86.Sse.Prefetch1(_ptr + _pos);
                     }
-#endif
                 }
             }
         }
@@ -1059,13 +1055,11 @@ public static unsafe partial class Methods
             if (ip2 >= nextStep)
             {
                 step++;
-#if NETCOREAPP3_0_OR_GREATER
                 if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                 {
                     System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 64);
                     System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 128);
                 }
-#endif
 
                 nextStep += kStepIncr;
             }

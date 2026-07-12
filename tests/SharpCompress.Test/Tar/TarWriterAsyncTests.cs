@@ -15,10 +15,8 @@ public class TarWriterAsyncTests : WriterTests
 {
     static TarWriterAsyncTests()
     {
-#if !NETFRAMEWORK
         //fix issue where these tests could not be ran in isolation
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-#endif
     }
 
     public TarWriterAsyncTests()

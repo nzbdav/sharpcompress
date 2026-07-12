@@ -6,10 +6,7 @@ using System.Threading.Tasks;
 
 namespace SharpCompress.IO;
 
-public sealed class AsyncBinaryReader : IDisposable
-#if NET8_0_OR_GREATER
-        , IAsyncDisposable
-#endif
+public sealed class AsyncBinaryReader : IDisposable, IAsyncDisposable
 {
     private readonly Stream _stream;
     private readonly Stream _originalStream;
@@ -81,7 +78,6 @@ public sealed class AsyncBinaryReader : IDisposable
         }
     }
 
-#if NET8_0_OR_GREATER
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -97,5 +93,4 @@ public sealed class AsyncBinaryReader : IDisposable
             await _originalStream.DisposeAsync().ConfigureAwait(false);
         }
     }
-#endif
 }

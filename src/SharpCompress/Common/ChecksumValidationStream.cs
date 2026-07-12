@@ -47,14 +47,12 @@ internal sealed class ChecksumValidationStream : Stream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         var read = _stream.Read(buffer);
         UpdateAndValidateAtEof(buffer[..read], read);
         return read;
     }
-#endif
 
     public override int ReadByte() => throw new NotSupportedException();
 
@@ -72,7 +70,6 @@ internal sealed class ChecksumValidationStream : Stream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -82,7 +79,6 @@ internal sealed class ChecksumValidationStream : Stream
         UpdateAndValidateAtEof(buffer.Span[..read], read);
         return read;
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

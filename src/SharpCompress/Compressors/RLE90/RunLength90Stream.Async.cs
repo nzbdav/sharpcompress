@@ -86,7 +86,6 @@ public partial class RunLength90Stream
         return bytesWritten;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -110,5 +109,4 @@ public partial class RunLength90Stream
             System.Buffers.ArrayPool<byte>.Shared.Return(array);
         }
     }
-#endif
 }

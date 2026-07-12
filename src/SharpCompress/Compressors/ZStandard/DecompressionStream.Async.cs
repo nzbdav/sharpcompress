@@ -10,7 +10,6 @@ namespace SharpCompress.Compressors.ZStandard;
 
 public partial class DecompressionStream
 {
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override Task<int> ReadAsync(
         byte[] buffer,
         int offset,
@@ -22,20 +21,6 @@ public partial class DecompressionStream
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
     )
-#else
-
-    public override Task<int> ReadAsync(
-        byte[] buffer,
-        int offset,
-        int count,
-        CancellationToken cancellationToken
-    ) => ReadAsync(new Memory<byte>(buffer, offset, count), cancellationToken).AsTask();
-
-    public async ValueTask<int> ReadAsync(
-        Memory<byte> buffer,
-        CancellationToken cancellationToken = default
-    )
-#endif
     {
         EnsureNotDisposed();
 

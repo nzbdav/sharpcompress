@@ -1,4 +1,3 @@
-#if !LEGACY_DOTNET
 using System;
 using System.IO;
 using System.Linq;
@@ -545,4 +544,3 @@ public class OptionsUsabilityTests : TestBase
         }
     }
 }
-#endif

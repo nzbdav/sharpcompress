@@ -45,7 +45,6 @@ internal class TarReadOnlySubStream : Stream
         base.Dispose(disposing);
     }
 
-#if !LEGACY_DOTNET
     public override async System.Threading.Tasks.ValueTask DisposeAsync()
     {
         if (_isDisposed)
@@ -60,7 +59,6 @@ internal class TarReadOnlySubStream : Stream
         GC.SuppressFinalize(this);
         await base.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 
     private long BytesLeftToRead { get; set; }
 
@@ -207,7 +205,6 @@ internal class TarReadOnlySubStream : Stream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async System.Threading.Tasks.ValueTask<int> ReadAsync(
         System.Memory<byte> buffer,
         System.Threading.CancellationToken cancellationToken = default
@@ -234,7 +231,6 @@ internal class TarReadOnlySubStream : Stream
         }
         return read;
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

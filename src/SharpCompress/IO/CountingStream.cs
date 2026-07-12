@@ -68,14 +68,12 @@ internal class CountingStream : Stream
         return value;
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         var read = _stream.Read(buffer);
         _bytesRead += read;
         return read;
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => _stream.Seek(offset, origin);
 
@@ -118,7 +116,6 @@ internal class CountingStream : Stream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -137,7 +134,6 @@ internal class CountingStream : Stream
         await _stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
         _bytesWritten += buffer.Length;
     }
-#endif
 
     protected override void Dispose(bool disposing)
     {

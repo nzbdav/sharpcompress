@@ -1,4 +1,3 @@
-#if !LEGACY_DOTNET
 using System;
 using System.IO;
 using AwesomeAssertions;
@@ -176,4 +175,3 @@ public class MalformedInputTests
         );
     }
 }
-#endif

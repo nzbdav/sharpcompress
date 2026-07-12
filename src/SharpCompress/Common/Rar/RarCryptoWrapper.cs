@@ -112,7 +112,6 @@ internal sealed class RarCryptoWrapper : Stream
         return bytesToReturn;
     }
 
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -133,7 +132,6 @@ internal sealed class RarCryptoWrapper : Stream
             System.Buffers.ArrayPool<byte>.Shared.Return(array);
         }
     }
-#endif
 
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();

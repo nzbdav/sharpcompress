@@ -12,13 +12,11 @@ using SharpCompress.Writers.GZip;
 namespace SharpCompress.Archives.GZip;
 
 public partial class GZipArchive
-#if NET8_0_OR_GREATER
     : IWritableArchiveOpenable<GZipWriterOptions>,
         IMultiArchiveOpenable<
             IWritableArchive<GZipWriterOptions>,
             IWritableAsyncArchive<GZipWriterOptions>
         >
-#endif
 {
     public static ValueTask<IWritableAsyncArchive<GZipWriterOptions>> OpenAsyncArchive(
         string filePath,

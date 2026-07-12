@@ -17,7 +17,6 @@ public partial class EntryStream
         _completed = true;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (_isDisposed)
@@ -45,7 +44,6 @@ public partial class EntryStream
         await base.DisposeAsync().ConfigureAwait(false);
         await _stream.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 
     public override async Task<int> ReadAsync(
         byte[] buffer,
@@ -64,7 +62,6 @@ public partial class EntryStream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -77,5 +74,4 @@ public partial class EntryStream
         }
         return read;
     }
-#endif
 }

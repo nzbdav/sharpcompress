@@ -45,7 +45,6 @@ internal partial class RarBLAKE2spStream : RarStream
         return result;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -72,5 +71,4 @@ internal partial class RarBLAKE2spStream : RarStream
 
         return result;
     }
-#endif
 }

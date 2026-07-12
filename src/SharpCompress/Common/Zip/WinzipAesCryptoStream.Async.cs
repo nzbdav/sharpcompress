@@ -8,7 +8,6 @@ namespace SharpCompress.Common.Zip;
 
 internal partial class WinzipAesCryptoStream
 {
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (_isDisposed)
@@ -30,7 +29,6 @@ internal partial class WinzipAesCryptoStream
         }
         await base.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 
     public override async Task<int> ReadAsync(
         byte[] buffer,
@@ -58,7 +56,6 @@ internal partial class WinzipAesCryptoStream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -116,5 +113,4 @@ internal partial class WinzipAesCryptoStream
             buffer[offset + i] = (byte)(_counterOut[counterOffset + i] ^ buffer[offset + i]);
         }
     }
-#endif
 }

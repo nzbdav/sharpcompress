@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,4 +55,3 @@ public partial class GZipWriter : IWriterOpenable<GZipWriterOptions>
         return new((IAsyncWriter)OpenWriter(fileInfo, writerOptions));
     }
 }
-#endif

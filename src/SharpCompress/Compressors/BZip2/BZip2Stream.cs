@@ -102,11 +102,9 @@ public sealed partial class BZip2Stream : Stream, IFinishable
 
     public override void SetLength(long value) => stream.SetLength(value);
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer) => stream.Read(buffer);
 
     public override void Write(ReadOnlySpan<byte> buffer) => stream.Write(buffer);
-#endif
 
     public override void Write(byte[] buffer, int offset, int count) =>
         stream.Write(buffer, offset, count);

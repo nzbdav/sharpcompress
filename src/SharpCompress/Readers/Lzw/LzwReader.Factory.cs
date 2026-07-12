@@ -4,10 +4,7 @@ using System.Threading.Tasks;
 
 namespace SharpCompress.Readers.Lzw;
 
-public partial class LzwReader
-#if NET8_0_OR_GREATER
-    : IReaderOpenable
-#endif
+public partial class LzwReader : IReaderOpenable
 {
     public static ValueTask<IAsyncReader> OpenAsyncReader(
         string filePath,

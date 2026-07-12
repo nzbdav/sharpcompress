@@ -21,11 +21,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     [Fact]
     public async ValueTask GZip_Archive_Generic_Async()
     {
-#if NETFRAMEWORK
-        using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#else
         await using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#endif
         await using (var archive = await GZipArchive.OpenAsyncArchive(new AsyncOnlyStream(stream)))
         {
             var entry = await archive.EntriesAsync.FirstAsync();
@@ -47,11 +43,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     [Fact]
     public async ValueTask GZip_Archive_Async()
     {
-#if NETFRAMEWORK
-        using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#else
         await using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#endif
         {
             await using (
                 var archive = await GZipArchive.OpenAsyncArchive(new AsyncOnlyStream(stream))
@@ -78,11 +70,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     public async ValueTask GZip_Archive_NoAdd_Async()
     {
         var jpg = Path.Combine(ORIGINAL_FILES_PATH, "jpg", "test.jpg");
-#if NETFRAMEWORK
-        using Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#else
         await using Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#endif
         await using (var archive = await GZipArchive.OpenAsyncArchive(new AsyncOnlyStream(stream)))
         {
             await Assert.ThrowsAsync<NotSupportedException>(async () =>
@@ -99,11 +87,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     public async ValueTask GZip_Archive_Multiple_Reads_Async()
     {
         var inputStream = new MemoryStream();
-#if NETFRAMEWORK
-        using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#else
         await using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz")))
-#endif
         {
             await stream.CopyToAsync(inputStream);
             inputStream.Position = 0;
@@ -115,41 +99,25 @@ public class GZipArchiveAsyncTests : ArchiveTests
         var archiveEntry = await archive.EntriesAsync.FirstAsync();
 
         MemoryStream tarStream;
-#if NETFRAMEWORK
-        using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#else
         await using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#endif
         {
             tarStream = new MemoryStream();
             await entryStream.CopyToAsync(tarStream);
         }
         var size = tarStream.Length;
-#if NETFRAMEWORK
-        using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#else
         await using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#endif
         {
             tarStream = new MemoryStream();
             await entryStream.CopyToAsync(tarStream);
         }
         Assert.Equal(size, tarStream.Length);
-#if NETFRAMEWORK
-        using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#else
         await using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#endif
         {
             var result = await TarArchive.IsTarFileAsync(entryStream);
             Assert.True(result);
         }
         Assert.Equal(size, tarStream.Length);
-#if NETFRAMEWORK
-        using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#else
         await using (var entryStream = await archiveEntry.OpenEntryStreamAsync())
-#endif
         {
             tarStream = new MemoryStream();
             await entryStream.CopyToAsync(tarStream);
@@ -160,11 +128,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     [Fact]
     public async Task TestGzCrcWithMostSignificantBitNotNegative_Async()
     {
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#else
         await using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#endif
         await using var archive = await GZipArchive.OpenAsyncArchive(new AsyncOnlyStream(stream));
         await foreach (var entry in archive.EntriesAsync.Where(entry => !entry.IsDirectory))
         {
@@ -175,11 +139,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
     [Fact]
     public async Task TestGzArchiveTypeGzip_Async()
     {
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#else
         await using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar.gz"));
-#endif
         await using var archive = await GZipArchive.OpenAsyncArchive(new AsyncOnlyStream(stream));
         Assert.Equal(archive.Type, ArchiveType.GZip);
     }
@@ -204,11 +164,7 @@ public class GZipArchiveAsyncTests : ArchiveTests
             Directory.CreateDirectory(scratchPath2);
         }
 
-#if NETFRAMEWORK
-        using var fileStream = File.OpenRead(filePath);
-#else
         await using var fileStream = File.OpenRead(filePath);
-#endif
         await using var archive2 = await GZipArchive.OpenAsyncArchive(
             new AsyncOnlyStream(fileStream)
         );

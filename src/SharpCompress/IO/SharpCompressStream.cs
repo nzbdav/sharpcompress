@@ -427,7 +427,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
         throw new NotSupportedException();
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         if (_isPassthrough)
@@ -447,5 +446,4 @@ public partial class SharpCompressStream : Stream, IStreamStack
         }
         throw new NotSupportedException();
     }
-#endif
 }

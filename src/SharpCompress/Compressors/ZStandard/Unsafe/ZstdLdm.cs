@@ -515,12 +515,10 @@ public static unsafe partial class Methods
                 candidates[n].hash = hash;
                 candidates[n].checksum = (uint)(xxhash >> 32);
                 candidates[n].bucket = ZSTD_ldm_getBucket(ldmState, hash, @params->bucketSizeLog);
-#if NETCOREAPP3_0_OR_GREATER
                 if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                 {
                     System.Runtime.Intrinsics.X86.Sse.Prefetch0(candidates[n].bucket);
                 }
-#endif
             }
 
             for (n = 0; n < numSplits; n++)

@@ -8,21 +8,11 @@ namespace SharpCompress.Compressors.ZStandard;
 
 public partial class CompressionStream
 {
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (compressor == null)
         {
-#if LEGACY_DOTNET
-            Dispose(true);
-            GC.SuppressFinalize(this);
-            await Task.CompletedTask.ConfigureAwait(false);
-#else
             await base.DisposeAsync().ConfigureAwait(false);
-#endif
             return;
         }
 
@@ -35,12 +25,7 @@ public partial class CompressionStream
             ReleaseUnmanagedResources();
             GC.SuppressFinalize(this);
         }
-#if LEGACY_DOTNET
-        Dispose(true);
-        await Task.CompletedTask.ConfigureAwait(false);
-#else
         await base.DisposeAsync().ConfigureAwait(false);
-#endif
     }
 
     public override async Task FlushAsync(CancellationToken cancellationToken) =>
@@ -52,19 +37,11 @@ public partial class CompressionStream
         CancellationToken cancellationToken = default
     ) => await WriteInternalAsync(null, directive, cancellationToken).ConfigureAwait(false);
 
-#if !LEGACY_DOTNET
     private async ValueTask WriteInternalAsync(
         ReadOnlyMemory<byte>? buffer,
         ZSTD_EndDirective directive,
         CancellationToken cancellationToken = default
     )
-#else
-    private async ValueTask WriteInternalAsync(
-        ReadOnlyMemory<byte>? buffer,
-        ZSTD_EndDirective directive,
-        CancellationToken cancellationToken = default
-    )
-#endif
     {
         EnsureNotDisposed();
 
@@ -95,8 +72,6 @@ public partial class CompressionStream
         );
     }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
-
     public override Task WriteAsync(
         byte[] buffer,
         int offset,
@@ -110,22 +85,4 @@ public partial class CompressionStream
     ) =>
         await WriteInternalAsync(buffer, ZSTD_EndDirective.ZSTD_e_continue, cancellationToken)
             .ConfigureAwait(false);
-#else
-
-    public override async Task WriteAsync(
-        byte[] buffer,
-        int offset,
-        int count,
-        CancellationToken cancellationToken
-    ) =>
-        await WriteAsync(new ReadOnlyMemory<byte>(buffer, offset, count), cancellationToken)
-            .ConfigureAwait(false);
-
-    public async ValueTask WriteAsync(
-        ReadOnlyMemory<byte> buffer,
-        CancellationToken cancellationToken = default
-    ) =>
-        await WriteInternalAsync(buffer, ZSTD_EndDirective.ZSTD_e_continue, cancellationToken)
-            .ConfigureAwait(false);
-#endif
 }

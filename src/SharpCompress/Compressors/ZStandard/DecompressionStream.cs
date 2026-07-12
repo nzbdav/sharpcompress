@@ -110,11 +110,7 @@ public partial class DecompressionStream : Stream
     public override int Read(byte[] buffer, int offset, int count) =>
         Read(new Span<byte>(buffer, offset, count));
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override int Read(Span<byte> buffer)
-#else
-    public int Read(Span<byte> buffer)
-#endif
     {
         EnsureNotDisposed();
 
@@ -202,19 +198,4 @@ public partial class DecompressionStream : Stream
             throw new ObjectDisposedException(nameof(DecompressionStream));
         }
     }
-
-#if LEGACY_DOTNET && !NETSTANDARD2_1
-    public virtual ValueTask DisposeAsync()
-    {
-        try
-        {
-            Dispose();
-            return default;
-        }
-        catch (Exception exc)
-        {
-            return new ValueTask(Task.FromException(exc));
-        }
-    }
-#endif
 }

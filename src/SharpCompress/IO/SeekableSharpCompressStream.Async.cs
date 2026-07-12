@@ -15,7 +15,6 @@ internal sealed partial class SeekableSharpCompressStream
         CancellationToken cancellationToken
     ) => _stream.ReadAsync(buffer, offset, count, cancellationToken);
 
-#if !LEGACY_DOTNET
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -45,7 +44,6 @@ internal sealed partial class SeekableSharpCompressStream
         }
         return base.DisposeAsync();
     }
-#endif
 
     public override Task WriteAsync(
         byte[] buffer,

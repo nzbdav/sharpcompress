@@ -66,7 +66,6 @@ internal partial class ShrinkStream : Stream
         return toCopy;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -95,5 +94,4 @@ internal partial class ShrinkStream : Stream
         _position += toCopy;
         return toCopy;
     }
-#endif
 }

@@ -108,7 +108,6 @@ public static unsafe partial class Methods
         }
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<byte> Span_dummy =>
         new byte[10] { 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0xe2, 0xb4 };
     private static byte* dummy =>
@@ -116,12 +115,6 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_dummy)
             );
-#else
-
-    private static readonly byte* dummy = GetArrayPointer(
-        new byte[10] { 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0xe2, 0xb4 }
-    );
-#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static nuint ZSTD_compressBlock_doubleFast_noDict_generic(
@@ -261,13 +254,11 @@ public static unsafe partial class Methods
 
                 if (ip1 >= nextStep)
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                     {
                         System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 64);
                         System.Runtime.Intrinsics.X86.Sse.Prefetch0(ip1 + 128);
                     }
-#endif
 
                     step++;
                     nextStep += kStepIncr;
@@ -400,12 +391,10 @@ public static unsafe partial class Methods
                 nuint _pos;
                 for (_pos = 0; _pos < _size; _pos += 64)
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                     {
                         System.Runtime.Intrinsics.X86.Sse.Prefetch1(_ptr + _pos);
                     }
-#endif
                 }
             }
 
@@ -415,12 +404,10 @@ public static unsafe partial class Methods
                 nuint _pos;
                 for (_pos = 0; _pos < _size; _pos += 64)
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                     {
                         System.Runtime.Intrinsics.X86.Sse.Prefetch1(_ptr + _pos);
                     }
-#endif
                 }
             }
         }

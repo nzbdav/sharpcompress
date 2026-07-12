@@ -8,9 +8,6 @@ using SharpCompress.Compressors.ZStandard.Unsafe;
 namespace SharpCompress.Compressors.ZStandard;
 
 public partial class CompressionStream : Stream
-#if LEGACY_DOTNET
-        , IAsyncDisposable
-#endif
 {
     private readonly Stream innerStream;
     private readonly byte[] outputBuffer;
@@ -126,13 +123,8 @@ public partial class CompressionStream : Stream
     public override void Write(byte[] buffer, int offset, int count) =>
         Write(new ReadOnlySpan<byte>(buffer, offset, count));
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override void Write(ReadOnlySpan<byte> buffer) =>
         WriteInternal(buffer, ZSTD_EndDirective.ZSTD_e_continue);
-#else
-    public void Write(ReadOnlySpan<byte> buffer) =>
-        WriteInternal(buffer, ZSTD_EndDirective.ZSTD_e_continue);
-#endif
 
     private void WriteInternal(ReadOnlySpan<byte> buffer, ZSTD_EndDirective directive)
     {

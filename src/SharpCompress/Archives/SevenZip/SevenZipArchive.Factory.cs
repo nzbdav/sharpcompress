@@ -11,10 +11,8 @@ using SharpCompress.Readers;
 namespace SharpCompress.Archives.SevenZip;
 
 public partial class SevenZipArchive
-#if NET8_0_OR_GREATER
     : IArchiveOpenable<IArchive, IAsyncArchive>,
         IMultiArchiveOpenable<IArchive, IAsyncArchive>
-#endif
 {
     public static ValueTask<IAsyncArchive> OpenAsyncArchive(
         string filePath,

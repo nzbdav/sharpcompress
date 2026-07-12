@@ -5,8 +5,24 @@ applyTo: '**/*.cs'
 
 # SharpCompress Development
 
-## About SharpCompress
-SharpCompress is a pure C# compression library supporting multiple archive formats (Zip, Tar, GZip, BZip2, 7Zip, Rar, LZip, XZ, ZStandard, Arc, Arj, Ace, LZW). The project currently targets .NET Framework 4.8, .NET Standard 2.0/2.1, .NET 6.0, .NET 8.0, and .NET 10.0. The library provides both seekable Archive APIs and forward-only Reader/Writer APIs for streaming scenarios.
+## Purpose and stack
+
+- This repository is the [nzbdav](https://github.com/nzbdav) fork of
+  [adamhathcock/sharpcompress](https://github.com/adamhathcock/sharpcompress),
+  maintained at [nzbdav/sharpcompress](https://github.com/nzbdav/sharpcompress).
+- NuGet package id is `NzbDav.SharpCompress`. Assembly name and namespaces remain
+  `SharpCompress` so consumers keep `using SharpCompress.*`.
+- The library targets **.NET 10 only** (`net10.0`).
+- In the nzbdav stack, SharpCompress is used for archive extraction (especially
+  RAR and 7z) inside [nzbdav](https://github.com/nzbdav/nzbdav). Sibling libraries
+  in the Usenet streaming dependency tree include UsenetSharp, RapidYencSharp, and
+  rapidyenc. See the
+  [nzbdav stack release announcement](https://github.com/nzbdav/nzbdav/blob/main/docs/release-announcement.md)
+  for coordinated release context.
+- SharpCompress is a pure C# compression library supporting multiple archive
+  formats (Zip, Tar, GZip, BZip2, 7Zip, Rar, LZip, XZ, ZStandard, Arc, Arj, Ace,
+  LZW). It provides both seekable Archive APIs and forward-only Reader/Writer APIs.
+- Release Please versions the package; GitHub Actions builds and publishes releases.
 
 ## C# Instructions
 - Use language features supported by the current project toolchain (`LangVersion=latest`) and existing codebase patterns.
@@ -66,14 +82,25 @@ SharpCompress is a pure C# compression library supporting multiple archive forma
 - Let CSharpier handle code style while `.editorconfig` handles editor behavior
 - Always run `dotnet csharpier check .` before committing to verify formatting
 
+## Development workflow
+
+```bash
+dotnet tool restore
+dotnet restore SharpCompress.slnx --locked-mode
+dotnet build SharpCompress.slnx --configuration Release --no-restore
+dotnet csharpier check .
+dotnet test tests/SharpCompress.Test/SharpCompress.Test.csproj --configuration Release --no-build
+dotnet pack src/SharpCompress/SharpCompress.csproj --configuration Release --no-build --output artifacts
+```
+
 ## Project Setup and Structure
 
-- The project targets multiple frameworks: .NET Framework 4.8, .NET Standard 2.0/2.1, .NET 6.0, .NET 8.0, and .NET 10.0
+- Target framework: .NET 10 (`net10.0`)
 - Main library is in `src/SharpCompress/`
 - Tests are in `tests/SharpCompress.Test/`
 - Performance tests are in `tests/SharpCompress.Performance/`
 - Test archives are in `tests/TestArchives/`
-- Build project is in `build/`
+- Build project is in `build/` (local helpers such as format and benchmarks; CI uses `dotnet` CLI directly)
 - Use `dotnet build` to build the solution
 - Use `dotnet test` to run tests
 - Solution file: `SharpCompress.slnx`
@@ -178,6 +205,20 @@ SharpCompress supports multiple archive and compression formats:
 - Consider compression level trade-offs (speed vs. size)
 - Use appropriate buffer sizes for stream operations
 
+## Repository and release
+- `README.md` is user-facing documentation and is packed into the NuGet package.
+- `.github/workflows/ci.yml` is the required pull-request quality gate.
+- `release-please-config.json` updates the version in `src/SharpCompress/SharpCompress.csproj`.
+- Release artifacts must be built from the release tag only after restore, build, tests, and package validation succeed.
+- Published package id: `NzbDav.SharpCompress`.
+
+## Commit convention
+- Use scoped Conventional Commits: `feat(scope):`, `fix(scope):`, or `chore(scope):`.
+- Choose a concise scope such as `zip`, `tar`, `rar`, `sevenzip`, `stream`, `ci`, `deps`, or `docs`.
+- Release Please uses commit types for release notes and versions: `feat` triggers a minor release, `fix` triggers a patch release, and `chore` does not trigger a release.
+- Mark breaking changes with `!` (for example, `feat(rar)!:`) and include a `BREAKING CHANGE:` footer.
+- Keep unrelated changes in separate commits so each release-note entry describes one coherent change.
+
 ## Testing
 
 - Always include test cases for critical paths of the application.
@@ -192,7 +233,6 @@ SharpCompress supports multiple archive and compression formats:
 
 ### Validation Expectations
 - Run targeted tests for the changed area first.
-- On non-Windows machines, avoid net48 test runs unless Mono is installed; use framework-specific validation such as `--framework net10.0` instead.
 - Run `dotnet csharpier format .` after code edits.
 - Run `dotnet csharpier check .` before handing off changes.
 

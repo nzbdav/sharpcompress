@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -39,4 +38,3 @@ public interface IWriterOpenable<TWriterOptions>
         CancellationToken cancellationToken = default
     );
 }
-#endif

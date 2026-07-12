@@ -26,12 +26,6 @@ internal class WinzipAesEncryptionData
     {
         _keySize = keySize;
 
-#if LEGACY_DOTNET
-        var rfc2898 = new Rfc2898DeriveBytes(password, salt, RFC2898_ITERATIONS);
-        KeyBytes = rfc2898.GetBytes(KeySizeInBytes);
-        IvBytes = rfc2898.GetBytes(KeySizeInBytes);
-        var generatedVerifyValue = rfc2898.GetBytes(2);
-#elif NET10_0_OR_GREATER
         var derivedKeySize = (KeySizeInBytes * 2) + 2;
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         var derivedKey = Rfc2898DeriveBytes.Pbkdf2(
@@ -44,17 +38,6 @@ internal class WinzipAesEncryptionData
         KeyBytes = derivedKey.AsSpan(0, KeySizeInBytes).ToArray();
         IvBytes = derivedKey.AsSpan(KeySizeInBytes, KeySizeInBytes).ToArray();
         var generatedVerifyValue = derivedKey.AsSpan((KeySizeInBytes * 2), 2).ToArray();
-#else
-        var rfc2898 = new Rfc2898DeriveBytes(
-            password,
-            salt,
-            RFC2898_ITERATIONS,
-            HashAlgorithmName.SHA1
-        );
-        KeyBytes = rfc2898.GetBytes(KeySizeInBytes);
-        IvBytes = rfc2898.GetBytes(KeySizeInBytes);
-        var generatedVerifyValue = rfc2898.GetBytes(2);
-#endif
 
         var verify = BinaryPrimitives.ReadInt16LittleEndian(passwordVerifyValue);
         var generated = BinaryPrimitives.ReadInt16LittleEndian(generatedVerifyValue);

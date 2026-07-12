@@ -108,15 +108,9 @@ public static class IArchiveEntryExtensions
                 throw new ExtractionException("Entry is a file directory and cannot be extracted.");
             }
 
-#if LEGACY_DOTNET
-            using var entryStream = await archiveEntry
-                .OpenEntryStreamAsync(cancellationToken)
-                .ConfigureAwait(false);
-#else
             await using var entryStream = await archiveEntry
                 .OpenEntryStreamAsync(cancellationToken)
                 .ConfigureAwait(false);
-#endif
             var checkedStream = options is null
                 ? entryStream
                 : IEntryExtensions.WrapWithChecksumValidation(archiveEntry, entryStream, options);

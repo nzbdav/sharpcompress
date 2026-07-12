@@ -253,13 +253,9 @@ public class ZipArchiveAsyncTests : ArchiveTests
         var progressReports = new System.Collections.Generic.List<ProgressReport>();
         var progress = new Progress<ProgressReport>(report => progressReports.Add(report));
 
-#if NETFRAMEWORK
-        using (Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Zip.deflate.zip")))
-#else
         await using (
             Stream stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Zip.deflate.zip"))
         )
-#endif
         {
             await using IAsyncArchive archive = await ZipArchive.OpenAsyncArchive(
                 new AsyncOnlyStream(stream)

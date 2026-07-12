@@ -124,7 +124,6 @@ public class SeekableSharpCompressStreamAsyncTest
     }
 }
 
-#if !LEGACY_DOTNET
 public partial class SeekableSharpCompressStreamMemoryAsyncTest
 {
     [Fact]
@@ -195,4 +194,3 @@ public partial class SeekableSharpCompressStreamMemoryAsyncTest
         Assert.Throws<ObjectDisposedException>(() => ms.Read(new byte[1], 0, 1));
     }
 }
-#endif

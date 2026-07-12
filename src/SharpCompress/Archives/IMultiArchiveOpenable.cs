@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -33,4 +32,3 @@ public interface IMultiArchiveOpenable<TSync, TASync>
         CancellationToken cancellationToken = default
     );
 }
-#endif

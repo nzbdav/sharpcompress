@@ -75,7 +75,6 @@ internal partial class ReadOnlySubStream : Stream, IStreamStack
         return value;
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         var sliceLen = BytesLeftToRead < buffer.Length ? BytesLeftToRead : buffer.Length;
@@ -87,7 +86,6 @@ internal partial class ReadOnlySubStream : Stream, IStreamStack
         }
         return read;
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

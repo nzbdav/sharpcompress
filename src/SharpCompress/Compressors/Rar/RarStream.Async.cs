@@ -90,7 +90,6 @@ internal partial class RarStream
         return outTotal;
     }
 
-#if !LEGACY_DOTNET
     /// <summary>
     /// Asynchronously reads bytes from the current stream into a memory buffer.
     /// </summary>
@@ -124,7 +123,6 @@ internal partial class RarStream
             ArrayPool<byte>.Shared.Return(array);
         }
     }
-#endif
 
     /// <summary>
     /// Asynchronously writes bytes to the current stream.

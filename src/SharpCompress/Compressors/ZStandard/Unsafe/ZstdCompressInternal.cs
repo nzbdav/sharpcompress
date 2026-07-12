@@ -40,7 +40,6 @@ public static unsafe partial class Methods
         size: 0,
         capacity: 0
     );
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<byte> Span_LL_Code =>
         new byte[64]
         {
@@ -114,78 +113,6 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_LL_Code)
             );
-#else
-
-    private static readonly byte* LL_Code = GetArrayPointer(
-        new byte[64]
-        {
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            16,
-            17,
-            17,
-            18,
-            18,
-            19,
-            19,
-            20,
-            20,
-            20,
-            20,
-            21,
-            21,
-            21,
-            21,
-            22,
-            22,
-            22,
-            22,
-            22,
-            22,
-            22,
-            22,
-            23,
-            23,
-            23,
-            23,
-            23,
-            23,
-            23,
-            23,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-            24,
-        }
-    );
-#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint ZSTD_LLcode(uint litLength)
@@ -194,7 +121,6 @@ public static unsafe partial class Methods
         return litLength > 63 ? ZSTD_highbit32(litLength) + LL_deltaCode : LL_Code[litLength];
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<byte> Span_ML_Code =>
         new byte[128]
         {
@@ -332,142 +258,7 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_ML_Code)
             );
-#else
 
-    private static readonly byte* ML_Code = GetArrayPointer(
-        new byte[128]
-        {
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            26,
-            27,
-            28,
-            29,
-            30,
-            31,
-            32,
-            32,
-            33,
-            33,
-            34,
-            34,
-            35,
-            35,
-            36,
-            36,
-            36,
-            36,
-            37,
-            37,
-            37,
-            37,
-            38,
-            38,
-            38,
-            38,
-            38,
-            38,
-            38,
-            38,
-            39,
-            39,
-            39,
-            39,
-            39,
-            39,
-            39,
-            39,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            40,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            41,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-            42,
-        }
-    );
-#endif
     /* ZSTD_MLcode() :
      * note : mlBase = matchLength - MINMATCH;
      *        because it's the format it's stored in seqStore->sequences */
@@ -1346,17 +1137,12 @@ public static unsafe partial class Methods
         }
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<byte> Span_stringToByte_20_00 => new byte[] { 32, 0 };
     private static byte* stringToByte_20_00 =>
         (byte*)
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_stringToByte_20_00)
             );
-#else
-
-    private static readonly byte* stringToByte_20_00 = GetArrayPointer(new byte[] { 32, 0 });
-#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ZSTD_window_init(ZSTD_window_t* window)

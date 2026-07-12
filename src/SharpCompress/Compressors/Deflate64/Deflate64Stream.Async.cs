@@ -61,7 +61,6 @@ public sealed partial class Deflate64Stream
         return count - remainingCount;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -104,5 +103,4 @@ public sealed partial class Deflate64Stream
             }
         }
     }
-#endif
 }

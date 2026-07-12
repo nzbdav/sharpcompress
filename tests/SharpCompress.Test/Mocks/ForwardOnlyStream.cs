@@ -68,7 +68,6 @@ public class ForwardOnlyStream : Stream
         return _stream.ReadAsync(buffer, offset, count, cancellationToken);
     }
 
-#if !LEGACY_DOTNET
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -77,7 +76,6 @@ public class ForwardOnlyStream : Stream
         ThrowIfDisposed();
         return _stream.ReadAsync(buffer, cancellationToken);
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) =>
         throw new NotSupportedException("Seek is not supported on a forward-only stream.");
@@ -102,7 +100,6 @@ public class ForwardOnlyStream : Stream
         return _stream.WriteAsync(buffer, offset, count, cancellationToken);
     }
 
-#if !LEGACY_DOTNET
     public override ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -111,7 +108,6 @@ public class ForwardOnlyStream : Stream
         ThrowIfDisposed();
         return _stream.WriteAsync(buffer, cancellationToken);
     }
-#endif
 
     public override Task FlushAsync(CancellationToken cancellationToken)
     {
@@ -142,7 +138,6 @@ public class ForwardOnlyStream : Stream
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (!_isDisposed)
@@ -152,7 +147,6 @@ public class ForwardOnlyStream : Stream
         }
         await base.DisposeAsync();
     }
-#endif
 
     private void ThrowIfDisposed()
     {

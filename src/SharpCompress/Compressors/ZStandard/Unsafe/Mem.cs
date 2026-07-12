@@ -123,25 +123,13 @@ public static unsafe partial class Methods
         BclUnsafe.WriteUnaligned(memPtr, val64);
     }
 
-#if !NET8_0_OR_GREATER
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static nuint ReverseEndiannessNative(nuint val) =>
-        MEM_32bits
-            ? BinaryPrimitives.ReverseEndianness((uint)val)
-            : (nuint)BinaryPrimitives.ReverseEndianness(val);
-#endif
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static nuint MEM_readLEST(void* memPtr)
     {
         var val = BclUnsafe.ReadUnaligned<nuint>(memPtr);
         if (!BitConverter.IsLittleEndian)
         {
-#if NET8_0_OR_GREATER
             val = BinaryPrimitives.ReverseEndianness(val);
-#else
-            val = ReverseEndiannessNative(val);
-#endif
         }
         return val;
     }
@@ -151,11 +139,7 @@ public static unsafe partial class Methods
     {
         if (!BitConverter.IsLittleEndian)
         {
-#if NET8_0_OR_GREATER
             val = BinaryPrimitives.ReverseEndianness(val);
-#else
-            val = ReverseEndiannessNative(val);
-#endif
         }
         BclUnsafe.WriteUnaligned(memPtr, val);
     }

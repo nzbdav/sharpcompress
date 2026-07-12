@@ -218,9 +218,7 @@ public partial class Decoder : ICoder, ISetDecoderProperties, IDisposable
         }
     }
 
-#if !LEGACY_DOTNET
     [MemberNotNull(nameof(_outWindow))]
-#endif
     private void CreateDictionary()
     {
         if (_dictionarySize < 0)

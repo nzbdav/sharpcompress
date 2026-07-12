@@ -257,11 +257,7 @@ public class RarReaderAsyncTests : ReaderTests
                     }
                     finally
                     {
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
                         await entryStream.DisposeAsync();
-#else
-                        entryStream.Dispose();
-#endif
                     }
                 }
             }

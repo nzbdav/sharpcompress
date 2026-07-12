@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System;
 using System.IO;
 using System.Linq;
@@ -235,4 +234,3 @@ public class ExtractionPathTraversalTests : TestBase
         throw new InvalidOperationException("Archive did not contain an entry.");
     }
 }
-#endif

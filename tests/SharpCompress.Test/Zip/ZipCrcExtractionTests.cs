@@ -122,11 +122,7 @@ public class ZipCrcExtractionTests : ArchiveTests
         using var zipStream = CreateZipWithInvalidCrc(useDataDescriptor: false);
         using var archive = ZipArchive.OpenArchive(zipStream);
         var entry = archive.Entries.Single(e => !e.IsDirectory);
-#if LEGACY_DOTNET
-        using var destination = new MemoryStream();
-#else
         await using var destination = new MemoryStream();
-#endif
 
         var exception = await Assert.ThrowsAsync<InvalidFormatException>(async () =>
             await entry.WriteToAsync(destination, new ExtractionOptions { CheckCrc = true })
@@ -141,11 +137,7 @@ public class ZipCrcExtractionTests : ArchiveTests
         using var zipStream = CreateZipWithInvalidCrc(useDataDescriptor: false);
         using var archive = ZipArchive.OpenArchive(zipStream);
         var entry = archive.Entries.Single(e => !e.IsDirectory);
-#if LEGACY_DOTNET
-        using var destination = new MemoryStream();
-#else
         await using var destination = new MemoryStream();
-#endif
 
         await entry.WriteToAsync(destination, new ExtractionOptions { CheckCrc = false });
 
@@ -253,8 +245,6 @@ public class ZipCrcExtractionTests : ArchiveTests
         public override void Write(byte[] buffer, int offset, int count) =>
             stream.Write(buffer, offset, count);
 
-#if !LEGACY_DOTNET
         public override void Write(ReadOnlySpan<byte> buffer) => stream.Write(buffer);
-#endif
     }
 }

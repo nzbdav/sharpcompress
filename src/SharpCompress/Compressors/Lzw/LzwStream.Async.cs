@@ -271,7 +271,6 @@ public partial class LzwStream
         return offset - start;
     }
 
-#if !LEGACY_DOTNET
     /// <summary>
     /// Reads decompressed data asynchronously into the provided buffer
     /// </summary>
@@ -301,7 +300,6 @@ public partial class LzwStream
             System.Buffers.ArrayPool<byte>.Shared.Return(array);
         }
     }
-#endif
 
     private async ValueTask FillAsync(CancellationToken cancellationToken)
     {

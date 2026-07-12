@@ -29,7 +29,6 @@ internal partial class ReadOnlySubStream
         return read;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -46,5 +45,4 @@ internal partial class ReadOnlySubStream
         }
         return read;
     }
-#endif
 }

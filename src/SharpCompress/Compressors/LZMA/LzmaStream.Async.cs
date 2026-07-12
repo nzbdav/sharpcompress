@@ -283,7 +283,6 @@ public partial class LzmaStream
         return total;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -398,7 +397,6 @@ public partial class LzmaStream
 
         return total;
     }
-#endif
 
     public override async Task WriteAsync(
         byte[] buffer,
@@ -416,7 +414,6 @@ public partial class LzmaStream
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -430,13 +427,8 @@ public partial class LzmaStream
                 .ConfigureAwait(false);
         }
     }
-#endif
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (_isDisposed)
         {
@@ -464,9 +456,7 @@ public partial class LzmaStream
         await _outWindow.DisposeAsync().ConfigureAwait(false);
         ReturnAsyncHeaderBuffer();
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#endif
         GC.SuppressFinalize(this);
     }
 }

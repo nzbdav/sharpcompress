@@ -15,26 +15,14 @@ public static unsafe class UnsafeHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void* malloc(ulong size)
     {
-#if NET8_0_OR_GREATER
         var ptr = NativeMemory.Alloc((nuint)size);
-#else
-        var ptr = (void*)Marshal.AllocHGlobal((nint)size);
-#endif
         return ptr;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void* calloc(ulong num, ulong size)
     {
-#if NET8_0_OR_GREATER
         return NativeMemory.AllocZeroed((nuint)num, (nuint)size);
-#else
-        var total = num * size;
-        assert(total <= uint.MaxValue);
-        var destination = (void*)Marshal.AllocHGlobal((nint)total);
-        memset(destination, 0, (uint)total);
-        return destination;
-#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -48,11 +36,7 @@ public static unsafe class UnsafeHelper
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void free(void* ptr)
     {
-#if NET8_0_OR_GREATER
         NativeMemory.Free(ptr);
-#else
-        Marshal.FreeHGlobal((IntPtr)ptr);
-#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

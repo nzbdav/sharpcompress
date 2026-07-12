@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using GlobExpressions;
@@ -18,9 +17,6 @@ const string Test = "test";
 const string Format = "format";
 const string CheckFormat = "check-format";
 const string Publish = "publish";
-const string DetermineVersion = "determine-version";
-const string UpdateVersion = "update-version";
-const string PushToNuGet = "push-to-nuget";
 const string DisplayBenchmarkResults = "display-benchmark-results";
 const string CompareBenchmarkResults = "compare-benchmark-results";
 const string GenerateBaseline = "generate-baseline";
@@ -82,22 +78,11 @@ Target(
 Target(
     Test,
     [Build],
-    ["net10.0", "net48"],
-    framework =>
+    () =>
     {
-        IEnumerable<string> GetFiles(string d)
+        foreach (var file in Glob.Files(".", "**/*.Test.csproj"))
         {
-            return Glob.Files(".", d);
-        }
-
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && framework == "net48")
-        {
-            return;
-        }
-
-        foreach (var file in GetFiles("**/*.Test.csproj"))
-        {
-            Run("dotnet", $"test {file} -c Release -f {framework} --no-restore --verbosity=normal");
+            Run("dotnet", $"test {file} -c Release -f net10.0 --no-restore --verbosity=normal");
         }
     }
 );
@@ -108,116 +93,6 @@ Target(
     () =>
     {
         Run("dotnet", "pack src/SharpCompress/SharpCompress.csproj -c Release -o artifacts/");
-    }
-);
-
-Target(
-    DetermineVersion,
-    async () =>
-    {
-        var (version, isPrerelease) = await GetVersion();
-        Console.WriteLine($"VERSION={version}");
-        Console.WriteLine(
-            $"PRERELEASE={isPrerelease.ToString().ToLower(CultureInfo.InvariantCulture)}"
-        );
-
-        // Write to environment file for GitHub Actions
-        var githubOutput = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");
-        if (!string.IsNullOrEmpty(githubOutput))
-        {
-            File.AppendAllText(githubOutput, $"version={version}\n");
-            File.AppendAllText(
-                githubOutput,
-                $"prerelease={isPrerelease.ToString().ToLower(CultureInfo.InvariantCulture)}\n"
-            );
-        }
-    }
-);
-
-Target(
-    UpdateVersion,
-    async () =>
-    {
-        var version = Environment.GetEnvironmentVariable("VERSION");
-        if (string.IsNullOrEmpty(version))
-        {
-            var (detectedVersion, _) = await GetVersion();
-            version = detectedVersion;
-        }
-
-        Console.WriteLine($"Updating project file with version: {version}");
-
-        var projectPath = "src/SharpCompress/SharpCompress.csproj";
-        var content = File.ReadAllText(projectPath);
-
-        // Get base version (without prerelease suffix)
-        var baseVersion = version.Split('-')[0];
-
-        // Update VersionPrefix
-        content = Regex.Replace(
-            content,
-            @"<VersionPrefix>[^<]*</VersionPrefix>",
-            $"<VersionPrefix>{version}</VersionPrefix>"
-        );
-
-        // Update AssemblyVersion
-        content = Regex.Replace(
-            content,
-            @"<AssemblyVersion>[^<]*</AssemblyVersion>",
-            $"<AssemblyVersion>{baseVersion}</AssemblyVersion>"
-        );
-
-        // Update FileVersion
-        content = Regex.Replace(
-            content,
-            @"<FileVersion>[^<]*</FileVersion>",
-            $"<FileVersion>{baseVersion}</FileVersion>"
-        );
-
-        File.WriteAllText(projectPath, content);
-        Console.WriteLine($"Updated VersionPrefix to: {version}");
-        Console.WriteLine($"Updated AssemblyVersion and FileVersion to: {baseVersion}");
-    }
-);
-
-Target(
-    PushToNuGet,
-    () =>
-    {
-        var apiKey = Environment.GetEnvironmentVariable("NUGET_API_KEY");
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            Console.WriteLine(
-                "NUGET_API_KEY environment variable is not set. Skipping NuGet push."
-            );
-            return;
-        }
-
-        var packages = Directory.GetFiles("artifacts", "*.nupkg");
-        if (packages.Length == 0)
-        {
-            Console.WriteLine("No packages found in artifacts directory.");
-            return;
-        }
-
-        foreach (var package in packages)
-        {
-            Console.WriteLine($"Pushing {package} to NuGet.org");
-            try
-            {
-                // Note: API key is passed via command line argument which is standard practice for dotnet nuget push
-                // The key is already in an environment variable and not displayed in normal output
-                Run(
-                    "dotnet",
-                    $"nuget push \"{package}\" --api-key {apiKey} --source https://api.nuget.org/v3/index.json --skip-duplicate"
-                );
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to push {package}: {ex.Message}");
-                throw;
-            }
-        }
     }
 );
 
@@ -471,98 +346,6 @@ Target(
 Target("default", [Publish], () => Console.WriteLine("Done!"));
 
 await RunTargetsAndExitAsync(args);
-
-static async Task<(string version, bool isPrerelease)> GetVersion()
-{
-    // Check if current commit has a version tag
-    var currentTag = (await GetGitOutput("tag", "--points-at HEAD"))
-        .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-        .FirstOrDefault(tag => Regex.IsMatch(tag.Trim(), @"^\d+\.\d+\.\d+$"));
-
-    if (!string.IsNullOrEmpty(currentTag))
-    {
-        // Tagged release - use the tag as version
-        var version = currentTag.Trim();
-        Console.WriteLine($"Building tagged release version: {version}");
-        return (version, false);
-    }
-    else
-    {
-        // Not tagged - create prerelease version
-        var allTags = (await GetGitOutput("tag", "--list"))
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Where(tag => Regex.IsMatch(tag.Trim(), @"^\d+\.\d+\.\d+$"))
-            .Select(tag => tag.Trim())
-            .ToList();
-
-        var lastTag = allTags.OrderBy(tag => Version.Parse(tag)).LastOrDefault() ?? "0.0.0";
-        var lastVersion = Version.Parse(lastTag);
-
-        // Determine version increment based on branch
-        var currentBranch = await GetCurrentBranch();
-        Version nextVersion;
-
-        if (currentBranch == "release")
-        {
-            // Release branch: increment patch version
-            nextVersion = new Version(lastVersion.Major, lastVersion.Minor, lastVersion.Build + 1);
-            Console.WriteLine($"Building prerelease for release branch (patch increment)");
-        }
-        else
-        {
-            // Master or other branches: increment minor version
-            nextVersion = new Version(lastVersion.Major, lastVersion.Minor + 1, 0);
-            Console.WriteLine($"Building prerelease for {currentBranch} branch (minor increment)");
-        }
-
-        // Use commit count since the last version tag if available; otherwise, fall back to total count
-        var revListArgs = allTags.Any() ? $"--count {lastTag}..HEAD" : "--count HEAD";
-        var commitCount = (await GetGitOutput("rev-list", revListArgs)).Trim();
-
-        var version = $"{nextVersion}-beta.{commitCount}";
-        Console.WriteLine($"Building prerelease version: {version}");
-        return (version, true);
-    }
-}
-
-static async Task<string> GetCurrentBranch()
-{
-    // In GitHub Actions, GITHUB_REF_NAME contains the branch name
-    var githubRefName = Environment.GetEnvironmentVariable("GITHUB_REF_NAME");
-    if (!string.IsNullOrEmpty(githubRefName))
-    {
-        return githubRefName;
-    }
-
-    // Fallback to git command for local builds
-    try
-    {
-        var (output, _) = await ReadAsync("git", "branch --show-current");
-        return output.Trim();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Warning: Could not determine current branch: {ex.Message}");
-        return "unknown";
-    }
-}
-
-static async Task<string> GetGitOutput(string command, string args)
-{
-    try
-    {
-        // Use SimpleExec's Read to execute git commands in a cross-platform way
-        var (output, _) = await ReadAsync("git", $"{command} {args}");
-        return output;
-    }
-    catch (Exception ex)
-    {
-        throw new InvalidOperationException(
-            $"Git command failed: git {command} {args}\n{ex.Message}",
-            ex
-        );
-    }
-}
 
 static void WriteOutput(List<string> output, string? githubStepSummary)
 {

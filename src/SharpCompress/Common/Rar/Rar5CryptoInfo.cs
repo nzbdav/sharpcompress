@@ -43,17 +43,10 @@ internal class Rar5CryptoInfo
             cryptoInfo.PswCheck = reader.ReadBytes(EncryptionConstV5.SIZE_PSWCHECK);
             var _pswCheckCsm = reader.ReadBytes(EncryptionConstV5.SIZE_PSWCHECK_CSUM);
 
-#if LEGACY_DOTNET
-            var sha = SHA256.Create();
-            cryptoInfo.UsePswCheck = sha.ComputeHash(cryptoInfo.PswCheck)
-                .AsSpan()
-                .StartsWith(_pswCheckCsm.AsSpan());
-#else
             cryptoInfo.UsePswCheck = SHA256
                 .HashData(cryptoInfo.PswCheck)
                 .AsSpan()
                 .StartsWith(_pswCheckCsm.AsSpan());
-#endif
         }
         return cryptoInfo;
     }
@@ -105,17 +98,10 @@ internal class Rar5CryptoInfo
                 .ReadBytesAsync(EncryptionConstV5.SIZE_PSWCHECK_CSUM, CancellationToken.None)
                 .ConfigureAwait(false);
 
-#if LEGACY_DOTNET
-            var sha = SHA256.Create();
-            cryptoInfo.UsePswCheck = sha.ComputeHash(cryptoInfo.PswCheck)
-                .AsSpan()
-                .StartsWith(_pswCheckCsm.AsSpan());
-#else
             cryptoInfo.UsePswCheck = SHA256
                 .HashData(cryptoInfo.PswCheck)
                 .AsSpan()
                 .StartsWith(_pswCheckCsm.AsSpan());
-#endif
         }
         return cryptoInfo;
     }

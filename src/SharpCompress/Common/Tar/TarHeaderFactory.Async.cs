@@ -14,11 +14,7 @@ internal static partial class TarHeaderFactory
         IArchiveEncoding archiveEncoding
     )
     {
-#if NET8_0_OR_GREATER
         await using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#else
-        using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#endif
 
         var globalPaxMetadata = new TarHeader.PaxMetadata();
 

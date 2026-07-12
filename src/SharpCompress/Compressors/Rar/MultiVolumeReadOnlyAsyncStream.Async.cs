@@ -20,7 +20,6 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         return stream;
     }
 
-#if NET8_0_OR_GREATER
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync().ConfigureAwait(false);
@@ -30,18 +29,6 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         }
         currentStream = null;
     }
-#else
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        //acceptable for now?
-#pragma warning disable VSTHRD002 // Avoid problematic synchronous waits
-        filePartEnumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
-#pragma warning restore VSTHRD002 // Avoid problematic synchronous waits
-
-        currentStream = null;
-    }
-#endif
 
     public override async Task<int> ReadAsync(
         byte[] buffer,
@@ -106,7 +93,6 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         return totalRead;
     }
 
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -164,5 +150,4 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         }
         return totalRead;
     }
-#endif
 }

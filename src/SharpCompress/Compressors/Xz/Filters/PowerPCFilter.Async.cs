@@ -23,7 +23,6 @@ public partial class PowerPCFilter
         return bytesRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -36,5 +35,4 @@ public partial class PowerPCFilter
         _ip += (uint)bytesRead;
         return bytesRead;
     }
-#endif
 }

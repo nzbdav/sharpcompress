@@ -23,11 +23,7 @@ public partial class GZipWriter
         stream.FileName = filename;
         stream.LastModified = modificationTime;
         var progressStream = WrapWithProgress(source, filename);
-#if LEGACY_DOTNET
-        await progressStream.CopyToAsync(stream).ConfigureAwait(false);
-#else
         await progressStream.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
-#endif
         _wroteToStream = true;
     }
 

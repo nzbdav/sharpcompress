@@ -35,7 +35,6 @@ public sealed partial class LhaStream<TDecoderConfig>
         return bytesRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -53,7 +52,6 @@ public sealed partial class LhaStream<TDecoderConfig>
         int bytesRead = await FillBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
         return bytesRead;
     }
-#endif
 
     private async ValueTask<byte> ReadCodeLengthAsync(CancellationToken cancellationToken)
     {
@@ -310,7 +308,6 @@ public sealed partial class LhaStream<TDecoderConfig>
         return bufIndex;
     }
 
-#if !LEGACY_DOTNET
     public async ValueTask<int> FillBufferAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken
@@ -396,5 +393,4 @@ public sealed partial class LhaStream<TDecoderConfig>
 
         return copied;
     }
-#endif
 }

@@ -20,14 +20,7 @@ internal static partial class Utility
             CancellationToken cancellationToken = default
         )
         {
-#if LEGACY_DOTNET
-            if (source is null)
-            {
-                throw new ArgumentNullException();
-            }
-#else
             ThrowHelper.ThrowIfNull(source);
-#endif
 
             ThrowHelper.ThrowIfNull(buffer);
 
@@ -43,15 +36,9 @@ internal static partial class Utility
 
             while (length > 0)
             {
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
                 var fetched = await source
                     .ReadAsync(buffer.AsMemory(offset, length), cancellationToken)
                     .ConfigureAwait(false);
-#else
-                var fetched = await source
-                    .ReadAsync(buffer, offset, length, cancellationToken)
-                    .ConfigureAwait(false);
-#endif
                 if (fetched <= 0)
                 {
                     throw new IncompleteArchiveException("Unexpected end of stream.");
@@ -86,15 +73,9 @@ internal static partial class Utility
             int read;
             while (
                 (
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
                     read = await source
                         .ReadAsync(buffer.AsMemory(total, buffer.Length - total), cancellationToken)
                         .ConfigureAwait(false)
-#else
-                    read = await source
-                        .ReadAsync(buffer, total, buffer.Length - total, cancellationToken)
-                        .ConfigureAwait(false)
-#endif
                 ) > 0
             )
             {
@@ -118,18 +99,12 @@ internal static partial class Utility
             int read;
             while (
                 (
-#if NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER
                     read = await source
                         .ReadAsync(
                             buffer.AsMemory(offset + total, count - total),
                             cancellationToken
                         )
                         .ConfigureAwait(false)
-#else
-                    read = await source
-                        .ReadAsync(buffer, offset + total, count - total, cancellationToken)
-                        .ConfigureAwait(false)
-#endif
                 ) > 0
             )
             {
@@ -155,7 +130,6 @@ internal static partial class Utility
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-#if NET8_0_OR_GREATER
         // Use File.OpenHandle with async options for .NET 8.0+
         var handle = File.OpenHandle(
             path,
@@ -165,17 +139,6 @@ internal static partial class Utility
             FileOptions.Asynchronous
         );
         return new FileStream(handle, FileAccess.Write);
-#else
-        // For older target frameworks, use FileStream constructor with async options
-        return new FileStream(
-            path,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None,
-            bufferSize: 4096, //default
-            FileOptions.Asynchronous
-        );
-#endif
     }
 
     /// <summary>
@@ -207,7 +170,6 @@ internal static partial class Utility
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-#if NET8_0_OR_GREATER
         // Use File.OpenHandle with async options for .NET 8.0+
         var handle = File.OpenHandle(
             path,
@@ -217,17 +179,6 @@ internal static partial class Utility
             FileOptions.Asynchronous
         );
         return new FileStream(handle, FileAccess.Read);
-#else
-        // For older target frameworks, use FileStream constructor with async options
-        return new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: 4096,
-            FileOptions.Asynchronous
-        );
-#endif
     }
 
     /// <summary>

@@ -118,7 +118,6 @@ public static unsafe partial class Methods
         );
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_baseLLfreqs =>
         new uint[36]
         {
@@ -164,51 +163,6 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_baseLLfreqs)
             );
-#else
-
-    private static readonly uint* baseLLfreqs = GetArrayPointer(
-        new uint[36]
-        {
-            4,
-            2,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-        }
-    );
-#endif
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_baseOFCfreqs =>
         new uint[32]
         {
@@ -250,46 +204,7 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_baseOFCfreqs)
             );
-#else
 
-    private static readonly uint* baseOFCfreqs = GetArrayPointer(
-        new uint[32]
-        {
-            6,
-            2,
-            1,
-            1,
-            2,
-            3,
-            4,
-            4,
-            4,
-            3,
-            2,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-            1,
-        }
-    );
-#endif
     /* ZSTD_rescaleFreqs() :
      * if first block (detected by optPtr->litLengthSum == 0) : init statistics
      *    take hints from dictionary if there is one

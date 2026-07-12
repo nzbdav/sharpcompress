@@ -14,10 +14,8 @@ public partial class Lzma2Filter
         CancellationToken cancellationToken
     ) => BaseStream.ReadAsync(buffer, offset, count, cancellationToken);
 
-#if !LEGACY_DOTNET
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
     ) => BaseStream.ReadAsync(buffer, cancellationToken);
-#endif
 }

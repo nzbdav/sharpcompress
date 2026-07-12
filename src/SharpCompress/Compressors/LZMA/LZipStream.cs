@@ -202,8 +202,6 @@ public sealed partial class LZipStream : Stream, IFinishable
 
     public override void SetLength(long value) => throw new NotImplementedException();
 
-#if !LEGACY_DOTNET
-
     public override int Read(Span<byte> buffer)
     {
         var read = _stream.Read(buffer);
@@ -217,7 +215,6 @@ public sealed partial class LZipStream : Stream, IFinishable
 
         _writeCount += buffer.Length;
     }
-#endif
 
     public override void Write(byte[] buffer, int offset, int count)
     {

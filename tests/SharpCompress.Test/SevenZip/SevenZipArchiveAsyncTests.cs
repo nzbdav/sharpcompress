@@ -18,11 +18,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
     public async Task SevenZipArchive_LZMA_AsyncStreamExtraction()
     {
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -37,21 +33,9 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
                 Directory.CreateDirectory(targetDir);
             }
 
-#if NETFRAMEWORK
-            using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#else
             await using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#endif
-#if NETFRAMEWORK
-            using var targetStream = File.Create(targetPath);
-#else
             await using var targetStream = File.Create(targetPath);
-#endif
-#if NETFRAMEWORK
-            await sourceStream.CopyToAsync(targetStream, 81920, CancellationToken.None);
-#else
             await sourceStream.CopyToAsync(targetStream, CancellationToken.None);
-#endif
         }
 
         VerifyFiles();
@@ -61,11 +45,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
     public async Task SevenZipArchive_LZMA2_AsyncStreamExtraction()
     {
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA2.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -80,21 +60,9 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
                 Directory.CreateDirectory(targetDir);
             }
 
-#if NETFRAMEWORK
-            using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#else
             await using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#endif
-#if NETFRAMEWORK
-            using var targetStream = File.Create(targetPath);
-#else
             await using var targetStream = File.Create(targetPath);
-#endif
-#if NETFRAMEWORK
-            await sourceStream.CopyToAsync(targetStream, 81920, CancellationToken.None);
-#else
             await sourceStream.CopyToAsync(targetStream, CancellationToken.None);
-#endif
         }
 
         VerifyFiles();
@@ -104,11 +72,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
     public async Task SevenZipArchive_Solid_AsyncStreamExtraction()
     {
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -123,21 +87,9 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
                 Directory.CreateDirectory(targetDir);
             }
 
-#if NETFRAMEWORK
-            using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#else
             await using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#endif
-#if NETFRAMEWORK
-            using var targetStream = File.Create(targetPath);
-#else
             await using var targetStream = File.Create(targetPath);
-#endif
-#if NETFRAMEWORK
-            await sourceStream.CopyToAsync(targetStream, 81920, CancellationToken.None);
-#else
             await sourceStream.CopyToAsync(targetStream, CancellationToken.None);
-#endif
         }
 
         VerifyFiles();
@@ -151,11 +103,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
             progressReports.Add(report)
         );
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -170,11 +118,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
     public async Task SevenZipArchive_BZip2_AsyncStreamExtraction()
     {
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.BZip2.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -189,21 +133,9 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
                 Directory.CreateDirectory(targetDir);
             }
 
-#if NETFRAMEWORK
-            using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#else
             await using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#endif
-#if NETFRAMEWORK
-            using var targetStream = File.Create(targetPath);
-#else
             await using var targetStream = File.Create(targetPath);
-#endif
-#if NETFRAMEWORK
-            await sourceStream.CopyToAsync(targetStream, 81920, CancellationToken.None);
-#else
             await sourceStream.CopyToAsync(targetStream, CancellationToken.None);
-#endif
         }
 
         VerifyFiles();
@@ -213,11 +145,7 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
     public async Task SevenZipArchive_PPMd_AsyncStreamExtraction()
     {
         var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.PPMd.7z");
-#if NETFRAMEWORK
-        using var stream = File.OpenRead(testArchive);
-#else
         await using var stream = File.OpenRead(testArchive);
-#endif
         await using var archive = await ArchiveFactory.OpenAsyncArchive(
             new AsyncOnlyStream(stream)
         );
@@ -232,21 +160,9 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
                 Directory.CreateDirectory(targetDir);
             }
 
-#if NETFRAMEWORK
-            using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#else
             await using var sourceStream = await entry.OpenEntryStreamAsync(CancellationToken.None);
-#endif
-#if NETFRAMEWORK
-            using var targetStream = File.Create(targetPath);
-#else
             await using var targetStream = File.Create(targetPath);
-#endif
-#if NETFRAMEWORK
-            await sourceStream.CopyToAsync(targetStream, 81920, CancellationToken.None);
-#else
             await sourceStream.CopyToAsync(targetStream, CancellationToken.None);
-#endif
         }
 
         VerifyFiles();

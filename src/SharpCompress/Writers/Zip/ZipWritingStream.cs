@@ -489,7 +489,6 @@ public partial class ZipWriter
             CheckPostWriteLimits();
         }
 
-#if !LEGACY_DOTNET
         public override async ValueTask WriteAsync(
             ReadOnlyMemory<byte> buffer,
             CancellationToken cancellationToken = default
@@ -512,7 +511,6 @@ public partial class ZipWriter
 
             CheckPostWriteLimits();
         }
-#endif
 
         private void CheckWriteLimits(int count)
         {
@@ -606,11 +604,7 @@ public partial class ZipWriter
                 .ConfigureAwait(false);
         }
 
-#if NET48 || NETSTANDARD2_0
-        public async ValueTask DisposeAsync()
-#else
         public override async ValueTask DisposeAsync()
-#endif
         {
             if (isDisposed)
             {
@@ -727,10 +721,8 @@ public partial class ZipWriter
                 writer.streamPosition += (long)entry.Compressed + 16;
             }
             writer.entries.Add(entry);
-#if !NET48 && !NETSTANDARD2_0
             // base.DisposeAsync() is a no-op since isDisposed is already set
             await base.DisposeAsync().ConfigureAwait(false);
-#endif
         }
 
         private static async ValueTask WriteFooterAsync(

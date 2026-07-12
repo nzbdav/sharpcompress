@@ -43,7 +43,6 @@ public partial class GZipStream
         return n;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -64,7 +63,6 @@ public partial class GZipStream
         }
         return n;
     }
-#endif
 
     public override async Task WriteAsync(
         byte[] buffer,
@@ -93,7 +91,6 @@ public partial class GZipStream
         await BaseStream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -118,13 +115,8 @@ public partial class GZipStream
 
         await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-#endif
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (_disposed)
         {
@@ -137,8 +129,6 @@ public partial class GZipStream
             await BaseStream.DisposeAsync().ConfigureAwait(false);
         }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#endif
     }
 }

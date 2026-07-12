@@ -8,10 +8,7 @@ using SharpCompress.IO;
 
 namespace SharpCompress.Common.Rar;
 
-internal class AsyncMarkingBinaryReader : IDisposable
-#if NET8_0_OR_GREATER
-        , IAsyncDisposable
-#endif
+internal class AsyncMarkingBinaryReader : IDisposable, IAsyncDisposable
 {
     private readonly AsyncBinaryReader _reader;
 
@@ -207,7 +204,5 @@ internal class AsyncMarkingBinaryReader : IDisposable
 
     public virtual void Dispose() => _reader.Dispose();
 
-#if NET8_0_OR_GREATER
     public virtual ValueTask DisposeAsync() => _reader.DisposeAsync();
-#endif
 }

@@ -21,30 +21,6 @@ internal static class NotNullExtensions
         return source.AsEnumerable();
     }
 
-#if LEGACY_DOTNET
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T NotNull<T>(this T? obj, string? message = null)
-        where T : class
-    {
-        if (obj is null)
-        {
-            throw new ArgumentNullException(message ?? "Value is null");
-        }
-        return obj;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T NotNull<T>(this T? obj, string? message = null)
-        where T : struct
-    {
-        if (obj is null)
-        {
-            throw new ArgumentNullException(message ?? "Value is null");
-        }
-        return obj.Value;
-    }
-#else
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T NotNull<T>(
         [NotNull] this T? obj,
@@ -70,7 +46,6 @@ internal static class NotNullExtensions
 
         return obj.Value;
     }
-#endif
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string NotNullOrEmpty(this string obj, string name)

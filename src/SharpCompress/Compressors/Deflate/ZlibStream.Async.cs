@@ -17,7 +17,6 @@ public partial class ZlibStream
         await _baseStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -31,7 +30,6 @@ public partial class ZlibStream
         }
         await base.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 
     public override async Task<int> ReadAsync(
         byte[] buffer,
@@ -49,7 +47,6 @@ public partial class ZlibStream
             .ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -61,7 +58,6 @@ public partial class ZlibStream
         }
         return await _baseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-#endif
 
     public override async Task WriteAsync(
         byte[] buffer,
@@ -79,7 +75,6 @@ public partial class ZlibStream
             .ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -91,5 +86,4 @@ public partial class ZlibStream
         }
         await _baseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-#endif
 }

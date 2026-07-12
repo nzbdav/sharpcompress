@@ -58,8 +58,6 @@ public partial class SourceStream
         return total - count;
     }
 
-#if !LEGACY_DOTNET
-
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -106,5 +104,4 @@ public partial class SourceStream
 
         return total - count;
     }
-#endif
 }

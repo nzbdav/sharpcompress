@@ -187,10 +187,6 @@ public class TarArchiveAsyncTests : ArchiveTests
                 }
             }
         }
-#if LEGACY_DOTNET
-        //add a delay because old .net sucks on DisposeAsync
-        await Task.Delay(TimeSpan.FromSeconds(1));
-#endif
     }
 
     [Fact]
@@ -338,11 +334,7 @@ public class TarArchiveAsyncTests : ArchiveTests
             {
                 ++numberOfEntries;
 
-#if LEGACY_DOTNET
-                using var tarEntryStream = await entry.OpenEntryStreamAsync();
-#else
                 await using var tarEntryStream = await entry.OpenEntryStreamAsync();
-#endif
                 using var testFileStream = new MemoryStream();
                 await tarEntryStream.CopyToAsync(testFileStream);
                 Assert.Equal(testBytes.Length, testFileStream.Length);

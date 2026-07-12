@@ -26,9 +26,6 @@ internal static partial class Utility
     public static bool UseSyncOverAsyncDispose()
     {
         var useSyncOverAsync = false;
-#if LEGACY_DOTNET
-        useSyncOverAsync = true;
-#endif
         return useSyncOverAsync;
     }
 
@@ -192,7 +189,6 @@ internal static partial class Utility
             }
         }
 
-#if NET8_0_OR_GREATER
         public bool ReadFully(byte[] buffer)
         {
             try
@@ -218,53 +214,13 @@ internal static partial class Utility
                 return false;
             }
         }
-#else
-        public bool ReadFully(byte[] buffer)
-        {
-            var total = 0;
-            int read;
-            while ((read = source.Read(buffer, total, buffer.Length - total)) > 0)
-            {
-                total += read;
-                if (total >= buffer.Length)
-                {
-                    return true;
-                }
-            }
-
-            return (total >= buffer.Length);
-        }
-
-        public bool ReadFully(Span<byte> buffer)
-        {
-            var total = 0;
-            int read;
-            while ((read = source.Read(buffer.Slice(total, buffer.Length - total))) > 0)
-            {
-                total += read;
-                if (total >= buffer.Length)
-                {
-                    return true;
-                }
-            }
-
-            return (total >= buffer.Length);
-        }
-#endif
 
         /// <summary>
         /// Read exactly the requested number of bytes from a stream. Throws EndOfStreamException if not enough data is available.
         /// </summary>
         public void ReadExact(byte[] buffer, int offset, int length)
         {
-#if LEGACY_DOTNET
-            if (source is null)
-            {
-                throw new ArgumentNullException();
-            }
-#else
             ThrowHelper.ThrowIfNull(source);
-#endif
 
             ThrowHelper.ThrowIfNull(buffer);
 

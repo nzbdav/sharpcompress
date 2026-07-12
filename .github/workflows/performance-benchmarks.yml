@@ -3,48 +3,59 @@ name: Performance Benchmarks
 on:
   push:
     branches:
-      - 'master'
-      - 'release'
+      - main
   pull_request:
     branches:
-      - 'master'
-      - 'release'
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-    
-    - uses: actions/setup-dotnet@v5
-      with:
-        global-json-file: global.json
-    
-    - name: Build Performance Project
-      run: dotnet build tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release
-    
-    - name: Run Benchmarks
-      run: dotnet run --project tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release --no-build -- --filter "*" --exporters json markdown --artifacts benchmark-results
-      continue-on-error: true
-    
-    - name: Display Benchmark Results
-      if: always()
-      run: dotnet run --project build/build.csproj -- display-benchmark-results
-    
-    - name: Compare with Baseline
-      if: always()
-      run: dotnet run --project build/build.csproj -- compare-benchmark-results
-    
-    - name: Upload Benchmark Results
-      if: always()
-      uses: actions/upload-artifact@v7
-      with:
-        name: benchmark-results
-        path: benchmark-results/
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Build performance project
+        run: dotnet build tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release
+
+      - name: Run benchmarks
+        run: dotnet run --project tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release --no-build -- --filter "*" --exporters json markdown --artifacts benchmark-results
+        continue-on-error: true
+
+      - name: Display benchmark results
+        if: always()
+        run: dotnet run --project build/build.csproj -- display-benchmark-results
+
+      - name: Compare with baseline
+        if: always()
+        run: dotnet run --project build/build.csproj -- compare-benchmark-results
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-results
+          path: benchmark-results/
+          if-no-files-found: warn
+          retention-days: 14

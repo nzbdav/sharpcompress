@@ -73,7 +73,6 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
         return totalRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -131,5 +130,4 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
         }
         return totalRead;
     }
-#endif
 }

@@ -274,7 +274,6 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
             return Task.CompletedTask;
         }
 
-#if !LEGACY_DOTNET
         public override ValueTask<int> ReadAsync(
             Memory<byte> buffer,
             CancellationToken cancellationToken = default
@@ -293,7 +292,6 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
             _baseStream.Write(buffer.Span);
             return ValueTask.CompletedTask;
         }
-#endif
 
         protected override void Dispose(bool disposing)
         {

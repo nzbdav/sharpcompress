@@ -36,7 +36,6 @@ public partial class SqueezeStream
             .ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -44,7 +43,6 @@ public partial class SqueezeStream
     {
         return await _decodedStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
     }
-#endif
 
     private async ValueTask<Stream> BuildDecodedStreamAsync(CancellationToken cancellationToken)
     {

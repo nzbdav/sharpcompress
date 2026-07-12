@@ -6,10 +6,7 @@ using SharpCompress.Common;
 
 namespace SharpCompress.Readers.Ace;
 
-public partial class AceReader
-#if NET8_0_OR_GREATER
-    : IReaderOpenable
-#endif
+public partial class AceReader : IReaderOpenable
 {
     /// <summary>
     /// Opens an AceReader for non-seeking usage with a single volume.

@@ -4,10 +4,7 @@ using System.Threading.Tasks;
 
 namespace SharpCompress.Readers.GZip;
 
-public partial class GZipReader
-#if NET8_0_OR_GREATER
-    : IReaderOpenable
-#endif
+public partial class GZipReader : IReaderOpenable
 {
     public static ValueTask<IAsyncReader> OpenAsyncReader(
         string filePath,

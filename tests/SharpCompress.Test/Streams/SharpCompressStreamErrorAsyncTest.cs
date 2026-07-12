@@ -49,7 +49,6 @@ public class SharpCompressStreamErrorAsyncTest
         }
     }
 
-#if !LEGACY_DOTNET
     [Fact]
     public async ValueTask DisposeAsync_WithThrowOnDisposeTrue_ThrowsInvalidOperation()
     {
@@ -62,7 +61,6 @@ public class SharpCompressStreamErrorAsyncTest
             )
             .ConfigureAwait(false);
     }
-#endif
 
     [Fact]
     public async ValueTask CreateNonDisposing_ReadAsync_ZeroCount_ReturnsZero()

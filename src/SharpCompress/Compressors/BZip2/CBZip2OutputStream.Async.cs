@@ -630,7 +630,6 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -644,7 +643,6 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
             await WriteByteAsync(value, cancellationToken).ConfigureAwait(false);
         }
     }
-#endif
 
     /// <summary>
     /// Asynchronously finalizes the BZip2 compressed stream, flushing all pending data.
@@ -670,11 +668,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
         await bsStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (disposed)
         {
@@ -696,11 +690,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
         }
         bsStream = null;
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#else
-        await Task.CompletedTask.ConfigureAwait(false);
-#endif
         GC.SuppressFinalize(this);
     }
 }

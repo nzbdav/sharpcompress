@@ -14,13 +14,11 @@ using SharpCompress.Writers.Tar;
 namespace SharpCompress.Archives.Tar;
 
 public partial class TarArchive
-#if NET8_0_OR_GREATER
     : IWritableArchiveOpenable<TarWriterOptions>,
         IMultiArchiveOpenable<
             IWritableArchive<TarWriterOptions>,
             IWritableAsyncArchive<TarWriterOptions>
         >
-#endif
 {
     public static IWritableArchive<TarWriterOptions> OpenArchive(
         string filePath,
@@ -198,11 +196,7 @@ public partial class TarArchive
         try
         {
             var tarHeader = new TarHeader(new ArchiveEncoding());
-#if NET8_0_OR_GREATER
             await using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#else
-            using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#endif
             var readSucceeded = await tarHeader
                 .ReadAsync(reader, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
@@ -251,11 +245,7 @@ public partial class TarArchive
         }
         catch
         {
-#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_0_OR_GREATER
             await sourceStream.DisposeAsync().ConfigureAwait(false);
-#else
-            sourceStream.Dispose();
-#endif
             throw;
         }
     }
@@ -287,10 +277,6 @@ public partial class TarArchive
 
     private static bool IsDefined(EntryType value)
     {
-#if LEGACY_DOTNET
-        return Enum.IsDefined(typeof(EntryType), value);
-#else
         return Enum.IsDefined(value);
-#endif
     }
 }

@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -366,4 +365,3 @@ public class AsyncParityAndCancellationTests : TestBase
             throw new NotSupportedException();
     }
 }
-#endif

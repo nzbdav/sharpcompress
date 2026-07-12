@@ -47,12 +47,10 @@ public class ThrowOnFlushStream : Stream
         CancellationToken cancellationToken
     ) => inner.ReadAsync(buffer, offset, count, cancellationToken);
 
-#if !NETFRAMEWORK && !NETSTANDARD2_0
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
     ) => inner.ReadAsync(buffer, cancellationToken);
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

@@ -1,4 +1,3 @@
-#if NET8_0_OR_GREATER
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -52,4 +51,3 @@ public partial class ArjReader : IReaderOpenable
         return OpenReader(fileInfo.OpenRead(), readerOptions);
     }
 }
-#endif

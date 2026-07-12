@@ -14,13 +14,11 @@ using SharpCompress.Writers.Zip;
 namespace SharpCompress.Archives.Zip;
 
 public partial class ZipArchive
-#if NET8_0_OR_GREATER
     : IWritableArchiveOpenable<ZipWriterOptions>,
         IMultiArchiveOpenable<
             IWritableArchive<ZipWriterOptions>,
             IWritableAsyncArchive<ZipWriterOptions>
         >
-#endif
 {
     public static IWritableArchive<ZipWriterOptions> OpenArchive(
         string filePath,
@@ -297,10 +295,6 @@ public partial class ZipArchive
 
     private static bool IsDefined(ZipHeaderType value)
     {
-#if LEGACY_DOTNET
-        return Enum.IsDefined(typeof(ZipHeaderType), value);
-#else
         return Enum.IsDefined(value);
-#endif
     }
 }

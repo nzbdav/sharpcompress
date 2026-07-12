@@ -62,7 +62,6 @@ internal partial class BufferedSubStream
         return count;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -88,5 +87,4 @@ internal partial class BufferedSubStream
 
         return count;
     }
-#endif
 }

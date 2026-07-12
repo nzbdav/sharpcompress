@@ -565,7 +565,6 @@ public static unsafe partial class Methods
         return 0;
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_rtbTable =>
         new uint[8] { 0, 473195, 504333, 520860, 550000, 700000, 750000, 830000 };
     private static uint* rtbTable =>
@@ -573,12 +572,7 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_rtbTable)
             );
-#else
 
-    private static readonly uint* rtbTable = GetArrayPointer(
-        new uint[8] { 0, 473195, 504333, 520860, 550000, 700000, 750000, 830000 }
-    );
-#endif
     /*! FSE_normalizeCount():
     normalize counts so that sum(count[]) == Power_of_2 (2^tableLog)
     'normalizedCounter' is a table of short, of minimum size (maxSymbolValue+1).

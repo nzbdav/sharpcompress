@@ -140,7 +140,6 @@ public sealed partial class LHDecoderStream
         return totalRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -193,5 +192,4 @@ public sealed partial class LHDecoderStream
 
         return totalRead;
     }
-#endif
 }

@@ -23,7 +23,6 @@ public class LzwStreamAsyncTests : TestBase
         Assert.True(bytesRead > 0, "Should read at least some data");
     }
 
-#if !LEGACY_DOTNET
     [Fact]
     public async Task LzwStream_ReadAsync_Memory()
     {
@@ -36,7 +35,6 @@ public class LzwStreamAsyncTests : TestBase
 
         Assert.True(bytesRead > 0, "Should read at least some data");
     }
-#endif
 
     [Fact]
     public async Task LzwStream_ReadAsync_ProducesSameResultAsSync()

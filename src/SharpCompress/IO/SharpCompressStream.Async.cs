@@ -95,7 +95,6 @@ public partial class SharpCompressStream
         return totalRead;
     }
 
-#if !LEGACY_DOTNET
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -189,7 +188,6 @@ public partial class SharpCompressStream
 
         return totalRead;
     }
-#endif
 
     public override Task WriteAsync(
         byte[] buffer,
@@ -205,7 +203,6 @@ public partial class SharpCompressStream
         throw new NotSupportedException();
     }
 
-#if !LEGACY_DOTNET
     public override ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -217,7 +214,6 @@ public partial class SharpCompressStream
         }
         throw new NotSupportedException();
     }
-#endif
 
     public override Task FlushAsync(CancellationToken cancellationToken)
     {
@@ -249,7 +245,6 @@ public partial class SharpCompressStream
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (!isDisposed)
@@ -270,5 +265,4 @@ public partial class SharpCompressStream
         }
         await base.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 }

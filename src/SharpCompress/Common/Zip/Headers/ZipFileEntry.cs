@@ -137,10 +137,6 @@ internal abstract partial class ZipFileEntry(ZipHeaderType type, IArchiveEncodin
 
     private static bool IsDefined(ExtraDataType type)
     {
-#if LEGACY_DOTNET
-        return Enum.IsDefined(typeof(ExtraDataType), type);
-#else
         return Enum.IsDefined(type);
-#endif
     }
 }

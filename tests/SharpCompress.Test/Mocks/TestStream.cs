@@ -45,7 +45,6 @@ public class TestStream(Stream stream, bool read, bool write, bool seek) : Strea
         CancellationToken cancellationToken
     ) => stream.ReadAsync(buffer, offset, count, cancellationToken);
 
-#if !LEGACY_DOTNET
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -57,7 +56,6 @@ public class TestStream(Stream stream, bool read, bool write, bool seek) : Strea
         await stream.DisposeAsync();
         IsDisposed = true;
     }
-#endif
 
     public override long Seek(long offset, SeekOrigin origin) => stream.Seek(offset, origin);
 

@@ -89,7 +89,6 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         return true;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -99,7 +98,6 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
     ) => await stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-#endif
 
     public override async Task<int> ReadAsync(
         byte[] buffer,
@@ -115,11 +113,7 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         CancellationToken cancellationToken = default
     ) => await stream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (isDisposed)
         {
@@ -136,11 +130,7 @@ public sealed partial class BZip2Stream : IAsyncDisposable
             stream.Dispose();
         }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#else
-        await Task.CompletedTask.ConfigureAwait(false);
-#endif
         GC.SuppressFinalize(this);
     }
 }

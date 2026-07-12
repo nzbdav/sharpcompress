@@ -38,9 +38,6 @@ using SharpCompress.Common.Options;
 namespace SharpCompress.Compressors.Deflate;
 
 public partial class GZipStream : Stream
-#if LEGACY_DOTNET
-        , IAsyncDisposable
-#endif
 {
     internal static readonly DateTime UNIX_EPOCH = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -415,11 +412,7 @@ public partial class GZipStream : Stream
             {
                 return;
             }
-#if LEGACY_DOTNET
-            if (_fileName.Contains('/'))
-#else
             if (_fileName.Contains('/', StringComparison.Ordinal))
-#endif
             {
                 _fileName = _fileName.Replace('/', '\\');
             }
@@ -428,11 +421,7 @@ public partial class GZipStream : Stream
                 throw new ArchiveOperationException("Illegal filename");
             }
 
-#if LEGACY_DOTNET
-            if (_fileName.Contains('\\'))
-#else
             if (_fileName.Contains('\\', StringComparison.Ordinal))
-#endif
             {
                 // trim any leading path
                 _fileName = Path.GetFileName(_fileName);

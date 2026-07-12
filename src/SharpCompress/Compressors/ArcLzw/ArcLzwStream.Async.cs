@@ -48,7 +48,6 @@ public partial class ArcLzwStream
         return result;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -72,5 +71,4 @@ public partial class ArcLzwStream
             System.Buffers.ArrayPool<byte>.Shared.Return(array);
         }
     }
-#endif
 }

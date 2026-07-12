@@ -12,11 +12,7 @@ internal sealed partial class SeekableZipHeaderFactory
 {
     internal async IAsyncEnumerable<ZipHeader> ReadSeekableHeaderAsync(Stream stream)
     {
-#if NET8_0_OR_GREATER
         await using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#else
-        using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#endif
 
         await SeekBackToHeaderAsync(stream, reader).ConfigureAwait(false);
 
@@ -132,11 +128,7 @@ internal sealed partial class SeekableZipHeaderFactory
     )
     {
         stream.Seek(directoryEntryHeader.RelativeOffsetOfEntryHeader, SeekOrigin.Begin);
-#if NET8_0_OR_GREATER
         await using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#else
-        using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
-#endif
         var signature = await reader.ReadUInt32Async().ConfigureAwait(false);
         if (
             await ReadHeader(signature, reader, _zip64).ConfigureAwait(false)

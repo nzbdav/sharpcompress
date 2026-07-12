@@ -152,11 +152,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         }
         catch
         {
-#if LEGACY_DOTNET && !NETSTANDARD2_1
-            instance.Dispose();
-#else
             await instance.DisposeAsync().ConfigureAwait(false);
-#endif
             throw;
         }
     }
@@ -188,11 +184,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         base.Dispose(disposing);
     }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (_isDisposed)
         {
@@ -207,9 +199,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         _modelH?.Dispose();
         _modelH = null;
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#endif
     }
 
     public override long Length => throw new NotSupportedException();
@@ -310,7 +300,6 @@ public class PpmdStream : Stream, IAsyncDisposable
         return size;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -367,7 +356,6 @@ public class PpmdStream : Stream, IAsyncDisposable
         _position += size;
         return size;
     }
-#endif
 
     public override void Write(byte[] buffer, int offset, int count)
     {
@@ -398,7 +386,6 @@ public class PpmdStream : Stream, IAsyncDisposable
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -417,5 +404,4 @@ public class PpmdStream : Stream, IAsyncDisposable
                 .ConfigureAwait(false);
         }
     }
-#endif
 }

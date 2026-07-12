@@ -62,7 +62,6 @@ internal sealed partial class ProgressReportingStream : Stream
         return bytesRead;
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         var bytesRead = _baseStream.Read(buffer);
@@ -73,7 +72,6 @@ internal sealed partial class ProgressReportingStream : Stream
         }
         return bytesRead;
     }
-#endif
 
     public override int ReadByte()
     {

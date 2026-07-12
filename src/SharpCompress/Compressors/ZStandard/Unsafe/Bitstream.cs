@@ -1,16 +1,13 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using static SharpCompress.Compressors.ZStandard.UnsafeHelper;
-#if NETCOREAPP3_0_OR_GREATER
 using System.Runtime.Intrinsics.X86;
-#endif
+using static SharpCompress.Compressors.ZStandard.UnsafeHelper;
 
 namespace SharpCompress.Compressors.ZStandard.Unsafe;
 
 public static unsafe partial class Methods
 {
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_BIT_mask =>
         new uint[32]
         {
@@ -52,46 +49,7 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_BIT_mask)
             );
-#else
 
-    private static readonly uint* BIT_mask = GetArrayPointer(
-        new uint[32]
-        {
-            0,
-            1,
-            3,
-            7,
-            0xF,
-            0x1F,
-            0x3F,
-            0x7F,
-            0xFF,
-            0x1FF,
-            0x3FF,
-            0x7FF,
-            0xFFF,
-            0x1FFF,
-            0x3FFF,
-            0x7FFF,
-            0xFFFF,
-            0x1FFFF,
-            0x3FFFF,
-            0x7FFFF,
-            0xFFFFF,
-            0x1FFFFF,
-            0x3FFFFF,
-            0x7FFFFF,
-            0xFFFFFF,
-            0x1FFFFFF,
-            0x3FFFFFF,
-            0x7FFFFFF,
-            0xFFFFFFF,
-            0x1FFFFFFF,
-            0x3FFFFFFF,
-            0x7FFFFFFF,
-        }
-    );
-#endif
     /*-**************************************************************
      *  bitStream encoding
      ****************************************************************/
@@ -119,7 +77,6 @@ public static unsafe partial class Methods
     private static nuint BIT_getLowerBits(nuint bitContainer, uint nbBits)
     {
         assert(nbBits < sizeof(uint) * 32 / sizeof(uint));
-#if NETCOREAPP3_1_OR_GREATER
         if (Bmi2.X64.IsSupported)
         {
             return (nuint)Bmi2.X64.ZeroHighBits(bitContainer, nbBits);
@@ -129,7 +86,6 @@ public static unsafe partial class Methods
         {
             return Bmi2.ZeroHighBits((uint)bitContainer, nbBits);
         }
-#endif
 
         return bitContainer & BIT_mask[nbBits];
     }
@@ -324,7 +280,6 @@ public static unsafe partial class Methods
     {
         uint regMask = (uint)(sizeof(nuint) * 8 - 1);
         assert(nbBits < sizeof(uint) * 32 / sizeof(uint));
-#if NETCOREAPP3_1_OR_GREATER
         if (Bmi2.X64.IsSupported)
         {
             return (nuint)Bmi2.X64.ZeroHighBits(bitContainer >> (int)(start & regMask), nbBits);
@@ -334,7 +289,6 @@ public static unsafe partial class Methods
         {
             return Bmi2.ZeroHighBits((uint)(bitContainer >> (int)(start & regMask)), nbBits);
         }
-#endif
 
         return (nuint)(bitContainer >> (int)(start & regMask) & ((ulong)1 << (int)nbBits) - 1);
     }
@@ -429,7 +383,6 @@ public static unsafe partial class Methods
         return BIT_reloadDStream_internal(bitD);
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<byte> Span_static_zeroFilled =>
         new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 };
     private static nuint* static_zeroFilled =>
@@ -437,12 +390,7 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_static_zeroFilled)
             );
-#else
 
-    private static readonly nuint* static_zeroFilled = (nuint*)GetArrayPointer(
-        new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }
-    );
-#endif
     /*! BIT_reloadDStream() :
      *  Refill `bitD` from buffer previously set in BIT_initDStream() .
      *  This function is safe, it guarantees it will not never beyond src buffer.

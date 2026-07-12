@@ -25,7 +25,6 @@ internal sealed partial class ProgressReportingStream
         return bytesRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -41,9 +40,7 @@ internal sealed partial class ProgressReportingStream
         }
         return bytesRead;
     }
-#endif
 
-#if !LEGACY_DOTNET
     public override async ValueTask DisposeAsync()
     {
         if (!_leaveOpen)
@@ -52,5 +49,4 @@ internal sealed partial class ProgressReportingStream
         }
         await base.DisposeAsync().ConfigureAwait(false);
     }
-#endif
 }

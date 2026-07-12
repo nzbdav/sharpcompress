@@ -242,7 +242,6 @@ public class SeekableSharpCompressStreamTest
     }
 }
 
-#if !LEGACY_DOTNET
 public partial class SeekableRewindableSpanTest
 {
     [Fact]
@@ -281,4 +280,3 @@ public partial class SeekableRewindableSpanTest
         Assert.Equal(writeData, readBuffer);
     }
 }
-#endif

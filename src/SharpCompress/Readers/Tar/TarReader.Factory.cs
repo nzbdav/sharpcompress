@@ -10,10 +10,7 @@ using SharpCompress.Providers;
 
 namespace SharpCompress.Readers.Tar;
 
-public partial class TarReader
-#if NET8_0_OR_GREATER
-    : IReaderOpenable
-#endif
+public partial class TarReader : IReaderOpenable
 {
     private static Stream CreateProbeDecompressionStream(
         Stream stream,

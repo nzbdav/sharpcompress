@@ -1,14 +1,10 @@
 using System;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using static SharpCompress.Compressors.ZStandard.UnsafeHelper;
-#if NETCOREAPP3_0_OR_GREATER
 using System.Runtime.Intrinsics;
-using System.Runtime.Intrinsics.X86;
-#endif
-#if NET6_0_OR_GREATER
 using System.Runtime.Intrinsics.Arm;
-#endif
+using System.Runtime.Intrinsics.X86;
+using static SharpCompress.Compressors.ZStandard.UnsafeHelper;
 
 namespace SharpCompress.Compressors.ZStandard.Unsafe;
 
@@ -628,23 +624,19 @@ public static unsafe partial class Methods
         uint matchIndex;
         for (ddsAttempt = 0; ddsAttempt < bucketSize - 1; ddsAttempt++)
         {
-#if NETCOREAPP3_0_OR_GREATER
             if (Sse.IsSupported)
             {
                 Sse.Prefetch0(ddsBase + dms->hashTable[ddsIdx + ddsAttempt]);
             }
-#endif
         }
 
         {
             uint chainPackedPointer = dms->hashTable[ddsIdx + bucketSize - 1];
             uint chainIndex = chainPackedPointer >> 8;
-#if NETCOREAPP3_0_OR_GREATER
             if (Sse.IsSupported)
             {
                 Sse.Prefetch0(&dms->chainTable[chainIndex]);
             }
-#endif
         }
 
         for (ddsAttempt = 0; ddsAttempt < bucketLimit; ddsAttempt++)
@@ -687,12 +679,10 @@ public static unsafe partial class Methods
             uint chainAttempt;
             for (chainAttempt = 0; chainAttempt < chainLimit; chainAttempt++)
             {
-#if NETCOREAPP3_0_OR_GREATER
                 if (Sse.IsSupported)
                 {
                     Sse.Prefetch0(ddsBase + dms->chainTable[chainIndex + chainAttempt]);
                 }
-#endif
             }
 
             for (chainAttempt = 0; chainAttempt < chainLimit; chainAttempt++, chainIndex++)
@@ -806,12 +796,10 @@ public static unsafe partial class Methods
         if (dictMode == ZSTD_dictMode_e.ZSTD_dedicatedDictSearch)
         {
             uint* entry = &dms->hashTable[ddsIdx];
-#if NETCOREAPP3_0_OR_GREATER
             if (Sse.IsSupported)
             {
                 Sse.Prefetch0(entry);
             }
-#endif
         }
 
         matchIndex = ZSTD_insertAndFindFirstIndex_internal(
@@ -966,38 +954,30 @@ public static unsafe partial class Methods
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ZSTD_row_prefetch(uint* hashTable, byte* tagTable, uint relRow, uint rowLog)
     {
-#if NETCOREAPP3_0_OR_GREATER
         if (Sse.IsSupported)
         {
             Sse.Prefetch0(hashTable + relRow);
         }
-#endif
 
         if (rowLog >= 5)
         {
-#if NETCOREAPP3_0_OR_GREATER
             if (Sse.IsSupported)
             {
                 Sse.Prefetch0(hashTable + relRow + 16);
             }
-#endif
         }
 
-#if NETCOREAPP3_0_OR_GREATER
         if (Sse.IsSupported)
         {
             Sse.Prefetch0(tagTable + relRow);
         }
-#endif
 
         if (rowLog == 6)
         {
-#if NETCOREAPP3_0_OR_GREATER
             if (Sse.IsSupported)
             {
                 Sse.Prefetch0(tagTable + relRow + 32);
             }
-#endif
         }
 
         assert(rowLog == 4 || rowLog == 5 || rowLog == 6);
@@ -1172,7 +1152,6 @@ public static unsafe partial class Methods
     {
         assert(rowEntries == 16 || rowEntries == 32 || rowEntries == 64);
         assert(rowEntries <= 64);
-#if NET6_0_OR_GREATER
         if (AdvSimd.IsSupported && BitConverter.IsLittleEndian)
         {
             if (rowEntries == 16)
@@ -1194,11 +1173,9 @@ public static unsafe partial class Methods
             }
 #endif
         }
-#endif
         return 1;
     }
 
-#if NETCOREAPP3_0_OR_GREATER
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ulong ZSTD_row_getSSEMask(int nbChunks, byte* src, byte tag, uint head)
     {
@@ -1245,7 +1222,6 @@ public static unsafe partial class Methods
             );
         }
     }
-#endif
 
     /* Returns a ZSTD_VecMask (U64) that has the nth group (determined by
      * ZSTD_row_matchMaskGroupWidth) of bits set to 1 if the newly-computed "tag"
@@ -1265,14 +1241,11 @@ public static unsafe partial class Methods
         assert(rowEntries == 16 || rowEntries == 32 || rowEntries == 64);
         assert(rowEntries <= 64);
         assert(ZSTD_row_matchMaskGroupWidth(rowEntries) * rowEntries <= sizeof(ulong) * 8);
-#if NETCOREAPP3_0_OR_GREATER
         if (Sse2.IsSupported)
         {
             return ZSTD_row_getSSEMask((int)(rowEntries / 16), src, tag, headGrouped);
         }
-#endif
 
-#if NET6_0_OR_GREATER
         if (AdvSimd.IsSupported && BitConverter.IsLittleEndian)
         {
             if (rowEntries == 16)
@@ -1347,7 +1320,6 @@ public static unsafe partial class Methods
 #endif
             }
         }
-#endif
 
         {
             nuint chunkSize = (nuint)sizeof(nuint);
@@ -1469,12 +1441,10 @@ public static unsafe partial class Methods
             uint ddsHashLog = dms->cParams.hashLog - 2;
             {
                 ddsIdx = ZSTD_hashPtr(ip, ddsHashLog, mls) << 2;
-#if NETCOREAPP3_0_OR_GREATER
                 if (Sse.IsSupported)
                 {
                     Sse.Prefetch0(&dms->hashTable[ddsIdx]);
                 }
-#endif
             }
 
             ddsExtraAttempts =
@@ -1543,21 +1513,17 @@ public static unsafe partial class Methods
 
                 if (dictMode != ZSTD_dictMode_e.ZSTD_extDict || matchIndex >= dictLimit)
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (Sse.IsSupported)
                     {
                         Sse.Prefetch0(@base + matchIndex);
                     }
-#endif
                 }
                 else
                 {
-#if NETCOREAPP3_0_OR_GREATER
                     if (Sse.IsSupported)
                     {
                         Sse.Prefetch0(dictBase + matchIndex);
                     }
-#endif
                 }
 
                 matchBuffer[numMatches++] = matchIndex;
@@ -1659,12 +1625,10 @@ public static unsafe partial class Methods
                     {
                         break;
                     }
-#if NETCOREAPP3_0_OR_GREATER
                     if (Sse.IsSupported)
                     {
                         Sse.Prefetch0(dmsBase + matchIndex);
                     }
-#endif
 
                     matchBuffer[numMatches++] = matchIndex;
                     --nbAttempts;

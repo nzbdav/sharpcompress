@@ -100,7 +100,6 @@ internal abstract partial class Filter
         return size;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -198,7 +197,6 @@ internal abstract partial class Filter
 
         return size;
     }
-#endif
 
     public override async Task WriteAsync(
         byte[] buffer,
@@ -213,7 +211,6 @@ internal abstract partial class Filter
             .ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -224,5 +221,4 @@ internal abstract partial class Filter
         Transform(array, 0, array.Length);
         await _baseStream.WriteAsync(array, cancellationToken).ConfigureAwait(false);
     }
-#endif
 }

@@ -137,11 +137,7 @@ public abstract partial class ArjHeader
 
     public static FileType FileTypeFromByte(byte value)
     {
-#if LEGACY_DOTNET
-        return Enum.IsDefined(typeof(FileType), value) ? (FileType)value : Headers.FileType.Unknown;
-#else
         return Enum.IsDefined((FileType)value) ? (FileType)value : Headers.FileType.Unknown;
-#endif
     }
 
     public static bool IsArchive(Stream stream)

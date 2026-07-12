@@ -2617,7 +2617,6 @@ public static unsafe partial class Methods
         }
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<ulong> Span_srcSizeTiers =>
         new ulong[4] { 16 * (1 << 10), 128 * (1 << 10), 256 * (1 << 10), unchecked(0UL - 1) };
     private static ulong* srcSizeTiers =>
@@ -2625,18 +2624,6 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_srcSizeTiers)
             );
-#else
-
-    private static readonly ulong* srcSizeTiers = GetArrayPointer(
-        new ulong[4]
-        {
-            (ulong)(16 * (1 << 10)),
-            (ulong)(128 * (1 << 10)),
-            (ulong)(256 * (1 << 10)),
-            (unchecked(0UL - 1)),
-        }
-    );
-#endif
 
     private static nuint ZSTD_estimateCCtxSize_internal(int compressionLevel)
     {
@@ -6508,7 +6495,6 @@ public static unsafe partial class Methods
         }
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<int> Span_splitLevels =>
         new int[10] { 0, 0, 1, 2, 2, 3, 3, 4, 4, 4 };
     private static int* splitLevels =>
@@ -6516,12 +6502,6 @@ public static unsafe partial class Methods
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_splitLevels)
             );
-#else
-
-    private static readonly int* splitLevels = GetArrayPointer(
-        new int[10] { 0, 0, 1, 2, 2, 3, 3, 4, 4, 4 }
-    );
-#endif
 
     private static nuint ZSTD_optimalBlockSize(
         ZSTD_CCtx_s* cctx,

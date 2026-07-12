@@ -31,7 +31,6 @@ internal partial class PkwareTraditionalCryptoStream
         return readBytes;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -57,7 +56,6 @@ internal partial class PkwareTraditionalCryptoStream
             ArrayPool<byte>.Shared.Return(temp);
         }
     }
-#endif
 
     public override async Task WriteAsync(
         byte[] buffer,
@@ -93,7 +91,6 @@ internal partial class PkwareTraditionalCryptoStream
             .ConfigureAwait(false);
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -125,5 +122,4 @@ internal partial class PkwareTraditionalCryptoStream
             .WriteAsync(encrypted.AsMemory(0, encrypted.Length), cancellationToken)
             .ConfigureAwait(false);
     }
-#endif
 }

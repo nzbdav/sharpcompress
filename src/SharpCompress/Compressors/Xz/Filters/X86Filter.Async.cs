@@ -23,7 +23,6 @@ public partial class X86Filter
         return bytesRead;
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask<int> ReadAsync(
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -37,5 +36,4 @@ public partial class X86Filter
         _ip += (uint)bytesRead;
         return bytesRead;
     }
-#endif
 }

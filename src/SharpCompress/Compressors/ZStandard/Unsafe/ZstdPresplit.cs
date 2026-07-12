@@ -165,17 +165,12 @@ public static unsafe partial class Methods
         (delegate* managed<Fingerprint*, void*, nuint, void>)(&ZSTD_recordFingerprint_5),
         (delegate* managed<Fingerprint*, void*, nuint, void>)(&ZSTD_recordFingerprint_1),
     };
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_hashParams => new uint[4] { 8, 9, 10, 10 };
     private static uint* hashParams =>
         (uint*)
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_hashParams)
             );
-#else
-
-    private static readonly uint* hashParams = GetArrayPointer(new uint[4] { 8, 9, 10, 10 });
-#endif
 
     private static nuint ZSTD_splitBlock_byChunks(
         void* blockStart,

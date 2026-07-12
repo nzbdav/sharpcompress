@@ -382,7 +382,6 @@ public sealed class PooledMemoryStream : MemoryStream
         return Task.CompletedTask;
     }
 
-#if !LEGACY_DOTNET
     public override int Read(Span<byte> buffer)
     {
         EnsureNotClosed();
@@ -493,7 +492,6 @@ public sealed class PooledMemoryStream : MemoryStream
         Write(buffer.Span);
         return ValueTask.CompletedTask;
     }
-#endif
 
     protected override void Dispose(bool disposing)
     {

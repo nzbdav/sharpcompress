@@ -240,12 +240,10 @@ public static unsafe partial class Methods
                             nuint _pos;
                             for (_pos = 0; _pos < _size; _pos += 64)
                             {
-#if NETCOREAPP3_0_OR_GREATER
                                 if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                                 {
                                     System.Runtime.Intrinsics.X86.Sse.Prefetch1(_ptr + _pos);
                                 }
-#endif
                             }
                         }
 
@@ -990,12 +988,10 @@ public static unsafe partial class Methods
                         nuint _pos;
                         for (_pos = 0; _pos < _size; _pos += 64)
                         {
-#if NETCOREAPP3_0_OR_GREATER
                             if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
                             {
                                 System.Runtime.Intrinsics.X86.Sse.Prefetch1(_ptr + _pos);
                             }
-#endif
                         }
                     }
                 }
@@ -1191,32 +1187,19 @@ public static unsafe partial class Methods
         return (nuint)(ip - istart);
     }
 
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<uint> Span_dec32table => new uint[8] { 0, 1, 2, 1, 4, 4, 4, 4 };
     private static uint* dec32table =>
         (uint*)
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_dec32table)
             );
-#else
-
-    private static readonly uint* dec32table = GetArrayPointer(
-        new uint[8] { 0, 1, 2, 1, 4, 4, 4, 4 }
-    );
-#endif
-#if NET7_0_OR_GREATER
     private static ReadOnlySpan<int> Span_dec64table => new int[8] { 8, 8, 8, 7, 8, 9, 10, 11 };
     private static int* dec64table =>
         (int*)
             System.Runtime.CompilerServices.Unsafe.AsPointer(
                 ref MemoryMarshal.GetReference(Span_dec64table)
             );
-#else
 
-    private static readonly int* dec64table = GetArrayPointer(
-        new int[8] { 8, 8, 8, 7, 8, 9, 10, 11 }
-    );
-#endif
     /*! ZSTD_overlapCopy8() :
      *  Copies 8 bytes from ip to op and updates op and ip where ip <= op.
      *  If the offset is < 8 then the offset is spread to at least 8 bytes.
@@ -2607,13 +2590,11 @@ public static unsafe partial class Methods
                 ZSTD_wrappedPtrAdd(matchBase, (nint)prefetchPos),
                 (nint)sequence.offset
             );
-#if NETCOREAPP3_0_OR_GREATER
             if (System.Runtime.Intrinsics.X86.Sse.IsSupported)
             {
                 System.Runtime.Intrinsics.X86.Sse.Prefetch0(match);
                 System.Runtime.Intrinsics.X86.Sse.Prefetch0(match + 64);
             }
-#endif
         }
 
         return prefetchPos + sequence.matchLength;

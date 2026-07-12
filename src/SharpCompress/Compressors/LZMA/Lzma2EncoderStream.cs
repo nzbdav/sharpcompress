@@ -115,7 +115,6 @@ internal sealed class Lzma2EncoderStream : Stream
         }
     }
 
-#if !LEGACY_DOTNET
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -139,7 +138,6 @@ internal sealed class Lzma2EncoderStream : Stream
             }
         }
     }
-#endif
 
     public override void Flush() { }
 
@@ -172,11 +170,7 @@ internal sealed class Lzma2EncoderStream : Stream
 
     private static readonly byte[] _endMarker = [0x00];
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
     public override async ValueTask DisposeAsync()
-#else
-    public async ValueTask DisposeAsync()
-#endif
     {
         if (!_isDisposed)
         {
@@ -186,20 +180,14 @@ internal sealed class Lzma2EncoderStream : Stream
             {
                 await FlushChunkAsync().ConfigureAwait(false);
             }
-#if !LEGACY_DOTNET || NETSTANDARD2_1
 
             await _output.WriteAsync(new Memory<byte>(_endMarker)).ConfigureAwait(false);
-#else
-            await _output.WriteAsync(_endMarker, 0, 1).ConfigureAwait(false);
-#endif
 
             _encoder.Dispose();
             ArrayPool<byte>.Shared.Return(_buffer);
         }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
         await base.DisposeAsync().ConfigureAwait(false);
-#endif
     }
 
     private void FlushChunk()
@@ -452,24 +440,9 @@ internal sealed class Lzma2EncoderStream : Stream
                 ArrayPool<byte>.Shared.Return(header);
             }
 
-#if !LEGACY_DOTNET || NETSTANDARD2_1
             await _output
                 .WriteAsync(data.Slice(offset, chunkSize), cancellationToken)
                 .ConfigureAwait(false);
-#else
-            var chunk = ArrayPool<byte>.Shared.Rent(chunkSize);
-            try
-            {
-                data.Slice(offset, chunkSize).CopyTo(chunk);
-                await _output
-                    .WriteAsync(chunk, 0, chunkSize, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(chunk);
-            }
-#endif
             offset += chunkSize;
         }
     }
