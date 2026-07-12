@@ -658,6 +658,10 @@ public class ArchiveFactoryTests : TestBase
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public void IsArchive_ReturnsFalse_ForCompressedTar(string archiveName)
     {
@@ -671,6 +675,10 @@ public class ArchiveFactoryTests : TestBase
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public async ValueTask IsArchiveAsync_ReturnsFalse_ForCompressedTar(string archiveName)
     {
@@ -684,6 +692,10 @@ public class ArchiveFactoryTests : TestBase
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public void GetArchiveInformation_ReturnsNull_ForCompressedTar(string archiveName)
     {
@@ -696,6 +708,10 @@ public class ArchiveFactoryTests : TestBase
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public async ValueTask GetArchiveInformationAsync_ReturnsNull_ForCompressedTar(
         string archiveName

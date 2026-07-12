@@ -4,12 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
-using SharpCompress.Common.Options;
 using SharpCompress.Common.Tar;
 using SharpCompress.IO;
 using SharpCompress.Readers;
 using SharpCompress.Readers.Tar;
-using SharpCompress.Writers;
 using SharpCompress.Writers.Tar;
 
 namespace SharpCompress.Archives.Tar;

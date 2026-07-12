@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
 using SharpCompress.Common.Tar.Headers;
-using SharpCompress.Factories;
 using SharpCompress.IO;
 using SharpCompress.Readers;
 using SharpCompress.Writers.Tar;
@@ -53,8 +52,7 @@ public partial class TarArchive
             i => i < files.Count ? files[i] : null,
             readerOptions ?? ReaderOptions.ForFilePath
         );
-        EnsureRawTarFile(sourceStream);
-        return new TarArchive(sourceStream);
+        return OpenValidatedArchive(sourceStream);
     }
 
     public static IWritableArchive<TarWriterOptions> OpenArchive(
@@ -68,8 +66,7 @@ public partial class TarArchive
             i => i < strms.Count ? strms[i] : null,
             readerOptions ?? ReaderOptions.ForExternalStream
         );
-        EnsureRawTarFile(sourceStream);
-        return new TarArchive(sourceStream);
+        return OpenValidatedArchive(sourceStream);
     }
 
     public static IWritableArchive<TarWriterOptions> OpenArchive(
@@ -96,8 +93,8 @@ public partial class TarArchive
             i => null,
             readerOptions ?? ReaderOptions.ForExternalStream
         );
-        await EnsureRawTarFileAsync(sourceStream, cancellationToken).ConfigureAwait(false);
-        return new TarArchive(sourceStream);
+        return await OpenValidatedArchiveAsync(sourceStream, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public static ValueTask<IWritableAsyncArchive<TarWriterOptions>> OpenAsyncArchive(
@@ -121,8 +118,8 @@ public partial class TarArchive
         fileInfo.NotNull(nameof(fileInfo));
         readerOptions ??= ReaderOptions.ForFilePath;
         var sourceStream = new SourceStream(fileInfo, i => null, readerOptions);
-        await EnsureRawTarFileAsync(sourceStream, cancellationToken).ConfigureAwait(false);
-        return new TarArchive(sourceStream);
+        return await OpenValidatedArchiveAsync(sourceStream, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public static async ValueTask<IWritableAsyncArchive<TarWriterOptions>> OpenAsyncArchive(
@@ -138,8 +135,8 @@ public partial class TarArchive
             i => i < strms.Count ? strms[i] : null,
             readerOptions ?? ReaderOptions.ForExternalStream
         );
-        await EnsureRawTarFileAsync(sourceStream, cancellationToken).ConfigureAwait(false);
-        return new TarArchive(sourceStream);
+        return await OpenValidatedArchiveAsync(sourceStream, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public static async ValueTask<IWritableAsyncArchive<TarWriterOptions>> OpenAsyncArchive(
@@ -156,8 +153,8 @@ public partial class TarArchive
             i => i < files.Count ? files[i] : null,
             readerOptions ?? ReaderOptions.ForFilePath
         );
-        await EnsureRawTarFileAsync(sourceStream, cancellationToken).ConfigureAwait(false);
-        return new TarArchive(sourceStream);
+        return await OpenValidatedArchiveAsync(sourceStream, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public static bool IsTarFile(string filePath) => IsTarFile(new FileInfo(filePath));
@@ -206,14 +203,16 @@ public partial class TarArchive
 #else
             using var reader = new AsyncBinaryReader(stream, leaveOpen: true);
 #endif
-            var readSucceeded = await tarHeader.ReadAsync(reader).ConfigureAwait(false);
+            var readSucceeded = await tarHeader
+                .ReadAsync(reader, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
             var isEmptyArchive =
                 tarHeader.Name?.Length == 0
                 && tarHeader.Size == 0
                 && IsDefined(tarHeader.EntryType);
             return readSucceeded || isEmptyArchive;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Catch all exceptions during tar header reading to determine if this is a valid tar file
             // Invalid tar files or corrupted streams will throw various exceptions
@@ -226,11 +225,47 @@ public partial class TarArchive
     public static ValueTask<IWritableAsyncArchive<TarWriterOptions>> CreateAsyncArchive() =>
         new(new TarArchive());
 
+    private static TarArchive OpenValidatedArchive(SourceStream sourceStream)
+    {
+        try
+        {
+            EnsureRawTarFile(sourceStream);
+            return new TarArchive(sourceStream);
+        }
+        catch
+        {
+            sourceStream.Dispose();
+            throw;
+        }
+    }
+
+    private static async ValueTask<TarArchive> OpenValidatedArchiveAsync(
+        SourceStream sourceStream,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await EnsureRawTarFileAsync(sourceStream, cancellationToken).ConfigureAwait(false);
+            return new TarArchive(sourceStream);
+        }
+        catch
+        {
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_0_OR_GREATER
+            await sourceStream.DisposeAsync().ConfigureAwait(false);
+#else
+            sourceStream.Dispose();
+#endif
+            throw;
+        }
+    }
+
     private static void EnsureRawTarFile(Stream stream)
     {
         stream.Seek(0, SeekOrigin.Begin);
         if (!IsTarFile(stream))
         {
+            stream.Seek(0, SeekOrigin.Begin);
             throw new InvalidFormatException("Not a tar file.");
         }
         stream.Seek(0, SeekOrigin.Begin);
@@ -244,6 +279,7 @@ public partial class TarArchive
         stream.Seek(0, SeekOrigin.Begin);
         if (!await IsTarFileAsync(stream, cancellationToken).ConfigureAwait(false))
         {
+            stream.Seek(0, SeekOrigin.Begin);
             throw new InvalidFormatException("Not a tar file.");
         }
         stream.Seek(0, SeekOrigin.Begin);

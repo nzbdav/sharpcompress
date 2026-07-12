@@ -158,14 +158,9 @@ Asynchronous `OpenAsyncArchive` overloads perform the same raw-tar validation.
 
 ### Entry Loading
 
-`TarArchive.LoadEntries` and `LoadEntriesAsync` parse entries differently depending on wrapper compression:
+`TarArchive.LoadEntries` and `LoadEntriesAsync` parse raw tar streams in `StreamingMode.Seekable`. The header stores `DataStartPosition`, and entries reopen data through `TarFilePart` by seeking back to the data position.
 
-- Uncompressed tar uses `StreamingMode.Seekable`.
-- Wrapped tar uses `StreamingMode.Streaming` because the decompressed stream is not treated as random-access.
-
-When seekable mode is used, the header stores `DataStartPosition`, and entries reopen data through `TarFilePart` by seeking back to the data position.
-
-When streaming mode is used, the header stores a `PackedStream`, and entry access follows streaming semantics over the decompressed stream.
+Wrapped tar streams use `TarReader`, whose forward-only entry access follows streaming semantics over the decompressed stream.
 
 ### Archive Rewrite Behavior
 

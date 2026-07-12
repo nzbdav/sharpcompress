@@ -8,7 +8,6 @@ using SharpCompress.Archives;
 using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
 using SharpCompress.Readers;
-using SharpCompress.Readers.Tar;
 using SharpCompress.Test.Mocks;
 using SharpCompress.Writers;
 using SharpCompress.Writers.Tar;
@@ -37,6 +36,10 @@ public class TarArchiveAsyncTests : ArchiveTests
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public async ValueTask TarArchiveOpenAsyncArchive_RejectsCompressedTar(string archiveName)
     {
@@ -49,6 +52,10 @@ public class TarArchiveAsyncTests : ArchiveTests
 
     [Theory]
     [InlineData("Tar.tar.gz")]
+    [InlineData("Tar.tar.bz2")]
+    [InlineData("Tar.tar.lz")]
+    [InlineData("Tar.tar.xz")]
+    [InlineData("Tar.tar.zst")]
     [InlineData("Tar.tar.Z")]
     public async ValueTask ArchiveFactoryOpenAsyncArchive_RejectsCompressedTar(string archiveName)
     {

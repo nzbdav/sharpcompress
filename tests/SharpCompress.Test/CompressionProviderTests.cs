@@ -1,12 +1,11 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using SharpCompress.Archives;
 using SharpCompress.Common;
-using SharpCompress.Common.Options;
 using SharpCompress.Compressors;
 using SharpCompress.IO;
 using SharpCompress.Providers;
@@ -578,6 +577,62 @@ public class CompressionProviderTests
         await entryStream.CopyToAsync(resultStream);
 
         trackingProvider.AsyncDecompressionCalls.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void ArchiveFactory_OpenArchive_UsesCustomProviderWhenRejectingCompressedTar()
+    {
+        using var archiveStream = CreateGZipTarStream();
+        var trackingProvider = new TrackingCompressionProvider(new GZipCompressionProvider());
+        var options = ReaderOptions.ForExternalStream.WithProviders(
+            CompressionProviderRegistry.Default.With(trackingProvider)
+        );
+
+        Action open = () => ArchiveFactory.OpenArchive(archiveStream, options);
+
+        open.Should().Throw<ArchiveOperationException>();
+        trackingProvider.DecompressionCalls.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task ArchiveFactory_OpenAsyncArchive_UsesCustomProviderWhenRejectingCompressedTarAsync()
+    {
+        using var archiveStream = CreateGZipTarStream();
+        var trackingProvider = new TrackingCompressionProvider(new GZipCompressionProvider());
+        var options = ReaderOptions.ForExternalStream.WithProviders(
+            CompressionProviderRegistry.Default.With(trackingProvider)
+        );
+
+        Func<Task> open = async () =>
+            await ArchiveFactory.OpenAsyncArchive(
+                archiveStream,
+                options,
+                TestContext.Current.CancellationToken
+            );
+
+        await open.Should().ThrowAsync<ArchiveOperationException>();
+        trackingProvider.AsyncDecompressionCalls.Should().BeGreaterThan(0);
+    }
+
+    private static MemoryStream CreateGZipTarStream()
+    {
+        var archiveStream = new MemoryStream();
+        using (
+            var writer = new TarWriter(
+                archiveStream,
+                new TarWriterOptions(CompressionType.GZip, true)
+            )
+        )
+        {
+            writer.Write(
+                "test.txt",
+                new MemoryStream(Encoding.UTF8.GetBytes("tar archive provider usage")),
+                DateTime.Now
+            );
+        }
+
+        archiveStream.Position = 0;
+        return archiveStream;
     }
 
     [Fact]

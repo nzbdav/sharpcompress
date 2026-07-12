@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Archives;
+using SharpCompress.Archives.Tar;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 using SharpCompress.Test.Mocks;
@@ -70,6 +71,34 @@ public class AsyncParityAndCancellationTests : TestBase
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             await archive.WriteToDirectoryAsync(SCRATCH_FILES_PATH, cancellationToken: cts.Token)
+        );
+    }
+
+    [Fact]
+    public async Task TarArchiveOpenAsyncArchive_ShouldRespectCancellationBeforeValidationAsync()
+    {
+        await using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await TarArchive.OpenAsyncArchive(stream, cancellationToken: cts.Token)
+        );
+    }
+
+    [Fact]
+    public async Task TarArchiveOpenAsyncArchive_ShouldRespectCancellationDuringValidationAsync()
+    {
+        var archiveBytes = CreateLargeTarArchive();
+        using var cts = new CancellationTokenSource();
+        await using var stream = new CancelAfterBytesReadStream(
+            new MemoryStream(archiveBytes),
+            cts,
+            cancelAfterBytes: 128
+        );
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await TarArchive.OpenAsyncArchive(stream, cancellationToken: cts.Token)
         );
     }
 
