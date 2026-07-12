@@ -12,7 +12,7 @@
     <GlobalPackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     <GlobalPackageReference
       Include="Microsoft.VisualStudio.Threading.Analyzers"
-      Version="17.14.15"
+      Version="18.7.23"
     />
   </ItemGroup>
 </Project>
