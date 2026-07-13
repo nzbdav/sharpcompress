@@ -65,8 +65,11 @@ internal partial class RarStream : Stream
         {
             if (disposing)
             {
-                ArrayPool<byte>.Shared.Return(this.tmpBuffer);
-                this.tmpBuffer = null!;
+                if (tmpBuffer is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(this.tmpBuffer);
+                    this.tmpBuffer = null!;
+                }
                 readStream.Dispose();
                 if (ownsUnpack && unpack is IDisposable disposableUnpack)
                 {

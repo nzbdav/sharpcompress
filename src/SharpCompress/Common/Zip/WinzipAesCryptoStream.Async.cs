@@ -26,7 +26,7 @@ internal partial class WinzipAesCryptoStream
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(authBytes);
+            ArrayPool<byte>.Shared.Return(authBytes, clearArray: true);
             await _stream.DisposeAsync().ConfigureAwait(false);
             _cipher.Dispose();
         }
