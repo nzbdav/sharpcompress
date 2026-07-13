@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using SharpCompress.Archives.SevenZip;
 using SharpCompress.Common;
+using SharpCompress.Common.SevenZip;
+using SharpCompress.Crypto;
 using SharpCompress.Writers;
 using SharpCompress.Writers.SevenZip;
 using Xunit;
@@ -12,6 +14,115 @@ namespace SharpCompress.Test.SevenZip;
 
 public class SevenZipWriterTests : TestBase
 {
+    [Theory]
+    [InlineData(CompressionType.LZMA)]
+    [InlineData(CompressionType.LZMA2)]
+    public void SevenZipWriter_Solid_ThreeFiles_RoundTrip(CompressionType compressionType)
+    {
+        var files = new[]
+        {
+            ("first.txt", "The quick brown fox jumps over the lazy dog. 111111111"),
+            ("second.txt", "Solid compression shares one folder across files. 22222"),
+            ("third.txt", "Repeated similar text compresses better when solid. 333"),
+        };
+
+        using var archiveStream = new MemoryStream();
+
+        using (
+            var writer = new SevenZipWriter(
+                archiveStream,
+                new SevenZipWriterOptions(compressionType) { Solid = true }
+            )
+        )
+        {
+            foreach (var (name, text) in files)
+            {
+                using var source = new MemoryStream(Encoding.UTF8.GetBytes(text));
+                writer.Write(name, source, DateTime.UtcNow);
+            }
+        }
+
+        archiveStream.Position = 0;
+        using var archive = (SevenZipArchive)SevenZipArchive.OpenArchive(archiveStream);
+
+        var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+        Assert.Equal(files.Length, entries.Count);
+
+        // Solid layout: exactly one folder shared by all three files.
+        Assert.True(archive.IsSolid);
+        var folderGroups = entries.GroupBy(e => e.FilePart.Folder).ToList();
+        Assert.Single(folderGroups);
+        Assert.Equal(3, folderGroups[0].Count());
+
+        foreach (var (name, text) in files)
+        {
+            var entry = entries.First(e => e.Key == name);
+            var expected = Encoding.UTF8.GetBytes(text);
+
+            Assert.Equal(expected.Length, (int)entry.Size);
+            Assert.Equal(Crc32Stream.Compute(expected), (uint)entry.Crc);
+
+            using var output = new MemoryStream();
+            using (var entryStream = entry.OpenEntryStream())
+            {
+                entryStream.CopyTo(output);
+            }
+            Assert.Equal(expected, output.ToArray());
+        }
+    }
+
+    [Fact]
+    public void SevenZipWriter_Solid_EmptyFilesAndDirectoriesStayOutsideFolder()
+    {
+        using var archiveStream = new MemoryStream();
+
+        using (
+            var writer = new SevenZipWriter(
+                archiveStream,
+                new SevenZipWriterOptions { Solid = true }
+            )
+        )
+        {
+            writer.WriteDirectory("dir", DateTime.UtcNow);
+            using (var empty = new MemoryStream())
+            {
+                writer.Write("dir/empty.txt", empty, DateTime.UtcNow);
+            }
+            using (var a = new MemoryStream("alpha content in solid folder"u8.ToArray()))
+            {
+                writer.Write("dir/a.txt", a, DateTime.UtcNow);
+            }
+            using (var b = new MemoryStream("beta content in solid folder"u8.ToArray()))
+            {
+                writer.Write("dir/b.txt", b, DateTime.UtcNow);
+            }
+        }
+
+        archiveStream.Position = 0;
+        using var archive = (SevenZipArchive)SevenZipArchive.OpenArchive(archiveStream);
+
+        // Only the two non-empty files belong to the single solid folder.
+        var nonEmpty = archive.Entries.Where(e => !e.IsDirectory && e.Size > 0).ToList();
+        var folderGroups = nonEmpty.GroupBy(e => e.FilePart.Folder).ToList();
+        Assert.Single(folderGroups);
+        Assert.Equal(2, folderGroups[0].Count());
+
+        var dir = archive.Entries.First(e => e.IsDirectory);
+        Assert.Equal("dir", dir.Key);
+
+        var emptyEntry = archive.Entries.First(e => e.Key == "dir/empty.txt");
+        Assert.Equal(0, (int)emptyEntry.Size);
+        Assert.Null(emptyEntry.FilePart.Folder);
+
+        var aEntry = archive.Entries.First(e => e.Key == "dir/a.txt");
+        using var output = new MemoryStream();
+        using (var entryStream = aEntry.OpenEntryStream())
+        {
+            entryStream.CopyTo(output);
+        }
+        Assert.Equal("alpha content in solid folder", Encoding.UTF8.GetString(output.ToArray()));
+    }
+
     [Fact]
     public void SevenZipWriter_SingleFile_RoundTrip()
     {

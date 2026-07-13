@@ -81,6 +81,14 @@ public sealed record SevenZipWriterOptions : IWriterOptions
     public LzmaEncoderProperties? LzmaProperties { get; set; }
 
     /// <summary>
+    /// When enabled, consecutive non-empty files share a single compressor/folder
+    /// (solid compression), which typically improves the compression ratio for many
+    /// small, similar files. Empty files and directories are never placed inside a
+    /// solid folder. Default is <c>false</c> (each file is compressed independently).
+    /// </summary>
+    public bool Solid { get; set; }
+
+    /// <summary>
     /// Creates a new SevenZipWriterOptions instance with LZMA2 compression (default).
     /// </summary>
     public SevenZipWriterOptions()

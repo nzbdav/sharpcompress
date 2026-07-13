@@ -45,6 +45,13 @@ public partial class SevenZipWriter
     {
         var output = OutputStream.NotNull();
 
+        // Close any open solid folder before computing the packed-data boundary.
+        if (solidFolder is { FileCount: > 0 })
+        {
+            packedStreams.Add(await solidFolder.CompleteAsync().ConfigureAwait(false));
+            solidFolder = null;
+        }
+
         // Current position = end of packed data streams
         var endOfPackedData = output.Position;
 
@@ -181,6 +188,7 @@ public partial class SevenZipWriter
 
         if (isEmpty)
         {
+            // Empty files never enter a solid folder (7z emptyStream convention).
             entries.Add(
                 new SevenZipWriteEntry
                 {
@@ -188,6 +196,27 @@ public partial class SevenZipWriter
                     ModificationTime = modificationTime,
                     IsDirectory = false,
                     IsEmpty = true,
+                }
+            );
+            return;
+        }
+
+        if (sevenZipOptions.Solid)
+        {
+            solidFolder ??= new SevenZipSolidFolderWriter(
+                OutputStream.NotNull(),
+                sevenZipOptions.CompressionType,
+                sevenZipOptions.LzmaProperties
+            );
+            await solidFolder.AddFileAsync(progressStream, cancellationToken).ConfigureAwait(false);
+
+            entries.Add(
+                new SevenZipWriteEntry
+                {
+                    Name = filename,
+                    ModificationTime = modificationTime,
+                    IsDirectory = false,
+                    IsEmpty = false,
                 }
             );
             return;
