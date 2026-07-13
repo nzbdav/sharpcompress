@@ -2,7 +2,9 @@
   <PropertyGroup>
     <AssemblyTitle>SharpCompress - Pure C# Decompression/Compression</AssemblyTitle>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <Version>0.50.1</Version> <!-- x-release-please-version -->
+    <!-- x-release-please-start-version -->
+    <Version>0.50.1</Version>
+    <!-- x-release-please-end -->
     <Authors>Adam Hathcock; nzbdav contributors</Authors>
     <Title>NzbDav.SharpCompress</Title>
     <TargetFramework>net10.0</TargetFramework>
