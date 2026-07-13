@@ -43,7 +43,8 @@ public class ArchiveTests : ReaderTests
     {
         foreach (var path in testArchives)
         {
-            using (var stream = SharpCompressStream.CreateNonDisposing(File.OpenRead(path)))
+            using (var guard = new DisposalGuardStream(File.OpenRead(path)))
+            using (var stream = SharpCompressStream.CreateNonDisposing(guard))
             {
                 try
                 {
@@ -57,20 +58,17 @@ public class ArchiveTests : ReaderTests
 
                     if (archive.Entries.First().CompressionType == CompressionType.Rar)
                     {
-                        stream.ThrowOnDispose = false;
                         return;
                     }
                     foreach (var entry in archive.Entries.Where(entry => !entry.IsDirectory))
                     {
                         entry.WriteToDirectory(SCRATCH_FILES_PATH);
                     }
-                    stream.ThrowOnDispose = false;
                 }
-                catch (Exception)
+                finally
                 {
-                    // Otherwise this will hide the original exception.
-                    stream.ThrowOnDispose = false;
-                    throw;
+                    // Disarm before intentional using-scope disposal of the caller's stream.
+                    guard.Allow();
                 }
             }
             VerifyFiles();
@@ -141,7 +139,8 @@ public class ArchiveTests : ReaderTests
         ExtensionTest(extension, archiveFactory);
         foreach (var path in testArchives)
         {
-            using (var stream = SharpCompressStream.CreateNonDisposing(File.OpenRead(path)))
+            using (var guard = new DisposalGuardStream(File.OpenRead(path)))
+            using (var stream = SharpCompressStream.CreateNonDisposing(guard))
             using (var archive = archiveFactory.OpenArchive(stream, readerOptions))
             {
                 try
@@ -151,13 +150,11 @@ public class ArchiveTests : ReaderTests
                         entry.WriteToDirectory(SCRATCH_FILES_PATH);
                     }
                 }
-                catch (IndexOutOfRangeException)
+                finally
                 {
-                    //SevenZipArchive_BZip2_Split test needs this
-                    stream.ThrowOnDispose = false;
-                    throw;
+                    // Disarm before intentional using-scope disposal of the caller's stream.
+                    guard.Allow();
                 }
-                stream.ThrowOnDispose = false;
             }
             VerifyFiles();
         }
@@ -612,7 +609,8 @@ public class ArchiveTests : ReaderTests
     {
         foreach (var path in testArchives)
         {
-            using (var stream = SharpCompressStream.CreateNonDisposing(File.OpenRead(path)))
+            using (var guard = new DisposalGuardStream(File.OpenRead(path)))
+            using (var stream = SharpCompressStream.CreateNonDisposing(guard))
             await using (
                 var archive = await archiveFactory.OpenAsyncArchive(
                     new AsyncOnlyStream(stream),
@@ -629,13 +627,11 @@ public class ArchiveTests : ReaderTests
                         await entry.WriteToDirectoryAsync(SCRATCH_FILES_PATH);
                     }
                 }
-                catch (IndexOutOfRangeException)
+                finally
                 {
-                    //SevenZipArchive_BZip2_Split test needs this
-                    stream.ThrowOnDispose = false;
-                    throw;
+                    // Disarm before intentional using-scope disposal of the caller's stream.
+                    guard.Allow();
                 }
-                stream.ThrowOnDispose = false;
             }
             VerifyFiles();
         }

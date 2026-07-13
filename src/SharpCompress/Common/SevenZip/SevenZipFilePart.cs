@@ -2,7 +2,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpCompress.IO;
 
 namespace SharpCompress.Common.SevenZip;
 
@@ -27,12 +26,18 @@ internal class SevenZipFilePart : FilePart
         Header = fileEntry;
         if (Header.HasStream)
         {
-            Folder = database._folders[database._fileIndexToFolderIndexMap[index]];
+            FolderIndex = database._fileIndexToFolderIndexMap[index];
+            Folder = database._folders[FolderIndex];
+        }
+        else
+        {
+            FolderIndex = -1;
         }
     }
 
     internal CFileItem Header { get; }
     internal CFolder? Folder { get; }
+    internal int FolderIndex { get; }
 
     internal override string FilePartName => Header.Name;
 
@@ -44,20 +49,15 @@ internal class SevenZipFilePart : FilePart
         {
             return Stream.Null;
         }
-        var folderStream = _database.GetFolderStream(_stream, Folder!, _database.PasswordProvider);
 
-        var firstFileIndex = _database._folderStartFileIndex[_database._folders.IndexOf(Folder!)];
-        var skipCount = Index - firstFileIndex;
-        long skipSize = 0;
-        for (var i = 0; i < skipCount; i++)
-        {
-            skipSize += _database._files[firstFileIndex + i].Size;
-        }
-        if (skipSize > 0)
-        {
-            folderStream.Skip(skipSize);
-        }
-        return new ReadOnlySubStream(folderStream, Header.Size, leaveOpen: false);
+        var skipSize = _database._fileInFolderOffset[Index];
+        return _database.GetFolderStreamCached(
+            _stream,
+            FolderIndex,
+            skipSize,
+            Header.Size,
+            _database.PasswordProvider
+        );
     }
 
     internal override async ValueTask<Stream?> GetCompressedStreamAsync(
@@ -68,22 +68,18 @@ internal class SevenZipFilePart : FilePart
         {
             return Stream.Null;
         }
-        var folderStream = await _database
-            .GetFolderStreamAsync(_stream, Folder!, _database.PasswordProvider, cancellationToken)
-            .ConfigureAwait(false);
 
-        var firstFileIndex = _database._folderStartFileIndex[_database._folders.IndexOf(Folder!)];
-        var skipCount = Index - firstFileIndex;
-        long skipSize = 0;
-        for (var i = 0; i < skipCount; i++)
-        {
-            skipSize += _database._files[firstFileIndex + i].Size;
-        }
-        if (skipSize > 0)
-        {
-            await folderStream.SkipAsync(skipSize, cancellationToken).ConfigureAwait(false);
-        }
-        return new ReadOnlySubStream(folderStream, Header.Size, leaveOpen: false);
+        var skipSize = _database._fileInFolderOffset[Index];
+        return await _database
+            .GetFolderStreamCachedAsync(
+                _stream,
+                FolderIndex,
+                skipSize,
+                Header.Size,
+                _database.PasswordProvider,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     public CompressionType CompressionType

@@ -187,6 +187,12 @@ Solid RAR archives allow only one active entry stream at a time; a second concur
 `OpenEntryStream` / `OpenEntryStreamAsync` throws `ArchiveOperationException`. Prefer
 `ExtractAllEntries()` for solid sequential extraction.
 
+7z notes: sequential Archive API `OpenEntryStream` / `OpenEntryStreamAsync` within a solid folder
+reuses the folder decoder. Opening an earlier entry in the same folder still requires a full
+re-decode. Concurrent opens bypass the cache (each builds a fresh decoder) rather than throwing;
+prefer one active stream or `ExtractAllEntries()` / `ExtractAllEntriesAsync()` for solid sequential
+extraction. Async 7z entry streams use real async LZMA/LZMA2 decoder I/O (not a sync fallback).
+
 ### Entry Properties
 
 ```csharp
@@ -338,6 +344,9 @@ var hinted = ReaderOptions.ForExternalStream.WithExtensionHint("tar.gz");
 
 // Increase for non-seekable streams with large detection probes, such as SFX RAR
 var buffered = ReaderOptions.ForExternalStream.WithRewindableBufferSize(1_048_576);
+
+// Stop draining remaining entry bytes when an EntryStream is disposed early (Reader API only)
+var cancelEarly = ReaderOptions.ForExternalStream.WithCancelOnEntryStreamDispose(true);
 
 // Extraction presets
 var safeOptions = ExtractionOptions.SafeExtract;  // No overwrite

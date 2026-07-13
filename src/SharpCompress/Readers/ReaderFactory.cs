@@ -53,7 +53,11 @@ public static partial class ReaderFactory
                 && reader != null
             )
             {
-                sharpCompressStream.Rewind(true);
+                // FreezeAndReleaseBuffer already rewound and forbids further Rewind calls.
+                if (!sharpCompressStream.IsBufferReleaseRequested)
+                {
+                    sharpCompressStream.Rewind(true);
+                }
                 return reader;
             }
         }

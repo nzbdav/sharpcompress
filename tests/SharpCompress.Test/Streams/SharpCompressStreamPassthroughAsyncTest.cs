@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using SharpCompress.Common;
 using SharpCompress.IO;
 using SharpCompress.Test.Mocks;
 using Xunit;
@@ -92,18 +91,5 @@ public class SharpCompressStreamPassthroughAsyncTest
         await stream.DisposeAsync().ConfigureAwait(false);
         Assert.Equal(0, ms.Position);
         Assert.True(ms.CanRead);
-    }
-
-    [Fact]
-    public async ValueTask CreateNonDisposing_DisposeAsync_WithThrowOnDisposeTrue_ThrowsInvalidOperation()
-    {
-        var ms = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
-        var stream = SharpCompressStream.CreateNonDisposing(ms);
-        stream.ThrowOnDispose = true;
-        await Assert
-            .ThrowsAsync<ArchiveOperationException>(async () =>
-                await stream.DisposeAsync().ConfigureAwait(false)
-            )
-            .ConfigureAwait(false);
     }
 }

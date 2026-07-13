@@ -20,14 +20,6 @@ public partial class SharpCompressStream
             return 0;
         }
 
-        // In passthrough mode, delegate directly to underlying stream
-        if (_isPassthrough)
-        {
-            return await stream
-                .ReadAsync(buffer, offset, count, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
         // If ring buffer is enabled, use ring buffer logic
         if (_ringBuffer is not null)
         {
@@ -77,6 +69,8 @@ public partial class SharpCompressStream
             _logicalPosition += available;
         }
 
+        TryReleaseRingBuffer();
+
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
@@ -85,7 +79,7 @@ public partial class SharpCompressStream
                 .ConfigureAwait(false);
             if (read > 0)
             {
-                _ringBuffer!.Write(buffer, offset, read);
+                _ringBuffer?.Write(buffer, offset, read);
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -103,12 +97,6 @@ public partial class SharpCompressStream
         if (buffer.Length == 0)
         {
             return ValueTask.FromResult(0);
-        }
-
-        // In passthrough mode, delegate directly to underlying stream
-        if (_isPassthrough)
-        {
-            return stream.ReadAsync(buffer, cancellationToken);
         }
 
         return ReadAsyncCore(buffer, cancellationToken);
@@ -169,6 +157,8 @@ public partial class SharpCompressStream
             _logicalPosition += available;
         }
 
+        TryReleaseRingBuffer();
+
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
@@ -177,9 +167,12 @@ public partial class SharpCompressStream
                 .ConfigureAwait(false);
             if (read > 0)
             {
-                // RingBuffer.Write expects byte[], so we need to copy
-                var tempBuffer = buffer.Slice(offset, read).ToArray();
-                _ringBuffer!.Write(tempBuffer, 0, read);
+                if (_ringBuffer is not null)
+                {
+                    // RingBuffer.Write expects byte[], so we need to copy
+                    var tempBuffer = buffer.Slice(offset, read).ToArray();
+                    _ringBuffer.Write(tempBuffer, 0, read);
+                }
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -194,35 +187,15 @@ public partial class SharpCompressStream
         int offset,
         int count,
         CancellationToken cancellationToken
-    )
-    {
-        if (_isPassthrough)
-        {
-            return stream.WriteAsync(buffer, offset, count, cancellationToken);
-        }
-        throw new NotSupportedException();
-    }
+    ) => throw new NotSupportedException();
 
     public override ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
-    )
-    {
-        if (_isPassthrough)
-        {
-            return stream.WriteAsync(buffer, cancellationToken);
-        }
-        throw new NotSupportedException();
-    }
+    ) => throw new NotSupportedException();
 
-    public override Task FlushAsync(CancellationToken cancellationToken)
-    {
-        if (_isPassthrough)
-        {
-            return stream.FlushAsync(cancellationToken);
-        }
+    public override Task FlushAsync(CancellationToken cancellationToken) =>
         throw new NotSupportedException();
-    }
 
     public override async Task CopyToAsync(
         Stream destination,
@@ -249,12 +222,6 @@ public partial class SharpCompressStream
     {
         if (!isDisposed)
         {
-            if (ThrowOnDispose)
-            {
-                throw new ArchiveOperationException(
-                    $"Attempt to dispose of a {nameof(SharpCompressStream)} when {nameof(ThrowOnDispose)} is true"
-                );
-            }
             isDisposed = true;
             if (!LeaveStreamOpen)
             {

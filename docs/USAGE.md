@@ -206,6 +206,30 @@ using (var reader = ReaderFactory.OpenReader(stream))
 }
 ```
 
+### Abandoning an entry early
+
+By default, disposing an `EntryStream` before EOF drains the remaining entry bytes so
+`MoveToNextEntry()` can continue. On network-backed sources that downloads the remainder.
+
+To abandon the rest of the archive instead, set `ReaderOptions.CancelOnEntryStreamDispose`:
+
+```C#
+var options = ReaderOptions.ForExternalStream.WithCancelOnEntryStreamDispose(true);
+using var reader = ReaderFactory.OpenReader(stream, options);
+while (reader.MoveToNextEntry())
+{
+    if (reader.Entry.Key == "skip-me.bin")
+    {
+        using var entryStream = reader.OpenEntryStream();
+        // read a prefix, then dispose — cancels the reader instead of draining
+        break;
+    }
+}
+// reader.Cancelled is true; further MoveToNextEntry() throws ReaderCancelledException
+```
+
+You can also call `IReader.Cancel()` explicitly before disposing an entry stream.
+
 ### Use WriterFactory to write all files from a directory in a streaming manner.
 
 ```C#

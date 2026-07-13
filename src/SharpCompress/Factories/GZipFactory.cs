@@ -149,11 +149,13 @@ public class GZipFactory
             );
             if (TarArchive.IsTarFile(testStream))
             {
+                // Tar.GZip still needs the ring buffer for GZip over-read knock-back.
                 sharpCompressStream.StopRecording();
                 reader = new TarReader(sharpCompressStream, options, CompressionType.GZip);
                 return true;
             }
-            sharpCompressStream.StopRecording();
+            // Issue #27 allowlist: GZip single-stream does not need post-detection rewind.
+            sharpCompressStream.FreezeAndReleaseBuffer();
             reader = OpenReader(sharpCompressStream, options);
             return true;
         }
@@ -186,7 +188,8 @@ public class GZipFactory
             return tarReader;
         }
 
-        sharpCompressStream.StopRecording();
+        // Issue #27 allowlist: GZip single-stream does not need post-detection rewind.
+        sharpCompressStream.FreezeAndReleaseBuffer();
         return await OpenAsyncReader(sharpCompressStream, options, cancellationToken)
             .ConfigureAwait(false);
     }

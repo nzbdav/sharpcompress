@@ -103,6 +103,12 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
     public override long TotalSize =>
         _database?._packSizes.Aggregate(0L, (total, packSize) => total + packSize) ?? 0;
 
+    public override void Dispose()
+    {
+        _database?.DisposeFolderStreamCache();
+        base.Dispose();
+    }
+
     internal sealed class SevenZipReader : AbstractReader<SevenZipEntry, SevenZipVolume>
     {
         private readonly SevenZipArchive _archive;
@@ -193,18 +199,68 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
             );
         }
 
-        // Sync fallback: LZMA decoder async paths have historically corrupted decoder state
-        // (IndexOutOfRangeException, DataErrorException). Prefer sync GetEntryStream until
-        // LzmaStream.ReadAsync / Decoder.CodeAsync / OutWindow async are fixed.
-        protected override ValueTask<EntryStream> GetEntryStreamAsync(
+        protected override async ValueTask<EntryStream> GetEntryStreamAsync(
             CancellationToken cancellationToken = default
-        ) => new(GetEntryStream());
+        )
+        {
+            var entry = _currentEntry.NotNull("currentEntry is not null");
+            if (entry.IsDirectory)
+            {
+                return CreateEntryStream(Stream.Null);
+            }
+
+            var folder = entry.FilePart.Folder;
+
+            // If folder is null (empty stream entry), return empty stream
+            if (folder is null)
+            {
+                return CreateEntryStream(Stream.Null);
+            }
+
+            // Check if we're starting a new folder - dispose old folder stream if needed
+            if (folder != _currentFolder)
+            {
+                if (_currentFolderStream is not null)
+                {
+                    await _currentFolderStream.DisposeAsync().ConfigureAwait(false);
+                }
+                _currentFolderStream = null;
+                _currentFolder = folder;
+            }
+
+            // Create the folder stream once per folder (async decoder chain)
+            if (_currentFolderStream is null)
+            {
+                _currentFolderStream = await _archive
+                    ._database!.GetFolderStreamAsync(
+                        _archive.Volumes.Single().Stream,
+                        folder!,
+                        _archive._database.PasswordProvider,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+            }
+
+            return CreateEntryStream(
+                new ReadOnlySubStream(_currentFolderStream, entry.Size, leaveOpen: true)
+            );
+        }
 
         public override void Dispose()
         {
             _currentFolderStream?.Dispose();
             _currentFolderStream = null;
             base.Dispose();
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            if (_currentFolderStream is not null)
+            {
+                await _currentFolderStream.DisposeAsync().ConfigureAwait(false);
+                _currentFolderStream = null;
+            }
+            await base.DisposeAsync().ConfigureAwait(false);
         }
     }
 

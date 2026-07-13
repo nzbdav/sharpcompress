@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SharpCompress.Common.Tar;
@@ -76,7 +77,17 @@ internal class TarReadOnlySubStream : Stream
         _isPositionedAtNextEntry = true;
     }
 
-    private async ValueTask AdvanceToNextHeaderAsync()
+    /// <summary>
+    /// Marks the entry abandoned so dispose does not drain remaining payload bytes.
+    /// Used when the reader is cancelled via <c>CancelOnEntryStreamDispose</c>.
+    /// </summary>
+    internal void AbandonWithoutAdvance()
+    {
+        BytesLeftToRead = 0;
+        _isPositionedAtNextEntry = true;
+    }
+
+    private async ValueTask AdvanceToNextHeaderAsync(CancellationToken cancellationToken = default)
     {
         if (_isPositionedAtNextEntry)
         {
@@ -85,7 +96,7 @@ internal class TarReadOnlySubStream : Stream
 
         if (BytesLeftToRead > 0)
         {
-            await _stream.SkipAsync(BytesLeftToRead).ConfigureAwait(false);
+            await _stream.SkipAsync(BytesLeftToRead, cancellationToken).ConfigureAwait(false);
             _amountRead += BytesLeftToRead;
             BytesLeftToRead = 0;
         }
@@ -93,11 +104,18 @@ internal class TarReadOnlySubStream : Stream
         var bytesInLastBlock = _amountRead % 512;
         if (bytesInLastBlock != 0)
         {
-            await _stream.SkipAsync(512 - bytesInLastBlock).ConfigureAwait(false);
+            await _stream
+                .SkipAsync(512 - bytesInLastBlock, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         _isPositionedAtNextEntry = true;
     }
+
+    internal void SkipRemaining() => AdvanceToNextHeader();
+
+    internal ValueTask SkipRemainingAsync(CancellationToken cancellationToken = default) =>
+        AdvanceToNextHeaderAsync(cancellationToken);
 
     public override bool CanRead => true;
 
@@ -172,7 +190,7 @@ internal class TarReadOnlySubStream : Stream
     {
         if (BytesLeftToRead <= 0)
         {
-            await AdvanceToNextHeaderAsync().ConfigureAwait(false);
+            await AdvanceToNextHeaderAsync(cancellationToken).ConfigureAwait(false);
             return 0;
         }
         if (BytesLeftToRead < count)
@@ -188,7 +206,7 @@ internal class TarReadOnlySubStream : Stream
             _amountRead += read;
             if (BytesLeftToRead == 0)
             {
-                await AdvanceToNextHeaderAsync().ConfigureAwait(false);
+                await AdvanceToNextHeaderAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         return read;
@@ -201,7 +219,7 @@ internal class TarReadOnlySubStream : Stream
     {
         if (BytesLeftToRead <= 0)
         {
-            await AdvanceToNextHeaderAsync().ConfigureAwait(false);
+            await AdvanceToNextHeaderAsync(cancellationToken).ConfigureAwait(false);
             return 0;
         }
         if (BytesLeftToRead < buffer.Length)
@@ -215,7 +233,7 @@ internal class TarReadOnlySubStream : Stream
             _amountRead += read;
             if (BytesLeftToRead == 0)
             {
-                await AdvanceToNextHeaderAsync().ConfigureAwait(false);
+                await AdvanceToNextHeaderAsync(cancellationToken).ConfigureAwait(false);
             }
         }
         return read;

@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,11 +11,14 @@ namespace SharpCompress.Common.Rar;
 internal sealed class AsyncRarCryptoBinaryReader : AsyncRarCrcBinaryReader
 {
     private BlockTransformer _rijndael = default!;
-    private readonly Queue<byte> _data = new();
+    private RarAesDecryptCarry _carry;
     private long _readCount;
 
     private AsyncRarCryptoBinaryReader(Stream stream)
-        : base(stream) { }
+        : base(stream)
+    {
+        _carry = new RarAesDecryptCarry();
+    }
 
     public static async ValueTask<AsyncRarCryptoBinaryReader> Create(
         Stream stream,
@@ -69,43 +72,45 @@ internal sealed class AsyncRarCryptoBinaryReader : AsyncRarCrcBinaryReader
         CancellationToken cancellationToken
     )
     {
-        var queueSize = _data.Count;
-        var sizeToRead = count - queueSize;
-
-        if (sizeToRead > 0)
+        var decryptedBytes = new byte[count];
+        if (count == 0)
         {
+            return decryptedBytes;
+        }
+
+        var written = _carry.Read(decryptedBytes);
+        if (written < count)
+        {
+            var sizeToRead = count - written;
             var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
-            for (var i = 0; i < alignedSize / 16; i++)
+            var cipherText = await ReadBytesNoCrcAsync(alignedSize, cancellationToken)
+                .ConfigureAwait(false);
+            var plainText = ArrayPool<byte>.Shared.Rent(alignedSize);
+            try
             {
-                var cipherText = await ReadBytesNoCrcAsync(16, cancellationToken)
-                    .ConfigureAwait(false);
-                var readBytes = _rijndael.ProcessBlock(cipherText);
-                foreach (var readByte in readBytes)
+                _rijndael.Process(cipherText, 0, alignedSize, plainText, 0);
+                plainText.AsSpan(0, sizeToRead).CopyTo(decryptedBytes.AsSpan(written));
+                if (alignedSize > sizeToRead)
                 {
-                    _data.Enqueue(readByte);
+                    _carry.Store(plainText.AsSpan(sizeToRead, alignedSize - sizeToRead));
                 }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(plainText);
             }
         }
 
-        var decryptedBytes = new byte[count];
-
-        for (var i = 0; i < count; i++)
-        {
-            var b = _data.Dequeue();
-            decryptedBytes[i] = b;
-            UpdateCrc(b);
-        }
-
+        UpdateCrc(decryptedBytes, 0, count);
         _readCount += count;
         return decryptedBytes;
     }
 
-    public void ClearQueue() => _data.Clear();
+    public void ClearQueue() => _carry.Clear();
 
     public void SkipQueue()
     {
-        var position = BaseStream.Position;
-        BaseStream.Position = position + _data.Count;
+        BaseStream.Position += _carry.Count;
         ClearQueue();
     }
 }

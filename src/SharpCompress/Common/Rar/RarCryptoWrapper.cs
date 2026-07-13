@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,13 +11,14 @@ namespace SharpCompress.Common.Rar;
 internal sealed class RarCryptoWrapper : Stream
 {
     private readonly Stream _actualStream;
-    private BlockTransformer _rijndael;
-    private readonly Queue<byte> _data = new();
+    private readonly BlockTransformer _rijndael;
+    private RarAesDecryptCarry _carry;
 
     public RarCryptoWrapper(Stream actualStream, byte[] salt, ICryptKey key)
     {
         _actualStream = actualStream;
         _rijndael = new BlockTransformer(key.Transformer(salt));
+        _carry = new RarAesDecryptCarry();
     }
 
     public override void Flush() { }
@@ -31,40 +32,46 @@ internal sealed class RarCryptoWrapper : Stream
 
     public int ReadAndDecrypt(byte[] buffer, int offset, int count)
     {
-        var queueSize = _data.Count;
-        var sizeToRead = count - queueSize;
-
-        if (sizeToRead > 0)
+        if (count == 0)
         {
-            var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
-            Span<byte> cipherText = stackalloc byte[16];
+            return 0;
+        }
 
+        var written = _carry.Read(buffer.AsSpan(offset, count));
+        if (written == count)
+        {
+            return count;
+        }
+
+        var sizeToRead = count - written;
+        var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
+        var cipherText = ArrayPool<byte>.Shared.Rent(alignedSize);
+        var plainText = ArrayPool<byte>.Shared.Rent(alignedSize);
+        try
+        {
             try
             {
-                for (var i = 0; i < alignedSize / 16; i++)
-                {
-                    _actualStream.ReadExactly(cipherText);
-
-                    var readBytes = _rijndael.ProcessBlock(cipherText);
-                    foreach (var readByte in readBytes)
-                    {
-                        _data.Enqueue(readByte);
-                    }
-                }
+                _actualStream.ReadExactly(cipherText, 0, alignedSize);
             }
             catch (EndOfStreamException e)
             {
                 throw new InvalidFormatException("Unexpected end of encrypted stream", e);
             }
-        }
 
-        var bytesToReturn = Math.Min(count, _data.Count);
-        for (var i = 0; i < bytesToReturn; i++)
+            _rijndael.Process(cipherText, 0, alignedSize, plainText, 0);
+            plainText.AsSpan(0, sizeToRead).CopyTo(buffer.AsSpan(offset + written, sizeToRead));
+            if (alignedSize > sizeToRead)
+            {
+                _carry.Store(plainText.AsSpan(sizeToRead, alignedSize - sizeToRead));
+            }
+
+            return count;
+        }
+        finally
         {
-            buffer[offset + i] = _data.Dequeue();
+            ArrayPool<byte>.Shared.Return(cipherText);
+            ArrayPool<byte>.Shared.Return(plainText);
         }
-
-        return bytesToReturn;
     }
 
     public override Task<int> ReadAsync(
@@ -83,42 +90,48 @@ internal sealed class RarCryptoWrapper : Stream
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var queueSize = _data.Count;
-        var sizeToRead = count - queueSize;
-
-        if (sizeToRead > 0)
+        if (count == 0)
         {
-            var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
-            byte[] cipherText = new byte[16];
+            return 0;
+        }
 
+        var written = _carry.Read(buffer.AsSpan(offset, count));
+        if (written == count)
+        {
+            return count;
+        }
+
+        var sizeToRead = count - written;
+        var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
+        var cipherText = ArrayPool<byte>.Shared.Rent(alignedSize);
+        var plainText = ArrayPool<byte>.Shared.Rent(alignedSize);
+        try
+        {
             try
             {
-                for (var i = 0; i < alignedSize / 16; i++)
-                {
-                    await _actualStream
-                        .ReadExactlyAsync(cipherText, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    var readBytes = _rijndael.ProcessBlock(cipherText);
-                    foreach (var readByte in readBytes)
-                    {
-                        _data.Enqueue(readByte);
-                    }
-                }
+                await _actualStream
+                    .ReadExactlyAsync(cipherText.AsMemory(0, alignedSize), cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (EndOfStreamException e)
             {
                 throw new InvalidFormatException("Unexpected end of encrypted stream", e);
             }
-        }
 
-        var bytesToReturn = Math.Min(count, _data.Count);
-        for (var i = 0; i < bytesToReturn; i++)
+            _rijndael.Process(cipherText, 0, alignedSize, plainText, 0);
+            plainText.AsSpan(0, sizeToRead).CopyTo(buffer.AsSpan(offset + written, sizeToRead));
+            if (alignedSize > sizeToRead)
+            {
+                _carry.Store(plainText.AsSpan(sizeToRead, alignedSize - sizeToRead));
+            }
+
+            return count;
+        }
+        finally
         {
-            buffer[offset + i] = _data.Dequeue();
+            ArrayPool<byte>.Shared.Return(cipherText);
+            ArrayPool<byte>.Shared.Return(plainText);
         }
-
-        return bytesToReturn;
     }
 
     public override async ValueTask<int> ReadAsync(
@@ -128,7 +141,7 @@ internal sealed class RarCryptoWrapper : Stream
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var array = System.Buffers.ArrayPool<byte>.Shared.Rent(buffer.Length);
+        var array = ArrayPool<byte>.Shared.Rent(buffer.Length);
         try
         {
             var bytesRead = await ReadAndDecryptAsync(array, 0, buffer.Length, cancellationToken)
@@ -138,7 +151,7 @@ internal sealed class RarCryptoWrapper : Stream
         }
         finally
         {
-            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+            ArrayPool<byte>.Shared.Return(array);
         }
     }
 

@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using SharpCompress.Compressors.LZMA;
 using SharpCompress.Compressors.LZMA.Utilities;
+using SharpCompress.IO;
 
 namespace SharpCompress.Common.SevenZip;
 
@@ -23,6 +26,17 @@ internal partial class ArchiveDatabase
     internal List<int> _folderStartFileIndex = new();
     internal List<int> _fileIndexToFolderIndexMap = new();
 
+    /// <summary>
+    /// Decompressed byte offset of each file within its folder (0 for empty-stream entries).
+    /// </summary>
+    internal List<long> _fileInFolderOffset = new();
+
+    // MRU folder-stream cache for Archive API sequential opens within a solid folder.
+    private Stream? _cachedFolderStream;
+    private int _cachedFolderIndex = -1;
+    private long _cachedPositionInFolder;
+    private int _folderCacheInUse;
+
     internal IPasswordProvider PasswordProvider { get; }
 
     public ArchiveDatabase(IPasswordProvider passwordProvider) =>
@@ -30,6 +44,8 @@ internal partial class ArchiveDatabase
 
     internal void Clear()
     {
+        DisposeFolderStreamCache();
+
         _packSizes.Clear();
         _packCrCs.Clear();
         _folders.Clear();
@@ -39,6 +55,7 @@ internal partial class ArchiveDatabase
         _packStreamStartPositions.Clear();
         _folderStartFileIndex.Clear();
         _fileIndexToFolderIndexMap.Clear();
+        _fileInFolderOffset.Clear();
     }
 
     internal bool IsEmpty() =>
@@ -64,9 +81,11 @@ internal partial class ArchiveDatabase
     {
         _folderStartFileIndex.Clear();
         _fileIndexToFolderIndexMap.Clear();
+        _fileInFolderOffset.Clear();
 
         var folderIndex = 0;
         var indexInFolder = 0;
+        long offsetInFolder = 0;
         for (var i = 0; i < _files.Count; i++)
         {
             var file = _files[i];
@@ -76,6 +95,7 @@ internal partial class ArchiveDatabase
             if (emptyStream && indexInFolder == 0)
             {
                 _fileIndexToFolderIndexMap.Add(-1);
+                _fileInFolderOffset.Add(0);
                 continue;
             }
 
@@ -91,6 +111,7 @@ internal partial class ArchiveDatabase
                     }
 
                     _folderStartFileIndex.Add(i); // check it
+                    offsetInFolder = 0;
 
                     if (_numUnpackStreamsVector![folderIndex] != 0)
                     {
@@ -102,6 +123,8 @@ internal partial class ArchiveDatabase
             }
 
             _fileIndexToFolderIndexMap.Add(folderIndex);
+            _fileInFolderOffset.Add(offsetInFolder);
+            offsetInFolder += file.Size;
 
             if (emptyStream)
             {
@@ -114,6 +137,7 @@ internal partial class ArchiveDatabase
             {
                 folderIndex++;
                 indexInFolder = 0;
+                offsetInFolder = 0;
             }
         }
     }
@@ -162,5 +186,222 @@ internal partial class ArchiveDatabase
             folder,
             pw
         );
+    }
+
+    /// <summary>
+    /// Returns an entry substream over a cached folder decoder when possible.
+    /// Sequential opens within the same folder reuse the decoder; backward or concurrent
+    /// opens rebuild (concurrent opens bypass the cache entirely).
+    /// </summary>
+    internal Stream GetFolderStreamCached(
+        Stream baseStream,
+        int folderIndex,
+        long targetOffset,
+        long entryLength,
+        IPasswordProvider pw
+    )
+    {
+        if (Interlocked.CompareExchange(ref _folderCacheInUse, 1, 0) != 0)
+        {
+            return CreateUncachedEntryStream(
+                baseStream,
+                folderIndex,
+                targetOffset,
+                entryLength,
+                pw
+            );
+        }
+
+        try
+        {
+            EnsureFolderStreamAt(baseStream, folderIndex, targetOffset, pw);
+            var entryStream = new ReadOnlySubStream(
+                _cachedFolderStream!,
+                entryLength,
+                leaveOpen: true
+            );
+            return new FolderCacheEntryStream(this, entryStream, targetOffset, entryLength);
+        }
+        catch
+        {
+            Interlocked.Exchange(ref _folderCacheInUse, 0);
+            throw;
+        }
+    }
+
+    private ReadOnlySubStream CreateUncachedEntryStream(
+        Stream baseStream,
+        int folderIndex,
+        long targetOffset,
+        long entryLength,
+        IPasswordProvider pw
+    )
+    {
+        var folderStream = GetFolderStream(baseStream, _folders[folderIndex], pw);
+        if (targetOffset > 0)
+        {
+            folderStream.Skip(targetOffset);
+        }
+        return new ReadOnlySubStream(folderStream, entryLength, leaveOpen: false);
+    }
+
+    private void EnsureFolderStreamAt(
+        Stream baseStream,
+        int folderIndex,
+        long targetOffset,
+        IPasswordProvider pw
+    )
+    {
+        if (
+            _cachedFolderIndex == folderIndex
+            && _cachedFolderStream is not null
+            && targetOffset >= _cachedPositionInFolder
+        )
+        {
+            var skip = targetOffset - _cachedPositionInFolder;
+            if (skip > 0)
+            {
+                _cachedFolderStream.Skip(skip);
+            }
+            _cachedPositionInFolder = targetOffset;
+            return;
+        }
+
+        _cachedFolderStream?.Dispose();
+        _cachedFolderStream = GetFolderStream(baseStream, _folders[folderIndex], pw);
+        _cachedFolderIndex = folderIndex;
+        if (targetOffset > 0)
+        {
+            _cachedFolderStream.Skip(targetOffset);
+        }
+        _cachedPositionInFolder = targetOffset;
+    }
+
+    private void ReleaseFolderStreamCache(long targetOffset, long entryLength, bool fullyConsumed)
+    {
+        try
+        {
+            if (!fullyConsumed)
+            {
+                InvalidateFolderStreamCache();
+            }
+            else
+            {
+                _cachedPositionInFolder = targetOffset + entryLength;
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _folderCacheInUse, 0);
+        }
+    }
+
+    private void InvalidateFolderStreamCache()
+    {
+        _cachedFolderStream?.Dispose();
+        _cachedFolderStream = null;
+        _cachedFolderIndex = -1;
+        _cachedPositionInFolder = 0;
+    }
+
+    internal void DisposeFolderStreamCache()
+    {
+        InvalidateFolderStreamCache();
+        Interlocked.Exchange(ref _folderCacheInUse, 0);
+    }
+
+    /// <summary>
+    /// Entry substream that keeps the folder decoder alive and updates/invalidates the MRU cache on dispose.
+    /// </summary>
+    private sealed class FolderCacheEntryStream : Stream, IStreamStack
+    {
+        private readonly ArchiveDatabase _database;
+        private readonly ReadOnlySubStream _inner;
+        private readonly long _targetOffset;
+        private readonly long _entryLength;
+        private bool _disposed;
+
+        public FolderCacheEntryStream(
+            ArchiveDatabase database,
+            ReadOnlySubStream inner,
+            long targetOffset,
+            long entryLength
+        )
+        {
+            _database = database;
+            _inner = inner;
+            _targetOffset = targetOffset;
+            _entryLength = entryLength;
+        }
+
+        Stream IStreamStack.BaseStream() => _inner;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => _inner.Position;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() { }
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            _inner.Read(buffer, offset, count);
+
+        public override int ReadByte() => _inner.ReadByte();
+
+        public override int Read(Span<byte> buffer) => _inner.Read(buffer);
+
+        public override Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken
+        ) => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        ) => _inner.ReadAsync(buffer, cancellationToken);
+
+        public override long Seek(long offset, SeekOrigin origin) =>
+            throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+
+        public override async ValueTask DisposeAsync()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
+            var fullyConsumed = _inner.BytesLeftToRead <= 0;
+            await _inner.DisposeAsync().ConfigureAwait(false);
+            _database.ReleaseFolderStreamCache(_targetOffset, _entryLength, fullyConsumed);
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
+            if (disposing)
+            {
+                var fullyConsumed = _inner.BytesLeftToRead <= 0;
+                _inner.Dispose();
+                _database.ReleaseFolderStreamCache(_targetOffset, _entryLength, fullyConsumed);
+            }
+            base.Dispose(disposing);
+        }
     }
 }

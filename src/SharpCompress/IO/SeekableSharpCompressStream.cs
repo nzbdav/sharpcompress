@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using SharpCompress.Common;
 
 namespace SharpCompress.IO;
 
@@ -18,9 +17,16 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
     public override bool LeaveStreamOpen { get; }
 
     public SeekableSharpCompressStream(Stream stream, bool leaveStreamOpen = false)
-        : base(Null, true, false, null)
+        : base(Null, leaveStreamOpen: true, bufferSize: null)
     {
         ThrowHelper.ThrowIfNull(stream);
+        if (stream is SharpCompressStream)
+        {
+            throw new ArgumentException(
+                "A SharpCompressStream must not be wrapped in SeekableSharpCompressStream.",
+                nameof(stream)
+            );
+        }
         if (!stream.CanSeek)
         {
             throw new ArgumentException("Stream must be seekable", nameof(stream));
@@ -52,6 +58,22 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
         }
 
         _stream.Position = targetPosition;
+        return true;
+    }
+
+    internal override bool TrySkipForward(long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        // Defensive delegation: the constructor rejects this today, but keeping
+        // the guard here prevents a future construction path from treating a
+        // ring-buffered wrapper as natively seekable.
+        if (_stream is SharpCompressStream sharpCompressStream)
+        {
+            return sharpCompressStream.TrySkipForward(count);
+        }
+
+        _stream.Position += count;
         return true;
     }
 
@@ -92,17 +114,13 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
 
     public override void StopRecording() => _recordedPosition = null;
 
+    public override void FreezeAndReleaseBuffer() => _recordedPosition = null;
+
     protected override void Dispose(bool disposing)
     {
         if (_isDisposed)
         {
             return;
-        }
-        if (ThrowOnDispose)
-        {
-            throw new ArchiveOperationException(
-                $"Attempt to dispose of a {nameof(SeekableSharpCompressStream)} when {nameof(ThrowOnDispose)} is true"
-            );
         }
         _isDisposed = true;
         if (disposing && !LeaveStreamOpen)

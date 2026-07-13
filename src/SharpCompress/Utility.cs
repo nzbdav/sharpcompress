@@ -108,7 +108,16 @@ internal static partial class Utility
             CancellationToken cancellationToken = default
         )
         {
-            if (source.CanSeek && source is not SharpCompressStream)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (source is SharpCompressStream sharpCompressStream)
+            {
+                if (sharpCompressStream.TrySkipForward(advanceAmount))
+                {
+                    return;
+                }
+            }
+            else if (source.CanSeek)
             {
                 source.Position += advanceAmount;
                 return;

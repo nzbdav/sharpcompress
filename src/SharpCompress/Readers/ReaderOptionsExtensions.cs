@@ -98,4 +98,12 @@ public static class ReaderOptionsExtensions
         _ = providers ?? throw new ArgumentNullException(nameof(providers));
         return options with { Providers = providers };
     }
+
+    /// <summary>
+    /// Creates a copy with the specified CancelOnEntryStreamDispose value.
+    /// </summary>
+    public static ReaderOptions WithCancelOnEntryStreamDispose(
+        this ReaderOptions options,
+        bool cancelOnEntryStreamDispose
+    ) => options with { CancelOnEntryStreamDispose = cancelOnEntryStreamDispose };
 }

@@ -16,6 +16,9 @@ internal class AsyncRarCrcBinaryReader(Stream stream) : AsyncMarkingBinaryReader
 
     protected void UpdateCrc(byte b) => _currentCrc = RarCRC.CheckCrc(_currentCrc, b);
 
+    protected void UpdateCrc(byte[] data, int offset, int count) =>
+        _currentCrc = RarCRC.CheckCrc(_currentCrc, data, offset, count);
+
     protected async ValueTask<byte[]> ReadBytesNoCrcAsync(
         int count,
         CancellationToken cancellationToken = default
