@@ -1,10 +1,17 @@
 using System.IO;
 using SharpCompress.Common;
+using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Compressors.Rar;
 
 internal abstract class MultiVolumeReadOnlyStreamBase : Stream
 {
+    protected long currentPosition;
+    protected long maxPosition;
+    protected long remainingInPart;
+    protected Stream? currentStream;
+    protected bool currentPartSplitAfter;
+
     public byte[]? CurrentCrc { get; protected set; }
 
     /// <summary>
@@ -20,4 +27,40 @@ internal abstract class MultiVolumeReadOnlyStreamBase : Stream
             );
         }
     }
+
+    protected void ResetPartState(long partCompressedSize, Stream stream, bool isSplitAfter)
+    {
+        DisposeOwnedPartStream();
+        maxPosition = partCompressedSize;
+        currentPosition = 0;
+        remainingInPart = partCompressedSize;
+        currentStream = stream;
+        currentPartSplitAfter = isSplitAfter;
+    }
+
+    protected void DisposeOwnedPartStream()
+    {
+        if (currentStream is RarCryptoWrapper)
+        {
+            currentStream.Dispose();
+        }
+    }
+
+    protected int GetReadSize(int requestedCount)
+    {
+        if (remainingInPart <= 0)
+        {
+            return 0;
+        }
+
+        return requestedCount > remainingInPart ? (int)remainingInPart : requestedCount;
+    }
+
+    protected void AdvanceAfterRead(int read)
+    {
+        currentPosition += read;
+        remainingInPart -= read;
+    }
+
+    protected bool ShouldSwitchPart => remainingInPart == 0 && currentPartSplitAfter;
 }
