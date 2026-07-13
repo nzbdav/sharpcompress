@@ -1,7 +1,6 @@
 using System;
 using System.Buffers;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
@@ -34,24 +33,30 @@ internal partial class RarStream
     /// <summary>
     /// Asynchronously reads bytes from the current stream into a buffer.
     /// </summary>
-    public override async Task<int> ReadAsync(
+    public override Task<int> ReadAsync(
         byte[] buffer,
         int offset,
         int count,
         CancellationToken cancellationToken
-    ) => await ReadImplAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+    ) => ReadImplAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+    /// <summary>
+    /// Asynchronously reads bytes from the current stream into a memory buffer.
+    /// </summary>
+    public override ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    ) => ReadImplAsync(buffer, cancellationToken);
 
     /// <summary>
     /// Internal async implementation of ReadAsync.
     /// </summary>
     private async ValueTask<int> ReadImplAsync(
-        byte[] buffer,
-        int offset,
-        int count,
+        Memory<byte> buffer,
         CancellationToken cancellationToken
     )
     {
-        if (count == 0)
+        if (buffer.Length == 0)
         {
             return 0;
         }
@@ -60,25 +65,22 @@ internal partial class RarStream
         outTotal = 0;
         if (tmpCount > 0)
         {
-            var toCopy = tmpCount < count ? tmpCount : count;
-            Buffer.BlockCopy(tmpBuffer, tmpOffset, buffer, offset, toCopy);
+            var toCopy = tmpCount < buffer.Length ? tmpCount : buffer.Length;
+            tmpBuffer.AsSpan(tmpOffset, toCopy).CopyTo(buffer.Span);
             tmpOffset += toCopy;
             tmpCount -= toCopy;
-            offset += toCopy;
-            count -= toCopy;
+            buffer = buffer.Slice(toCopy);
             outTotal += toCopy;
         }
-        if (count > 0 && unpack.DestSize > 0)
+        if (buffer.Length > 0 && unpack.DestSize > 0)
         {
             outBuffer = buffer;
-            outOffset = offset;
-            outCount = count;
             fetch = true;
             await unpack.DoUnpackAsync(cancellationToken).ConfigureAwait(false);
             fetch = false;
         }
         _position += outTotal;
-        if (count > 0 && outTotal == 0 && _position < Length)
+        if (buffer.Length > 0 && outTotal == 0 && _position < Length)
         {
             // sanity check, eg if we try to decompress a redir entry
             throw new ArchiveOperationException(
@@ -86,40 +88,6 @@ internal partial class RarStream
             );
         }
         return outTotal;
-    }
-
-    /// <summary>
-    /// Asynchronously reads bytes from the current stream into a memory buffer.
-    /// </summary>
-    public override async ValueTask<int> ReadAsync(
-        Memory<byte> buffer,
-        CancellationToken cancellationToken = default
-    )
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (MemoryMarshal.TryGetArray<byte>(buffer, out var segment))
-        {
-            return await ReadImplAsync(
-                    segment.Array!,
-                    segment.Offset,
-                    buffer.Length,
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-        }
-
-        var array = ArrayPool<byte>.Shared.Rent(buffer.Length);
-        try
-        {
-            var bytesRead = await ReadImplAsync(array, 0, buffer.Length, cancellationToken)
-                .ConfigureAwait(false);
-            new ReadOnlySpan<byte>(array, 0, bytesRead).CopyTo(buffer.Span);
-            return bytesRead;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(array);
-        }
     }
 
     /// <summary>
