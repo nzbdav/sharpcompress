@@ -146,9 +146,7 @@ internal sealed partial class ArchiveDatabase
                     .ConfigureAwait(false);
                 try
                 {
-                    await folderStream
-                        .CopyToAsync(buffer, cancellationToken)
-                        .ConfigureAwait(false);
+                    await folderStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
