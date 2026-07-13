@@ -52,17 +52,31 @@ internal unsafe class JobThreadPool : IDisposable
         }
 
         var cancellationToken = poolThread.CancellationTokenSource.Token;
-        while (!queue.IsCompleted && !cancellationToken.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
+            Job job;
             try
             {
-                if (queue.TryTake(out var job, -1, cancellationToken))
+                // TryTake returns false once CompleteAdding has been called and the queue drains.
+                if (!queue.TryTake(out job, -1, cancellationToken))
                 {
-                    ((delegate* managed<void*, void>)job.function)(job.opaque);
+                    return;
                 }
             }
-            catch (InvalidOperationException) { }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                // Pool shutdown via Cancel(); expected during Join/Dispose.
+                return;
+            }
+            catch (InvalidOperationException)
+            {
+                // Race with CompleteAdding marking the collection complete mid-take.
+                return;
+            }
+
+            // Deliberately outside the try: a throwing job must fail visibly
+            // (unhandled thread exception) rather than be swallowed and deadlock the writer.
+            ((delegate* managed<void*, void>)job.function)(job.opaque);
         }
     }
 
@@ -148,8 +162,10 @@ internal unsafe class JobThreadPool : IDisposable
 
     public int Size()
     {
-        // todo not implemented
-        // https://github.com/dotnet/runtime/issues/24200
+        // Memory-usage estimate for POOL_sizeof / ZSTDMT_sizeof_CCtx only.
+        // Returning 0 underreports that estimate; it is not a correctness issue.
+        // Accurate managed-heap sizing for Thread/BlockingCollection is not
+        // available (see https://github.com/dotnet/runtime/issues/24200).
         return 0;
     }
 }
