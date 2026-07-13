@@ -281,37 +281,69 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     private void SeekToPosition(long targetPosition)
     {
-        // If we have a recording anchor, allow seeking within the recorded range
+        if (!TrySetBufferedPosition(targetPosition))
+        {
+            if (_recordingStartPosition is not null)
+            {
+                throw new NotSupportedException(
+                    $"Cannot seek to position {targetPosition}. Valid recorded range: "
+                        + $"[{_recordingStartPosition.Value}, {streamPosition}]"
+                );
+            }
+
+            if (_ringBuffer is not null)
+            {
+                long ringBufferStart = streamPosition - _ringBuffer.Length;
+                throw new NotSupportedException(
+                    $"Cannot seek to position {targetPosition}. Valid ring buffer range: "
+                        + $"[{ringBufferStart}, {streamPosition}]"
+                );
+            }
+
+            throw new NotSupportedException("Cannot seek on non-buffered stream.");
+        }
+    }
+
+    /// <summary>
+    /// Attempts to set <see cref="Position"/> within the buffered or recorded range without throwing.
+    /// </summary>
+    internal virtual bool TrySetBufferedPosition(long targetPosition)
+    {
+        if (_isPassthrough)
+        {
+            if (!stream.CanSeek)
+            {
+                return false;
+            }
+
+            stream.Position = targetPosition;
+            return true;
+        }
+
         if (_recordingStartPosition is not null)
         {
             if (targetPosition >= _recordingStartPosition.Value && targetPosition <= streamPosition)
             {
                 _logicalPosition = targetPosition;
-                return;
+                return true;
             }
-            throw new NotSupportedException(
-                $"Cannot seek to position {targetPosition}. Valid recorded range: "
-                    + $"[{_recordingStartPosition.Value}, {streamPosition}]"
-            );
+
+            return false;
         }
 
-        // If ring buffer is enabled (and not recording), check if we can seek within it
         if (_ringBuffer is not null)
         {
             long ringBufferStart = streamPosition - _ringBuffer.Length;
             if (targetPosition >= ringBufferStart && targetPosition <= streamPosition)
             {
                 _logicalPosition = targetPosition;
-                return;
+                return true;
             }
-            throw new NotSupportedException(
-                $"Cannot seek to position {targetPosition}. Valid ring buffer range: "
-                    + $"[{ringBufferStart}, {streamPosition}]"
-            );
+
+            return false;
         }
 
-        // No buffering available
-        throw new NotSupportedException("Cannot seek on non-buffered stream.");
+        return false;
     }
 
     public override int Read(byte[] buffer, int offset, int count)

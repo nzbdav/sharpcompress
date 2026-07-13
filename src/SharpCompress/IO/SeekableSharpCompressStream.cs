@@ -44,6 +44,17 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
         set => _stream.Position = value;
     }
 
+    internal override bool TrySetBufferedPosition(long targetPosition)
+    {
+        if (targetPosition < 0)
+        {
+            return false;
+        }
+
+        _stream.Position = targetPosition;
+        return true;
+    }
+
     internal override bool IsRecording => _recordedPosition.HasValue;
 
     public override void Flush() => _stream.Flush();

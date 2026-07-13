@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using SharpCompress.Common;
 
 namespace SharpCompress.IO;
 
@@ -49,32 +50,56 @@ public static class StreamStackExtensions
         return current;
     }
 
-    internal static void Rewind(this IStreamStack stream, int count)
+    /// <summary>
+    /// Attempts to rewind <paramref name="count"/> bytes within a buffered
+    /// <see cref="SharpCompressStream"/> in the stack.
+    /// </summary>
+    /// <returns>
+    /// <see langword="true"/> if the rewind succeeded, <paramref name="count"/> is zero, or there is
+    /// no buffered <see cref="SharpCompressStream"/> to rewind into;
+    /// <see langword="false"/> if a buffered stream was found but the target lies outside its valid range.
+    /// </returns>
+    internal static bool Rewind(this IStreamStack stream, int count)
     {
+        if (count == 0)
+        {
+            return true;
+        }
+
         IStreamStack? current = stream;
 
         while (current != null)
         {
             if (current is SharpCompressStream sharpCompressStream)
             {
-                // Try to rewind within the buffer. If the position is outside the buffered
-                // region, silently ignore (matching release behavior where streams without
-                // buffering simply didn't rewind).
                 var targetPosition = sharpCompressStream.Position - count;
-                if (targetPosition >= 0)
+                if (targetPosition < 0)
                 {
-                    try
-                    {
-                        sharpCompressStream.Position = targetPosition;
-                    }
-                    catch (NotSupportedException)
-                    {
-                        // Cannot seek outside buffered region - silently ignore
-                    }
+                    return false;
                 }
-                return;
+
+                return sharpCompressStream.TrySetBufferedPosition(targetPosition);
             }
+
             current = current.BaseStream() as IStreamStack;
+        }
+
+        // No buffered SharpCompressStream in the stack — nothing to rewind into.
+        return true;
+    }
+
+    /// <summary>
+    /// Rewinds <paramref name="count"/> bytes or throws when the buffered region cannot cover the rewind.
+    /// </summary>
+    internal static void RewindOrThrow(this IStreamStack stream, int count)
+    {
+        if (!stream.Rewind(count))
+        {
+            throw new ArchiveOperationException(
+                $"Unable to rewind {count} bytes within the stream buffer. "
+                    + $"Increase {nameof(Constants)}.{nameof(Constants.RewindableBufferSize)} "
+                    + $"(currently {Constants.RewindableBufferSize})."
+            );
         }
     }
 }
