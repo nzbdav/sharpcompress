@@ -147,12 +147,9 @@ public class WinzipAesCryptoStreamTests
     private static byte[] EncryptCtr(byte[] plainText, byte[] keyBytes)
     {
         using var aes = Aes.Create();
-        aes.BlockSize = 128;
-        aes.KeySize = keyBytes.Length * 8;
-        aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
+        aes.Key = keyBytes;
 
-        using var encryptor = aes.CreateEncryptor(keyBytes, new byte[16]);
         byte[] counter = new byte[16];
         byte[] counterOut = new byte[16];
         byte[] cipherText = new byte[plainText.Length];
@@ -162,7 +159,7 @@ public class WinzipAesCryptoStreamTests
         while (offset < plainText.Length)
         {
             BinaryPrimitives.WriteInt32LittleEndian(counter, nonce++);
-            encryptor.TransformBlock(counter, 0, counter.Length, counterOut, 0);
+            aes.EncryptEcb(counter, counterOut, PaddingMode.None);
 
             int blockLength = Math.Min(counterOut.Length, plainText.Length - offset);
             for (int i = 0; i < blockLength; i++)

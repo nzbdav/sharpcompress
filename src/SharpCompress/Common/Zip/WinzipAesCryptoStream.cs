@@ -9,13 +9,17 @@ namespace SharpCompress.Common.Zip;
 internal partial class WinzipAesCryptoStream : Stream
 {
     private const int BLOCK_SIZE_IN_BYTES = 16;
+
+    // Batch keystream generation to amortize EncryptEcb one-shot setup cost.
+    private const int KEYSTREAM_BLOCKS = 32;
+    private const int KEYSTREAM_SIZE_IN_BYTES = BLOCK_SIZE_IN_BYTES * KEYSTREAM_BLOCKS;
+
     private readonly Aes _cipher;
-    private readonly byte[] _counter = new byte[BLOCK_SIZE_IN_BYTES];
+    private readonly byte[] _counter = new byte[KEYSTREAM_SIZE_IN_BYTES];
     private readonly Stream _stream;
-    private readonly ICryptoTransform _transform;
     private int _nonce = 1;
-    private byte[] _counterOut = new byte[BLOCK_SIZE_IN_BYTES];
-    private int _counterOutOffset = BLOCK_SIZE_IN_BYTES;
+    private readonly byte[] _counterOut = new byte[KEYSTREAM_SIZE_IN_BYTES];
+    private int _counterOutOffset = KEYSTREAM_SIZE_IN_BYTES;
     private long _totalBytesLeftToRead;
     private bool _isDisposed;
 
@@ -27,20 +31,17 @@ internal partial class WinzipAesCryptoStream : Stream
     {
         _stream = stream;
         _totalBytesLeftToRead = length;
-
         _cipher = CreateCipher(winzipAesEncryptionData);
-
-        var iv = new byte[BLOCK_SIZE_IN_BYTES];
-        _transform = _cipher.CreateEncryptor(winzipAesEncryptionData.KeyBytes, iv);
     }
 
-    private Aes CreateCipher(WinzipAesEncryptionData winzipAesEncryptionData)
+    // WinZip AES uses CTR with a little-endian counter. .NET has no CipherMode.CTR, so we
+    // encrypt successive counter blocks with the raw AES block operation (EncryptEcb) to
+    // produce keystream only — payload bytes are never ECB-encrypted.
+    private static Aes CreateCipher(WinzipAesEncryptionData winzipAesEncryptionData)
     {
         var cipher = Aes.Create();
-        cipher.BlockSize = BLOCK_SIZE_IN_BYTES * 8;
-        cipher.KeySize = winzipAesEncryptionData.KeyBytes.Length * 8;
-        cipher.Mode = CipherMode.ECB;
         cipher.Padding = PaddingMode.None;
+        cipher.Key = winzipAesEncryptionData.KeyBytes;
         return cipher;
     }
 
@@ -72,6 +73,7 @@ internal partial class WinzipAesCryptoStream : Stream
             Span<byte> ten = stackalloc byte[10];
             _stream.ReadAtLeast(ten, ten.Length, throwOnEndOfStream: false);
             _stream.Dispose();
+            _cipher.Dispose();
         }
         base.Dispose(disposing);
     }
@@ -107,15 +109,15 @@ internal partial class WinzipAesCryptoStream : Stream
 
     private void FillCounterOut()
     {
-        // update the counter
-        BinaryPrimitives.WriteInt32LittleEndian(_counter, _nonce++);
-        _transform.TransformBlock(
-            _counter,
-            0, // offset
-            BLOCK_SIZE_IN_BYTES,
-            _counterOut,
-            0
-        ); // offset
+        for (var i = 0; i < KEYSTREAM_BLOCKS; i++)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(
+                _counter.AsSpan(i * BLOCK_SIZE_IN_BYTES, sizeof(int)),
+                _nonce++
+            );
+        }
+
+        _cipher.EncryptEcb(_counter, _counterOut, PaddingMode.None);
         _counterOutOffset = 0;
     }
 
@@ -134,12 +136,12 @@ internal partial class WinzipAesCryptoStream : Stream
 
         while (posn < buffer.Length && remaining > 0)
         {
-            if (_counterOutOffset == BLOCK_SIZE_IN_BYTES)
+            if (_counterOutOffset == KEYSTREAM_SIZE_IN_BYTES)
             {
                 FillCounterOut();
             }
 
-            var bytesToXor = Math.Min(BLOCK_SIZE_IN_BYTES - _counterOutOffset, remaining);
+            var bytesToXor = Math.Min(KEYSTREAM_SIZE_IN_BYTES - _counterOutOffset, remaining);
             XorInPlace(buffer, posn, bytesToXor, _counterOutOffset);
             _counterOutOffset += bytesToXor;
             posn += bytesToXor;
