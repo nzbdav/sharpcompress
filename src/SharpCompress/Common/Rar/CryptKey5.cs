@@ -101,27 +101,38 @@ internal class CryptKey5 : ICryptKey
         var hashKey = new byte[SHA256_DIGEST_SIZE];
         var pswCheckValue = new byte[SHA256_DIGEST_SIZE];
 
-        for (var x = 0; x < 3; x++)
+        try
         {
-            for (var i = 1; i < loop[x]; i++)
+            for (var x = 0; x < 3; x++)
             {
-                block = HMACSHA256.HashData(passwordBytes, block);
-                for (var j = 0; j < finalHash.Length; j++)
+                for (var i = 1; i < loop[x]; i++)
                 {
-                    finalHash[j] ^= block[j];
+                    var nextBlock = HMACSHA256.HashData(passwordBytes, block);
+                    CryptographicOperations.ZeroMemory(block);
+                    block = nextBlock;
+                    for (var j = 0; j < finalHash.Length; j++)
+                    {
+                        finalHash[j] ^= block[j];
+                    }
                 }
+
+                var target = x switch
+                {
+                    0 => aesKey,
+                    1 => hashKey,
+                    _ => pswCheckValue,
+                };
+                finalHash.AsSpan().CopyTo(target);
             }
 
-            var target = x switch
-            {
-                0 => aesKey,
-                1 => hashKey,
-                _ => pswCheckValue,
-            };
-            finalHash.AsSpan().CopyTo(target);
+            return new DerivedKeys(aesKey, hashKey, pswCheckValue);
         }
-
-        return new DerivedKeys(aesKey, hashKey, pswCheckValue);
+        finally
+        {
+            CryptographicOperations.ZeroMemory(passwordBytes);
+            CryptographicOperations.ZeroMemory(block);
+            CryptographicOperations.ZeroMemory(finalHash);
+        }
     }
 
     private static DerivedKeys GetOrDeriveKeys(string password, byte[] salt, int lg2Count)
@@ -159,7 +170,10 @@ internal class CryptKey5 : ICryptKey
             _pswCheck[i % EncryptionConstV5.SIZE_PSWCHECK] ^= derived.PswCheckValue[i];
         }
 
-        if (_cryptoInfo.UsePswCheck && !_cryptoInfo.PswCheck.SequenceEqual(_pswCheck))
+        if (
+            _cryptoInfo.UsePswCheck
+            && !CryptographicOperations.FixedTimeEquals(_cryptoInfo.PswCheck, _pswCheck)
+        )
         {
             throw new CryptographicException("The password did not match.");
         }

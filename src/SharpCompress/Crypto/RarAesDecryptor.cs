@@ -57,7 +57,7 @@ internal sealed class RarAesDecryptor : IDisposable
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(cipherText);
+            ArrayPool<byte>.Shared.Return(cipherText, clearArray: true);
         }
     }
 
@@ -97,7 +97,7 @@ internal sealed class RarAesDecryptor : IDisposable
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(cipherText);
+            ArrayPool<byte>.Shared.Return(cipherText, clearArray: true);
         }
     }
 
@@ -126,7 +126,7 @@ internal sealed class RarAesDecryptor : IDisposable
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(plainText);
+            ArrayPool<byte>.Shared.Return(plainText, clearArray: true);
         }
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Security.Cryptography;
 
 namespace SharpCompress.Crypto;
 
@@ -22,6 +23,11 @@ internal struct RarAesDecryptCarry
 
     public void Clear()
     {
+        if (_carryLength > 0)
+        {
+            CryptographicOperations.ZeroMemory(_carry.AsSpan(0, _carryLength));
+        }
+
         _carryLength = 0;
         _carryOffset = 0;
     }

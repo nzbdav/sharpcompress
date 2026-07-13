@@ -75,12 +75,23 @@ internal class CryptKey3 : ICryptKey
             }
         }
 
-        var aes = Aes.Create();
-        aes.KeySize = AES_128;
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.None;
-        aes.Key = aesKey;
-        aes.IV = aesIV;
-        return aes.CreateDecryptor();
+        try
+        {
+            var aes = Aes.Create();
+            aes.KeySize = AES_128;
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.None;
+            aes.Key = aesKey;
+            aes.IV = aesIV;
+            return aes.CreateDecryptor();
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(passwordBytes);
+            CryptographicOperations.ZeroMemory(rawPassword);
+            CryptographicOperations.ZeroMemory(aesKey);
+            CryptographicOperations.ZeroMemory(aesIV);
+            CryptographicOperations.ZeroMemory(digest);
+        }
     }
 }
