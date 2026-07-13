@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using SharpCompress.Common;
 
 namespace SharpCompress.IO;
 
@@ -97,12 +96,6 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
         if (_isDisposed)
         {
             return;
-        }
-        if (ThrowOnDispose)
-        {
-            throw new ArchiveOperationException(
-                $"Attempt to dispose of a {nameof(SeekableSharpCompressStream)} when {nameof(ThrowOnDispose)} is true"
-            );
         }
         _isDisposed = true;
         if (disposing && !LeaveStreamOpen)

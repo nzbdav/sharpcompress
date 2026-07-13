@@ -14,17 +14,20 @@ public partial class SharpCompressStream
     /// <para>
     /// This is a thin wrapper: all reads, writes, and seeks are forwarded directly to the underlying
     /// stream with no ring-buffer overhead. <see cref="Stream.CanSeek"/> delegates to the underlying
-    /// stream's own value.
+    /// stream's own value. <see cref="Stream.Position"/> likewise reports and sets the underlying
+    /// stream position.
     /// </para>
     /// <para>
     /// The resulting stream does <b>not</b> support <see cref="StartRecording"/>, <see cref="Rewind()"/>,
-    /// or <see cref="StopRecording"/>. Call <see cref="Create"/> on the passthrough stream to obtain
-    /// a recording-capable wrapper when needed.
+    /// or <see cref="StopRecording"/> (each throws <see cref="ArchiveOperationException"/>). Call
+    /// <see cref="Create(Stream, int?)"/> on the passthrough stream to obtain a recording-capable
+    /// wrapper when needed (that call unwraps this passthrough and rewraps the underlying stream).
     /// </para>
     /// <para>
     /// Because the stream does not take ownership, the underlying stream is <b>never</b> disposed when
-    /// this wrapper is disposed. Use this when you need to satisfy an API that expects a
-    /// <see cref="SharpCompressStream"/> without transferring lifetime responsibility.
+    /// this wrapper is disposed (<see cref="LeaveStreamOpen"/> is always <see langword="true"/>).
+    /// Use this when you need to satisfy an API that expects a <see cref="SharpCompressStream"/>
+    /// without transferring lifetime responsibility.
     /// </para>
     /// </remarks>
     /// <param name="stream">The underlying stream to wrap. Must not be <see langword="null"/>.</param>
@@ -40,32 +43,53 @@ public partial class SharpCompressStream
     /// capabilities.
     /// </summary>
     /// <remarks>
-    /// <para><b>Seekable streams</b> — wraps in a thin delegate that calls the underlying
-    /// stream's native <see cref="Stream.Seek"/> directly. No ring buffer is allocated.
-    /// <see cref="StartRecording"/> stores the current position; <see cref="Rewind()"/> seeks
-    /// back to it.</para>
+    /// <para><b>Seekable streams</b> — wraps in a thin delegate (<c>SeekableSharpCompressStream</c>)
+    /// that calls the underlying stream's native <see cref="Stream.Seek"/> directly. No ring buffer
+    /// is allocated. <see cref="StartRecording"/> stores the current position; <see cref="Rewind()"/>
+    /// seeks back to it. <paramref name="bufferSize"/> is ignored.</para>
     /// <para><b>Non-seekable streams</b> (network streams, compressed streams, pipes) — allocates
     /// a ring buffer of <paramref name="bufferSize"/> bytes. All bytes read from the underlying
     /// stream are kept in the ring buffer so that <see cref="Rewind()"/> can replay them without
     /// re-reading the underlying stream. If more bytes have been read than the ring buffer can hold,
-    /// a subsequent rewind will throw <see cref="InvalidOperationException"/>; increase
+    /// a subsequent rewind will throw <see cref="ArchiveOperationException"/>; increase
     /// <paramref name="bufferSize"/> or <see cref="Common.Constants.RewindableBufferSize"/> to
     /// avoid this.</para>
-    /// <para><b>Already-wrapped streams</b> — if <paramref name="stream"/> is already a
-    /// <see cref="SharpCompressStream"/> (or a stack that contains one), it is returned as-is to
-    /// prevent double-wrapping and double-buffering.</para>
+    /// <para><b>Already-wrapped streams — unwrap / return-as-is rules:</b></para>
+    /// <list type="bullet">
+    /// <item>
+    /// Passthrough <see cref="SharpCompressStream"/>: unwrapped and rewrapped. Seekable underlying
+    /// streams become <c>SeekableSharpCompressStream</c>; non-seekable underlying streams become a
+    /// ring-buffered <see cref="SharpCompressStream"/>. In both cases
+    /// <see cref="LeaveStreamOpen"/> is <see langword="true"/> so prior
+    /// <see cref="CreateNonDisposing"/> ownership is preserved.
+    /// <paramref name="bufferSize"/> applies only to the non-seekable rewrap path.
+    /// </item>
+    /// <item>
+    /// Non-passthrough <see cref="SharpCompressStream"/>: returned as-is.
+    /// <paramref name="bufferSize"/> is ignored (no reallocation / no double-wrap).
+    /// </item>
+    /// <item>
+    /// <see cref="IStreamStack"/> whose stack contains a <see cref="SharpCompressStream"/>: that
+    /// inner instance is returned as-is. <paramref name="bufferSize"/> is ignored.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// Ownership for newly created wrappers over raw (not already wrapped) streams:
+    /// <see cref="LeaveStreamOpen"/> is <see langword="false"/> — disposing the returned instance
+    /// disposes <paramref name="stream"/>.
+    /// </para>
     /// </remarks>
     /// <param name="stream">The underlying stream to wrap. Must not be <see langword="null"/>.</param>
     /// <param name="bufferSize">
     /// Size in bytes of the ring buffer allocated for non-seekable streams.
     /// Defaults to <see cref="Common.Constants.RewindableBufferSize"/> (81 920 bytes) when
-    /// <see langword="null"/>. Has no effect when <paramref name="stream"/> is seekable, because
-    /// no ring buffer is needed in that case.
+    /// <see langword="null"/>. Silently ignored when <paramref name="stream"/> is seekable, or when
+    /// an existing non-passthrough / stacked <see cref="SharpCompressStream"/> is returned as-is.
     /// </param>
     /// <returns>
-    /// A <see cref="SharpCompressStream"/> wrapping <paramref name="stream"/>. The returned instance
-    /// owns the stream and will dispose it unless the original source was a non-disposing passthrough
-    /// wrapper.
+    /// A <see cref="SharpCompressStream"/> wrapping <paramref name="stream"/>. Newly created wrappers
+    /// over raw streams own the stream and will dispose it; wrappers produced by unwrapping a
+    /// <see cref="CreateNonDisposing"/> passthrough do not.
     /// </returns>
     public static SharpCompressStream Create(Stream stream, int? bufferSize = null)
     {

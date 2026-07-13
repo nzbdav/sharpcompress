@@ -249,12 +249,6 @@ public partial class SharpCompressStream
     {
         if (!isDisposed)
         {
-            if (ThrowOnDispose)
-            {
-                throw new ArchiveOperationException(
-                    $"Attempt to dispose of a {nameof(SharpCompressStream)} when {nameof(ThrowOnDispose)} is true"
-                );
-            }
             isDisposed = true;
             if (!LeaveStreamOpen)
             {

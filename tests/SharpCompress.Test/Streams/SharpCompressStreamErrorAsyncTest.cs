@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using SharpCompress.Common;
 using SharpCompress.IO;
+using SharpCompress.Test.Mocks;
 using Xunit;
 
 namespace SharpCompress.Test.Streams;
@@ -50,16 +51,18 @@ public class SharpCompressStreamErrorAsyncTest
     }
 
     [Fact]
-    public async ValueTask DisposeAsync_WithThrowOnDisposeTrue_ThrowsInvalidOperation()
+    public async ValueTask DisposalGuardStream_DisposeAsyncWhileArmed_ThrowsInvalidOperation()
     {
         var ms = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
-        var stream = SharpCompressStream.CreateNonDisposing(ms);
-        stream.ThrowOnDispose = true;
+        var guard = new DisposalGuardStream(ms, leaveInnerOpen: true);
         await Assert
-            .ThrowsAsync<ArchiveOperationException>(async () =>
-                await stream.DisposeAsync().ConfigureAwait(false)
+            .ThrowsAsync<InvalidOperationException>(async () =>
+                await guard.DisposeAsync().ConfigureAwait(false)
             )
             .ConfigureAwait(false);
+        guard.Allow();
+        await guard.DisposeAsync().ConfigureAwait(false);
+        Assert.True(ms.CanRead);
     }
 
     [Fact]

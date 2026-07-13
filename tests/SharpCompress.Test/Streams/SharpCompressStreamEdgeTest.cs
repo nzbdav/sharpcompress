@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using SharpCompress.Common;
 using SharpCompress.IO;
 using SharpCompress.Test.Mocks;
 using Xunit;
@@ -30,12 +29,14 @@ public class SharpCompressStreamEdgeTest
     }
 
     [Fact]
-    public void Dispose_WithThrowOnDisposeTrue_ThrowsInvalidOperation()
+    public void DisposalGuardStream_DisposeWhileArmed_ThrowsInvalidOperation()
     {
         var ms = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
-        var stream = SharpCompressStream.CreateNonDisposing(ms);
-        stream.ThrowOnDispose = true;
-        Assert.Throws<ArchiveOperationException>(() => stream.Dispose());
+        var guard = new DisposalGuardStream(ms, leaveInnerOpen: true);
+        Assert.Throws<InvalidOperationException>(() => guard.Dispose());
+        guard.Allow();
+        guard.Dispose();
+        Assert.True(ms.CanRead);
     }
 
     [Fact]
