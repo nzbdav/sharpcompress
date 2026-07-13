@@ -174,4 +174,18 @@ public class MalformedInputTests
                 + "0900180000"
         );
     }
+
+    [Fact]
+    public void Zip_ShrinkOOM_CraftedUncompressedSize_ThrowsLibraryException()
+    {
+        // ZIP local header with Shrink (method 1) and uncompressed size 0x7FFFFFFF (2 GB).
+        // ShrinkStream must reject sizes above its 256 MB cap before allocating the output buffer.
+        // Layout: signature, ver, flags, method=0001, time/date/crc, compSize=6, uncompSize=0x7FFFFFFF,
+        // nameLen=9, extraLen=0, name=hello.txt, 6 bytes of payload.
+        VerifyMalformedInputThrowsLibraryException(
+            "504b03040a000000010000000000000000000006000000ffffff7f09000000"
+                + "68656c6c6f2e747874"
+                + "000000000000"
+        );
+    }
 }
