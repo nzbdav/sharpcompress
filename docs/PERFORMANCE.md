@@ -68,55 +68,114 @@ using (var reader = ReaderFactory.OpenReader(stream))
 - ✗ Forward-only (no random access)
 - ✗ Entry lookup requires iteration
 
+### 7z solid folder decoded cache (Archive API)
+
+Solid 7z folders normally require decompressing from the start of the folder to reach any entry. For Archive API random access (re-open same entry, backward order within a folder), SharpCompress can retain the most recently accessed folder's **decoded** bytes in a bounded in-memory buffer.
+
+```csharp
+var options = new ReaderOptions
+{
+    // Default: 128 MB. Set to 0 to disable decoded-folder caching.
+    SolidFolderDecodedCacheMaxBytes = 128L * 1024 * 1024,
+};
+using var archive = SevenZipArchive.OpenArchive(stream, options);
+using var entryStream = archive.Entries.First(e => !e.IsDirectory).OpenEntryStream();
+```
+
+When a folder's decompressed size fits within the cap, the first open decodes the whole folder once; subsequent opens in any order read slices from memory. Folders larger than the cap fall back to the streaming folder decoder (forward-only reuse within a live decode session).
+
+The rewind ring buffer used by `ReaderFactory` for format detection is released after RAR detection via `FreezeAndReleaseBuffer`, so steady-state RAR Reader streaming does not pay ring copy overhead.
+
 ---
 
 ## Buffer Sizing
 
-### Understanding Buffers
+SharpCompress exposes **three distinct buffer knobs**. They are not interchangeable.
 
-SharpCompress uses internal buffers for reading compressed data. Buffer size affects:
-- **Speed:** Larger buffers = fewer I/O operations = faster
-- **Memory:** Larger buffers = higher memory usage
+| Knob | Default | What it controls |
+|------|---------|------------------|
+| `Constants.BufferSize` | 81 920 bytes (80 KB) | Library-wide default for stream copy buffers; matches .NET `Stream.CopyTo` |
+| `ReaderOptions.BufferSize` / `ExtractionOptions.BufferSize` / `WriterOptions.BufferSize` | `Constants.BufferSize` | Buffer passed to `CopyTo` / `CopyToAsync` during entry extraction or writing |
+| `ReaderOptions.RewindableBufferSize` | `Constants.RewindableBufferSize` (81 920 bytes) when unset | Ring buffer for **non-seekable** streams during format auto-detection only |
 
-### Recommended Buffer Sizes
+Seekable inputs (`FileStream`, `MemoryStream`) do **not** allocate a rewind ring; they use native seek instead.
 
-| Scenario | Size | Notes |
-|----------|------|-------|
-| Embedded/IoT devices | 4-8 KB | Minimal memory usage |
-| Memory-constrained | 16-32 KB | Conservative default |
-| Standard use (default) | 64 KB | Recommended default |
-| Large file streaming | 256 KB | Better throughput |
-| High-speed SSD | 512 KB - 1 MB | Maximum throughput |
+### Extraction copy buffers (`BufferSize`)
 
-### How Buffer Size Affects Performance
+Use `ReaderOptions.BufferSize` or `ExtractionOptions.BufferSize` when calling high-level extract helpers, or pass `bufferSize` directly to `CopyTo` / `CopyToAsync`:
 
 ```csharp
-// SharpCompress manages buffers internally
-// You can't directly set buffer size, but you can:
-
-// 1. Use Stream.CopyTo with explicit buffer size
-using (var entryStream = reader.OpenEntryStream())
-using (var fileStream = File.Create(@"C:\output\file.txt"))
+// Sync: Reader API with larger extraction copy buffer
+var options = new ReaderOptions { BufferSize = 262144 }; // 256 KB
+using var reader = ReaderFactory.OpenReader(stream, options);
+while (reader.MoveToNextEntry())
 {
-    // 64 KB buffer (default)
-    entryStream.CopyTo(fileStream);
-    
-    // Or specify larger buffer for faster copy
-    entryStream.CopyTo(fileStream, bufferSize: 262144);  // 256 KB
-}
-
-// 2. Use custom buffer for writing
-using (var entryStream = reader.OpenEntryStream())
-using (var fileStream = File.Create(@"C:\output\file.txt"))
-{
-    byte[] buffer = new byte[262144];  // 256 KB
-    int bytesRead;
-    while ((bytesRead = entryStream.Read(buffer, 0, buffer.Length)) > 0)
+    if (!reader.Entry.IsDirectory)
     {
-        fileStream.Write(buffer, 0, bytesRead);
+        reader.WriteEntryToDirectory(@"C:\output", new ExtractionOptions { BufferSize = 262144 });
     }
 }
+
+// Async: same knobs on async paths
+var asyncOptions = new ReaderOptions { BufferSize = 262144 };
+await using var reader = await ReaderFactory.OpenAsyncReader(stream, asyncOptions);
+while (await reader.MoveToNextEntryAsync())
+{
+    if (!reader.Entry.IsDirectory)
+    {
+        await reader.WriteEntryToDirectoryAsync(
+            @"C:\output",
+            new ExtractionOptions { BufferSize = 262144 }
+        );
+    }
+}
+
+// Manual copy — bufferSize is always under your control
+using (var entryStream = reader.OpenEntryStream())
+using (var fileStream = File.Create(@"C:\output\file.txt"))
+{
+    entryStream.CopyTo(fileStream);                     // 81 920 B default
+    entryStream.CopyTo(fileStream, bufferSize: 262144); // 256 KB
+}
+
+await using (var entryStream = await reader.OpenEntryStreamAsync())
+await using (var fileStream = File.Create(@"C:\output\file.txt"))
+{
+    await entryStream.CopyToAsync(fileStream);              // 81 920 B default
+    await entryStream.CopyToAsync(fileStream, 262144);      // 256 KB
+}
 ```
+
+| Scenario | Suggested copy buffer | Notes |
+|----------|----------------------|-------|
+| Default / local SSD | 81 920 B (default) | Matches BCL `CopyTo`; no config needed |
+| Network or slow storage | 256 KB – 1 MB | Fewer syscalls; set via `BufferSize` or `CopyTo(..., bufferSize)` |
+| Memory-constrained | 16 – 32 KB | Lower peak memory during parallel extraction |
+
+### Rewind ring buffer (`RewindableBufferSize`)
+
+When `ReaderFactory.OpenReader` / `OpenAsyncReader` receives a **non-seekable** stream, SharpCompress wraps it in a ring buffer so format detection can rewind and retry decoders. This buffer is **not** used for decompression throughput — only for header probing.
+
+```csharp
+// Default: Constants.RewindableBufferSize (81 920 bytes)
+using var reader = ReaderFactory.OpenReader(networkStream);
+
+// Raise for self-extracting archives or formats with large detection headers
+var sfxOptions = new ReaderOptions
+{
+    LookForHeader = true,
+    RewindableBufferSize = 1_048_576, // 1 MB — see ReaderOptions.ForSelfExtractingArchive
+};
+await using var asyncReader = await ReaderFactory.OpenAsyncReader(networkStream, sfxOptions);
+```
+
+**When to increase `RewindableBufferSize`:**
+
+- Self-extracting RAR archives (512 KB – 1 MB+ stub before the archive)
+- `"recording anchor"` / rewind overflow errors during format detection
+- Tar combined formats: individual wrappers declare minimums (BZip2 blocks up to ~900 KB; Tar detection uses `TarWrapper.MaximumRewindBufferSize` automatically when opening `.tar.*` streams)
+
+**Memory impact:** allocated only for non-seekable inputs. Seekable file paths pay zero ring-buffer cost.
 
 ---
 
@@ -232,6 +291,61 @@ using (var archive = RarArchive.OpenArchive("solid.rar"))
 **Performance Impact:**
 - Random extraction: O(n²) - very slow for many files
 - Sequential extraction: O(n) - 10-100x faster
+
+### Seeking Inside Compressed RAR Entries
+
+HTTP range requests and media players often open an entry, read a slice at an offset, dispose, and repeat at another offset. Behavior depends on compression method:
+
+| Entry type | Stream | Seek support | Cost to reach offset *O* |
+|------------|--------|--------------|--------------------------|
+| Stored (method 0), non-encrypted, non-solid | `StoredRarEntryStream` | Native `Seek` on volume data | O(1) — reposition only |
+| Compressed or encrypted | `RarStream` | None (`CanSeek == false`) | O(offset) — full decode-and-discard from byte 0 |
+
+**What happens on each `OpenEntryStream()` for compressed entries:**
+
+1. A fresh `RarStream` and unpacker state are created (`RarArchiveEntry.OpenEntryStream`).
+2. `Initialize()` calls `unpack.DoUnpack(...)` from the start of the compressed stream.
+3. Skipping to an offset reads through the decompressor and discards output (no seek shortcut).
+4. Disposing the stream tears down unpacker state; the next open starts over.
+
+Stored entries on seekable volumes take the fast path in `StoredRarEntryStream.TryCreate` and seek directly to `DataStartPosition + offset`.
+
+#### Measured costs (BenchmarkDotNet, Apple Silicon, Release)
+
+Small entry (`Rar.rar`, ~60 KB compressed test entry) — `RarSeekPatternBenchmarks`:
+
+| Pattern | Mean | Allocated/op |
+|---------|------|--------------|
+| Compressed: open → read 1 MB at 4 offsets → dispose | ~119 μs | ~133 KB |
+| Stored (m0): open → `Seek` → read 1 MB at 4 offsets → dispose | ~11 μs | ~5 KB |
+
+Large compressed entry (`Rar.issue1050.rar`, ~4.7 MB entry `Braid/766832.tr11dtp`) — `RarCompressedLargeSeekBenchmarks`:
+
+| Pattern | Mean (Release, local) | Notes |
+|---------|----------------------|-------|
+| Read 1 MB at 0 / 25 / 50 / 75 % (4 opens) | ~134 ms | 75 % offset decodes ~3.5 MB then reads 1 MB |
+| Above + backward re-read at 25 % | ~183 ms | Extra full decode from 0 to 25 % |
+
+Costs scale roughly linearly with offset for compressed entries: reaching 50 % of a 50 MB entry decodes ~25 MB every time the stream is reopened. Set `SHARPCOMPRESS_SEEK_BENCH_RAR` to a local ~50 MB fixture to reproduce at full scale.
+
+Run benchmarks:
+
+```bash
+dotnet run --project tests/SharpCompress.Performance/SharpCompress.Performance.csproj -c Release -- \
+  --filter '*RarSeekPattern*' '*RarCompressedLargeSeek*'
+```
+
+#### Decoder checkpointing (design evaluation — not implemented)
+
+Periodic snapshots of the LZSS window + range-coder state could bound backward-seek cost after the first pass, but:
+
+- **Memory:** RAR5 dictionary is up to 64 MB per checkpoint; RAR4 up to 4 MB. Fixed-interval checkpoints multiply this cost.
+- **CPU:** Snapshot/restore adds overhead on every forward read even when seeks never occur.
+- **Complexity:** Unpack V1/V2017, solid streams, encryption, and multi-volume parts all need separate checkpoint paths.
+
+**Recommendation:** defer implementation. If added later, use an **on-demand** model: snapshot only when the first backward seek is detected, keep one checkpoint per open entry stream, and document the memory trade-off. Track as a follow-up feature issue rather than a default code path.
+
+For range-serve workloads today: prefer **stored (m0)** RAR entries when authoring archives; for compressed entries, cache one open stream per entry or extract sequentially.
 
 ### Best Practices for Solid Archives
 
@@ -441,7 +555,7 @@ Console.WriteLine($"Memory used: {(afterMem - beforeMem) / 1024 / 1024}MB");
 2. **Check API** → Reader API might be faster for large files
 3. **Check compression level** → Higher levels are slower to decompress
 4. **Check I/O** → Network drives are much slower than SSD
-5. **Check buffer size** → May need larger buffers for network
+5. **Check copy buffer size** — raise `ExtractionOptions.BufferSize` or `CopyTo(..., bufferSize)` for slow network I/O; raise `RewindableBufferSize` only for non-seekable format-detection failures
 
 ### High Memory Usage
 
@@ -461,5 +575,8 @@ Console.WriteLine($"Memory used: {(afterMem - beforeMem) / 1024 / 1024}MB");
 
 ## Related Documentation
 
-- [PERFORMANCE.md](USAGE.md) - Usage examples with performance considerations
+- `ReaderOptions.RewindableBufferSize` and `Constants.BufferSize` — see [Buffer Sizing](#buffer-sizing) above.
+
+
+- [USAGE.md](USAGE.md) - Usage examples with performance considerations
 - [FORMATS.md](FORMATS.md) - Format-specific performance notes

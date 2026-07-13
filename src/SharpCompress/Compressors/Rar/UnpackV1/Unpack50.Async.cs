@@ -35,7 +35,7 @@ internal partial class Unpack
         if (MAX_SIZE != DataSize)
         {
             ReadCode = await readStream
-                .ReadAsync(InBuf, DataSize, MAX_SIZE - DataSize, cancellationToken)
+                .ReadAsync(InBuf.AsMemory(DataSize, MAX_SIZE - DataSize), cancellationToken)
                 .ConfigureAwait(false);
         }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using SharpCompress.Algorithms;
 using SharpCompress.Common;
 
 namespace SharpCompress.Compressors.LZMA;
@@ -7,6 +8,8 @@ namespace SharpCompress.Compressors.LZMA;
 internal static class Crc
 {
     internal const uint INIT_CRC = 0xFFFFFFFF;
+
+    // Still required by LzBinTree hash mixing (not CRC verification).
     internal static readonly uint[] TABLE = new uint[4 * 256];
 
     static Crc()
@@ -50,15 +53,16 @@ internal static class Crc
 
     public static uint Finish(uint crc) => ~crc;
 
-    public static uint Update(uint crc, byte bt) => TABLE[(crc & 0xFF) ^ bt] ^ (crc >> 8);
+    public static uint Update(uint crc, byte bt) => Crc32Helper.Append(crc, bt);
 
     public static uint Update(uint crc, uint value)
     {
-        crc ^= value;
-        return TABLE[0x300 + (crc & 0xFF)]
-            ^ TABLE[0x200 + ((crc >> 8) & 0xFF)]
-            ^ TABLE[0x100 + ((crc >> 16) & 0xFF)]
-            ^ TABLE[0x000 + (crc >> 24)];
+        Span<byte> bytes = stackalloc byte[4];
+        bytes[0] = (byte)value;
+        bytes[1] = (byte)(value >> 8);
+        bytes[2] = (byte)(value >> 16);
+        bytes[3] = (byte)(value >> 24);
+        return Crc32Helper.Append(crc, bytes);
     }
 
     public static uint Update(uint crc, ulong value) =>
@@ -66,13 +70,6 @@ internal static class Crc
 
     public static uint Update(uint crc, long value) => Update(crc, (ulong)value);
 
-    public static uint Update(uint crc, byte[] buffer, int offset, int length)
-    {
-        for (var i = 0; i < length; i++)
-        {
-            crc = Update(crc, buffer[offset + i]);
-        }
-
-        return crc;
-    }
+    public static uint Update(uint crc, byte[] buffer, int offset, int length) =>
+        Crc32Helper.Append(crc, buffer.AsSpan(offset, length));
 }

@@ -12,6 +12,8 @@ namespace SharpCompress.Common.Tar.Headers;
 
 internal sealed partial class TarHeader
 {
+    private static ReadOnlyMemory<byte> ZeroBlock { get; } = new byte[512];
+
     internal static readonly DateTime EPOCH = new(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
     public TarHeader(

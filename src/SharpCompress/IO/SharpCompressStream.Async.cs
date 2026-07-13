@@ -29,7 +29,7 @@ public partial class SharpCompressStream
 
         // No buffering - read directly from stream
         int read = await stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         streamPosition += read;
         _logicalPosition = streamPosition;
@@ -75,7 +75,7 @@ public partial class SharpCompressStream
         if (count > 0 && _logicalPosition == streamPosition)
         {
             int read = await stream
-                .ReadAsync(buffer, offset, count, cancellationToken)
+                .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
                 .ConfigureAwait(false);
             if (read > 0)
             {
@@ -213,7 +213,7 @@ public partial class SharpCompressStream
         )
         {
             await destination
-                .WriteAsync(buffer, 0, bytesRead, cancellationToken)
+                .WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken)
                 .ConfigureAwait(false);
         }
     }

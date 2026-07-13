@@ -32,7 +32,7 @@ public sealed partial class XZBlock
         {
             bytesRead = await _decomStream
                 .NotNull()
-                .ReadAsync(buffer, offset, count, cancellationToken)
+                .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
                 .ConfigureAwait(false);
             UpdateCheck(buffer, offset, bytesRead);
             _observedUncompressedSize += (ulong)bytesRead;
@@ -165,7 +165,7 @@ public sealed partial class XZBlock
         var blockHeaderWithoutCrc = new byte[BlockHeaderSize - 4];
         blockHeaderWithoutCrc[0] = _blockHeaderSizeByte;
         var read = await BaseStream
-            .ReadAsync(blockHeaderWithoutCrc, 1, BlockHeaderSize - 5, cancellationToken)
+            .ReadAsync(blockHeaderWithoutCrc.AsMemory(1, BlockHeaderSize - 5), cancellationToken)
             .ConfigureAwait(false);
         if (read != BlockHeaderSize - 5)
         {

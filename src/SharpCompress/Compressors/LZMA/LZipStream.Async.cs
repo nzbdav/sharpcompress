@@ -55,13 +55,13 @@ public sealed partial class LZipStream
                 BinaryPrimitives.WriteUInt32LittleEndian(intBuf, crc32Stream.Crc);
                 await _countingWritableSubStream
                     .NotNull()
-                    .WriteAsync(intBuf, 0, 4, cancellationToken)
+                    .WriteAsync(intBuf.AsMemory(0, 4), cancellationToken)
                     .ConfigureAwait(false);
 
                 BinaryPrimitives.WriteInt64LittleEndian(intBuf, _writeCount);
                 await _countingWritableSubStream
                     .NotNull()
-                    .WriteAsync(intBuf, 0, 8, cancellationToken)
+                    .WriteAsync(intBuf.AsMemory(0, 8), cancellationToken)
                     .ConfigureAwait(false);
 
                 // Total member size includes the 6-byte header and 20-byte trailer.
@@ -71,7 +71,7 @@ public sealed partial class LZipStream
                 );
                 await _countingWritableSubStream
                     .NotNull()
-                    .WriteAsync(intBuf, 0, 8, cancellationToken)
+                    .WriteAsync(intBuf.AsMemory(0, 8), cancellationToken)
                     .ConfigureAwait(false);
             }
             finally
@@ -83,9 +83,11 @@ public sealed partial class LZipStream
         _finished = true;
     }
 
+    // Header bytes are fixed metadata; no caller token exists at factory creation time.
     private static async ValueTask WriteHeaderSizeAsync(Stream stream) =>
-        // hard coding the dictionary size encoding
-        await stream.WriteAsync(headerBytes, 0, 6).ConfigureAwait(false);
+        await stream
+            .WriteAsync(headerBytes.AsMemory(0, 6), CancellationToken.None)
+            .ConfigureAwait(false);
 
     private static async ValueTask FinishWrappedStreamAsync(Crc32Stream crc32Stream)
     {
@@ -129,7 +131,9 @@ public sealed partial class LZipStream
         var header = ArrayPool<byte>.Shared.Rent(6);
         try
         {
-            var n = await stream.ReadAsync(header, 0, 6, cancellationToken).ConfigureAwait(false);
+            var n = await stream
+                .ReadAsync(header.AsMemory(0, 6), cancellationToken)
+                .ConfigureAwait(false);
 
             // Incomplete header read is treated as not-LZIP (return 0); callers do not retry partial reads.
 
@@ -190,7 +194,7 @@ public sealed partial class LZipStream
         while (count > 0)
         {
             var read = await _stream
-                .ReadAsync(buffer, offset, count, cancellationToken)
+                .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
                 .ConfigureAwait(false);
             if (read > 0)
             {
@@ -330,7 +334,9 @@ public sealed partial class LZipStream
     )
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _stream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+        await _stream
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
         _writeCount += count;
     }
 }

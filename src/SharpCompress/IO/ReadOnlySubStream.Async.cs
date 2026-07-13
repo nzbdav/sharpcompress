@@ -19,7 +19,7 @@ internal partial class ReadOnlySubStream
             count = (int)BytesLeftToRead;
         }
         var read = await _stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         if (read > 0)
         {

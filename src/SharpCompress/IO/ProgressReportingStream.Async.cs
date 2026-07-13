@@ -15,7 +15,7 @@ internal sealed partial class ProgressReportingStream
     )
     {
         var bytesRead = await _baseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         if (bytesRead > 0)
         {

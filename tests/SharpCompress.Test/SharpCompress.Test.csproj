@@ -6,6 +6,7 @@
     <PackageId>SharpCompress.Test</PackageId>
     <AssemblyOriginatorKeyFile>SharpCompress.Test.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition="$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))">
     <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>

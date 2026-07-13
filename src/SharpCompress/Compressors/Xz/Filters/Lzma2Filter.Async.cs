@@ -12,7 +12,7 @@ public partial class Lzma2Filter
         int offset,
         int count,
         CancellationToken cancellationToken
-    ) => BaseStream.ReadAsync(buffer, offset, count, cancellationToken);
+    ) => BaseStream.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,

@@ -31,7 +31,9 @@ internal sealed partial class TarHeader
     {
         var buffer = new byte[BLOCK_SIZE];
         FormatUstar(buffer);
-        await output.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+        await output
+            .WriteAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask WriteGnuTarLongLinkAsync(
@@ -41,7 +43,9 @@ internal sealed partial class TarHeader
     {
         var buffer = new byte[BLOCK_SIZE];
         var nameByteCount = FormatGnuTarLongLinkHeader(buffer);
-        await output.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+        await output
+            .WriteAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+            .ConfigureAwait(false);
 
         if (nameByteCount > 100)
         {
@@ -62,7 +66,7 @@ internal sealed partial class TarHeader
     {
         var nameBytes = ArchiveEncoding.Encode(Name.NotNull("Name is null"));
         await output
-            .WriteAsync(nameBytes, 0, nameBytes.Length, cancellationToken)
+            .WriteAsync(nameBytes.AsMemory(0, nameBytes.Length), cancellationToken)
             .ConfigureAwait(false);
 
         var numPaddingBytes = BLOCK_SIZE - (nameBytes.Length % BLOCK_SIZE);
@@ -72,7 +76,7 @@ internal sealed partial class TarHeader
         }
 
         await output
-            .WriteAsync(new byte[numPaddingBytes], 0, numPaddingBytes, cancellationToken)
+            .WriteAsync(ZeroBlock.Slice(0, numPaddingBytes), cancellationToken)
             .ConfigureAwait(false);
     }
 

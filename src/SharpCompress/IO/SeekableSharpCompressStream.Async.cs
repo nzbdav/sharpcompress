@@ -12,7 +12,7 @@ internal sealed partial class SeekableSharpCompressStream
         int offset,
         int count,
         CancellationToken cancellationToken
-    ) => _stream.ReadAsync(buffer, offset, count, cancellationToken);
+    ) => _stream.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
     public override ValueTask<int> ReadAsync(
         Memory<byte> buffer,
@@ -43,7 +43,7 @@ internal sealed partial class SeekableSharpCompressStream
         int offset,
         int count,
         CancellationToken cancellationToken
-    ) => _stream.WriteAsync(buffer, offset, count, cancellationToken);
+    ) => _stream.WriteAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
     public override Task FlushAsync(CancellationToken cancellationToken) =>
         _stream.FlushAsync(cancellationToken);

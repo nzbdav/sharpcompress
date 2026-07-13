@@ -64,7 +64,7 @@ public partial class CompressionStream
             if (written > 0)
             {
                 await innerStream
-                    .WriteAsync(outputBuffer, 0, written, cancellationToken)
+                    .WriteAsync(outputBuffer.AsMemory(0, written), cancellationToken)
                     .ConfigureAwait(false);
             }
         } while (

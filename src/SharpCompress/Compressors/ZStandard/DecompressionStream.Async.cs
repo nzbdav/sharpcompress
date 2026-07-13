@@ -57,7 +57,7 @@ public partial class DecompressionStream
             if (
                 (
                     bytesRead = await innerStream
-                        .ReadAsync(inputBuffer, 0, inputBufferSize, cancellationToken)
+                        .ReadAsync(inputBuffer.AsMemory(0, inputBufferSize), cancellationToken)
                         .ConfigureAwait(false)
                 ) == 0
             )

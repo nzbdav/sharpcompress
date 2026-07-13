@@ -25,7 +25,11 @@ public partial class TarWriter
 
         if (_finalizeArchiveOnClose)
         {
-            await OutputStream.NotNull().WriteAsync(new byte[1024], 0, 1024).ConfigureAwait(false);
+            // DisposeAsync has no caller token; archive finalization must complete.
+            await OutputStream
+                .NotNull()
+                .WriteAsync(ZeroBlock, CancellationToken.None)
+                .ConfigureAwait(false);
         }
         if (OutputStream is IFinishable finishable)
         {
@@ -121,7 +125,7 @@ public partial class TarWriter
         {
             await OutputStream
                 .NotNull()
-                .WriteAsync(new byte[zeros], 0, zeros, cancellationToken)
+                .WriteAsync(ZeroBlock.Slice(0, zeros), cancellationToken)
                 .ConfigureAwait(false);
         }
     }

@@ -64,7 +64,7 @@ internal sealed class ChecksumValidationStream : Stream
     )
     {
         var read = await _stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         UpdateAndValidateAtEof(buffer.AsSpan(offset, read), read);
         return read;

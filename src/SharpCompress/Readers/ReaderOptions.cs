@@ -136,6 +136,14 @@ public sealed record ReaderOptions : IReaderOptions
     public int? RewindableBufferSize { get; set; }
 
     /// <summary>
+    /// Maximum decompressed bytes to retain for the most recently accessed 7z solid folder
+    /// when using the Archive API. When a folder fits within this cap, decoded bytes are
+    /// cached in memory so random access, re-opens, and backward entry order avoid
+    /// re-decompression. Set to 0 to disable decoded-folder caching.
+    /// </summary>
+    public long SolidFolderDecodedCacheMaxBytes { get; set; } = 128L * 1024 * 1024;
+
+    /// <summary>
     /// Registry of compression providers.
     /// Defaults to <see cref="CompressionProviderRegistry.Default" /> but can be replaced with custom implementations, such as
     /// System.IO.Compression for Deflate/GZip on modern .NET.

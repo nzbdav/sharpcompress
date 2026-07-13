@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using SharpCompress.Archives;
 using SharpCompress.Common;
+using SharpCompress.Common.Tar.Headers;
 using SharpCompress.Readers;
 using Xunit;
 using SysZip = System.IO.Compression.ZipArchive;
@@ -13,6 +17,78 @@ namespace SharpCompress.Test.Security;
 
 public class ExtractionPathTraversalTests : TestBase
 {
+    public static TheoryData<string, string, string> MaliciousZipEntryCases()
+    {
+        var data = new TheoryData<string, string, string>
+        {
+            { "ReaderAll", "zip", "../escape.txt" },
+            { "ReaderAll", "zip", "a/../../escape.txt" },
+            { "ReaderAll", "zip", "/abs.txt" },
+        };
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            data.Add("ReaderAll", "zip", @"..\escape.txt");
+            data.Add("ReaderAll", "zip", @"C:\abs.txt");
+        }
+
+        return data;
+    }
+
+    public static TheoryData<string, string, string> MaliciousTarEntryCases()
+    {
+        var data = new TheoryData<string, string, string>
+        {
+            { "ReaderAll", "tar", "../escape.txt" },
+            { "ReaderAll", "tar", "a/../../escape.txt" },
+            { "ReaderAll", "tar", "/abs.txt" },
+        };
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            data.Add("ReaderAll", "tar", @"..\escape.txt");
+            data.Add("ReaderAll", "tar", @"C:\abs.txt");
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(MaliciousZipEntryCases))]
+    [MemberData(nameof(MaliciousTarEntryCases))]
+    public async Task MaliciousEntryPath_ShouldThrowAndNotWriteOutside(
+        string api,
+        string archiveFormat,
+        string entryName
+    )
+    {
+        var parentDir = Path.Combine(SCRATCH_FILES_PATH, $"traversal_{Path.GetRandomFileName()}");
+        var extractDir = Path.Combine(parentDir, "extract");
+        Directory.CreateDirectory(extractDir);
+        var siblingDir = Path.Combine(parentDir, "sibling");
+        Directory.CreateDirectory(siblingDir);
+        var archivePath = Path.Combine(
+            SCRATCH2_FILES_PATH,
+            $"{api}_{archiveFormat}_{Guid.NewGuid():N}.archive"
+        );
+
+        if (archiveFormat == "zip")
+        {
+            BuildZip(archivePath, entryName);
+        }
+        else
+        {
+            BuildTar(archivePath, entryName);
+        }
+
+        var exception = await RecordExtractionExceptionAsync(api, archivePath, extractDir);
+
+        var extractionException = Assert.IsType<ExtractionException>(exception);
+        Assert.Contains("outside of the destination", extractionException.Message);
+        AssertNothingEscaped(parentDir, extractDir);
+        Assert.False(File.Exists(Path.Combine(siblingDir, "escape.txt")));
+    }
+
     [Theory]
     [InlineData("ReaderAll")]
     [InlineData("ReaderEntry")]
@@ -75,6 +151,48 @@ public class ExtractionPathTraversalTests : TestBase
 
         using var writer = new StreamWriter(entry.Open());
         writer.Write("evil");
+    }
+
+    private static void BuildTar(string path, string entryName)
+    {
+        using var fs = File.Create(path);
+        var encoding = new ArchiveEncoding();
+        var header = new TarHeader(encoding, TarHeaderWriteFormat.USTAR)
+        {
+            Name = entryName,
+            EntryType = EntryType.OldFile,
+            Size = 4,
+            LastModifiedTime = DateTime.UtcNow,
+        };
+
+        header.Write(fs);
+        fs.Write(Encoding.ASCII.GetBytes("evil"));
+
+        var remainder = TarHeader.BLOCK_SIZE - (4 % TarHeader.BLOCK_SIZE);
+        if (remainder != TarHeader.BLOCK_SIZE)
+        {
+            fs.Write(new byte[remainder]);
+        }
+
+        fs.Write(new byte[TarHeader.BLOCK_SIZE * 2]);
+    }
+
+    private static void AssertNothingEscaped(string parentDir, string extractDir)
+    {
+        var fullExtractDir = Path.GetFullPath(extractDir);
+        if (!fullExtractDir.EndsWith(Path.DirectorySeparatorChar))
+        {
+            fullExtractDir += Path.DirectorySeparatorChar;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(parentDir, "*", SearchOption.AllDirectories))
+        {
+            var fullPath = Path.GetFullPath(file);
+            Assert.True(
+                fullPath.StartsWith(fullExtractDir, Utility.PathComparison),
+                $"Unexpected escaped file: {fullPath}"
+            );
+        }
     }
 
     private static async Task<Exception?> RecordExtractionExceptionAsync(

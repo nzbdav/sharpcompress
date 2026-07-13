@@ -360,14 +360,16 @@ internal sealed class Lzma2EncoderStream : Stream
             header[3] = (byte)((compSizeMinus1 >> 8) & 0xFF);
             header[4] = (byte)(compSizeMinus1 & 0xFF);
             header[5] = _lzmaPropertiesByte;
-            await _output.WriteAsync(header, 0, 6, cancellationToken).ConfigureAwait(false);
+            await _output
+                .WriteAsync(header.AsMemory(0, 6), cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(header);
         }
         await _output
-            .WriteAsync(compressedData, 0, compressedSize, cancellationToken)
+            .WriteAsync(compressedData.AsMemory(0, compressedSize), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -433,7 +435,9 @@ internal sealed class Lzma2EncoderStream : Stream
                 header[0] = control;
                 header[1] = (byte)((sizeMinus1 >> 8) & 0xFF);
                 header[2] = (byte)(sizeMinus1 & 0xFF);
-                await _output.WriteAsync(header, 0, 3, cancellationToken).ConfigureAwait(false);
+                await _output
+                    .WriteAsync(header.AsMemory(0, 3), cancellationToken)
+                    .ConfigureAwait(false);
             }
             finally
             {

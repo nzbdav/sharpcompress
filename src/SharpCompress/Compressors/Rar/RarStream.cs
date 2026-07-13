@@ -23,9 +23,7 @@ internal partial class RarStream : Stream
     private int tmpOffset;
     private int tmpCount;
 
-    private byte[] outBuffer = null!;
-    private int outOffset;
-    private int outCount;
+    private Memory<byte> outBuffer;
     private int outTotal;
     private bool initialized;
     private bool isDisposed;
@@ -67,8 +65,11 @@ internal partial class RarStream : Stream
         {
             if (disposing)
             {
-                ArrayPool<byte>.Shared.Return(this.tmpBuffer);
-                this.tmpBuffer = null!;
+                if (tmpBuffer is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(this.tmpBuffer);
+                    this.tmpBuffer = null!;
+                }
                 readStream.Dispose();
                 if (ownsUnpack && unpack is IDisposable disposableUnpack)
                 {
@@ -120,9 +121,7 @@ internal partial class RarStream : Stream
         }
         if (count > 0 && unpack.DestSize > 0)
         {
-            outBuffer = buffer;
-            outOffset = offset;
-            outCount = count;
+            outBuffer = buffer.AsMemory(offset, count);
             fetch = true;
             unpack.DoUnpack();
             fetch = false;
@@ -148,12 +147,11 @@ internal partial class RarStream : Stream
         {
             throw new NotSupportedException();
         }
-        if (outCount > 0)
+        if (outBuffer.Length > 0)
         {
-            var toCopy = outCount < count ? outCount : count;
-            Buffer.BlockCopy(buffer, offset, outBuffer, outOffset, toCopy);
-            outOffset += toCopy;
-            outCount -= toCopy;
+            var toCopy = outBuffer.Length < count ? outBuffer.Length : count;
+            buffer.AsSpan(offset, toCopy).CopyTo(outBuffer.Span);
+            outBuffer = outBuffer.Slice(toCopy);
             offset += toCopy;
             count -= toCopy;
             outTotal += toCopy;

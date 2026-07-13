@@ -145,16 +145,16 @@ internal partial class Unpack
         if (unpPtr < wrPtr)
         {
             await writeStream
-                .WriteAsync(window, wrPtr, -wrPtr & PackDef.MAXWINMASK, cancellationToken)
+                .WriteAsync(window.AsMemory(wrPtr, -wrPtr & PackDef.MAXWINMASK), cancellationToken)
                 .ConfigureAwait(false);
             await writeStream
-                .WriteAsync(window, 0, unpPtr, cancellationToken)
+                .WriteAsync(window.AsMemory(0, unpPtr), cancellationToken)
                 .ConfigureAwait(false);
         }
         else
         {
             await writeStream
-                .WriteAsync(window, wrPtr, unpPtr - wrPtr, cancellationToken)
+                .WriteAsync(window.AsMemory(wrPtr, unpPtr - wrPtr), cancellationToken)
                 .ConfigureAwait(false);
         }
         wrPtr = unpPtr;

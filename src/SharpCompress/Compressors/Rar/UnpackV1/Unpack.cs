@@ -95,6 +95,10 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
 
     private readonly byte[] unpOldTable = new byte[PackDef.HUFF_TABLE_SIZE];
 
+    private readonly byte[] unpack29BitLength = new byte[PackDef.BC];
+
+    private readonly byte[] unpack29Table = new byte[PackDef.HUFF_TABLE_SIZE];
+
     private BlockTypes unpBlockType;
 
     private long writtenFileSize;
@@ -127,6 +131,29 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
         0,
         12,
     };
+
+    private static readonly (int[] DDecode, byte[] DBits) Unpack29DistTables =
+        BuildUnpack29DistTables();
+
+    private static (int[] DDecode, byte[] DBits) BuildUnpack29DistTables()
+    {
+        var dDecode = new int[PackDef.DC];
+        var dBits = new byte[PackDef.DC];
+        var dist = 0;
+        var bitLength = 0;
+        var slot = 0;
+        for (var i = 0; i < DBitLengthCounts.Length; i++, bitLength++)
+        {
+            var count = DBitLengthCounts[i];
+            for (var j = 0; j < count; j++, slot++, dist += 1 << bitLength)
+            {
+                dDecode[slot] = dist;
+                dBits[slot] = (byte)bitLength;
+            }
+        }
+
+        return (dDecode, dBits);
+    }
 
     private FileHeader fileHeader = null!;
 
@@ -225,26 +252,10 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
 
     private void Unpack29(bool solid)
     {
-        Span<int> DDecode = stackalloc int[PackDef.DC];
-        Span<byte> DBits = stackalloc byte[PackDef.DC];
+        var DDecode = Unpack29DistTables.DDecode;
+        var DBits = Unpack29DistTables.DBits;
 
         int Bits;
-
-        if (DDecode[1] == 0)
-        {
-            int Dist = 0,
-                BitLength = 0,
-                Slot = 0;
-            for (var I = 0; I < DBitLengthCounts.Length; I++, BitLength++)
-            {
-                var count = DBitLengthCounts[I];
-                for (var J = 0; J < count; J++, Slot++, Dist += (1 << BitLength))
-                {
-                    DDecode[Slot] = Dist;
-                    DBits[Slot] = (byte)BitLength;
-                }
-            }
-        }
 
         FileExtracted = true;
 
@@ -938,8 +949,8 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
 
     private bool ReadTables()
     {
-        Span<byte> bitLength = stackalloc byte[PackDef.BC];
-        Span<byte> table = stackalloc byte[PackDef.HUFF_TABLE_SIZE];
+        Span<byte> bitLength = unpack29BitLength;
+        Span<byte> table = unpack29Table;
 
         if (inAddr > readTop - 25)
         {

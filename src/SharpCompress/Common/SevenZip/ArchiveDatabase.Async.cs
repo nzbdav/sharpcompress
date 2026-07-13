@@ -7,6 +7,11 @@ using SharpCompress.IO;
 
 namespace SharpCompress.Common.SevenZip;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "DisposeFolderStreamCache and Clear release live decoders and decoded-folder buffers."
+)]
 internal sealed partial class ArchiveDatabase
 {
     internal async ValueTask<Stream> GetFolderStreamAsync(
@@ -72,11 +77,7 @@ internal sealed partial class ArchiveDatabase
                     cancellationToken
                 )
                 .ConfigureAwait(false);
-            var entryStream = new ReadOnlySubStream(
-                _cachedFolderStream!,
-                entryLength,
-                leaveOpen: true
-            );
+            var entryStream = CreateCachedEntrySubStream(entryLength);
             return new FolderCacheEntryStream(this, entryStream, targetOffset, entryLength);
         }
         catch
@@ -109,6 +110,68 @@ internal sealed partial class ArchiveDatabase
         return new ReadOnlySubStream(folderStream, entryLength, leaveOpen: false);
     }
 
+    private async ValueTask<bool> TryBuildDecodedFolderCacheAsync(
+        Stream baseStream,
+        int folderIndex,
+        long targetOffset,
+        IPasswordProvider pw,
+        CancellationToken cancellationToken
+    )
+    {
+        if (SolidFolderDecodedCacheMaxBytes <= 0)
+        {
+            return false;
+        }
+
+        var unpackSize = _folders[folderIndex].GetUnpackSize();
+        if (unpackSize <= 0 || unpackSize > SolidFolderDecodedCacheMaxBytes)
+        {
+            return false;
+        }
+
+        if (_decodedFolderIndex != folderIndex || _decodedFolderBuffer is null)
+        {
+            InvalidateDecodedFolderCache();
+            DisposeLiveFolderStream();
+
+            var buffer = new PooledMemoryStream(checked((int)unpackSize));
+            try
+            {
+                var folderStream = await GetFolderStreamAsync(
+                        baseStream,
+                        _folders[folderIndex],
+                        pw,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                try
+                {
+                    await folderStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await folderStream.DisposeAsync().ConfigureAwait(false);
+                }
+            }
+            catch
+            {
+                // Some coders (notably PPMd) can fail when materializing an entire folder;
+                // fall back to the live sequential decoder path.
+                await buffer.DisposeAsync().ConfigureAwait(false);
+                return false;
+            }
+
+            buffer.Position = 0;
+            _decodedFolderBuffer = buffer;
+            _decodedFolderIndex = folderIndex;
+        }
+
+        _cachedFolderIndex = folderIndex;
+        _cachedFolderStream = _decodedFolderBuffer;
+        _cachedPositionInFolder = targetOffset;
+        return true;
+    }
+
     private async ValueTask EnsureFolderStreamAtAsync(
         Stream baseStream,
         int folderIndex,
@@ -117,9 +180,15 @@ internal sealed partial class ArchiveDatabase
         CancellationToken cancellationToken
     )
     {
+        if (TryUseDecodedFolderCache(folderIndex, targetOffset))
+        {
+            return;
+        }
+
         if (
             _cachedFolderIndex == folderIndex
             && _cachedFolderStream is not null
+            && !ReferenceEquals(_cachedFolderStream, _decodedFolderBuffer)
             && targetOffset >= _cachedPositionInFolder
         )
         {
@@ -128,15 +197,31 @@ internal sealed partial class ArchiveDatabase
             {
                 await _cachedFolderStream.SkipAsync(skip, cancellationToken).ConfigureAwait(false);
             }
+
             _cachedPositionInFolder = targetOffset;
             return;
         }
 
-        if (_cachedFolderStream is not null)
+        if (
+            await TryBuildDecodedFolderCacheAsync(
+                    baseStream,
+                    folderIndex,
+                    targetOffset,
+                    pw,
+                    cancellationToken
+                )
+                .ConfigureAwait(false)
+        )
         {
-            await _cachedFolderStream.DisposeAsync().ConfigureAwait(false);
-            _cachedFolderStream = null;
+            return;
         }
+
+        if (_decodedFolderIndex >= 0 && _decodedFolderIndex != folderIndex)
+        {
+            InvalidateDecodedFolderCache();
+        }
+
+        DisposeLiveFolderStream();
         _cachedFolderStream = await GetFolderStreamAsync(
                 baseStream,
                 _folders[folderIndex],
@@ -151,6 +236,7 @@ internal sealed partial class ArchiveDatabase
                 .SkipAsync(targetOffset, cancellationToken)
                 .ConfigureAwait(false);
         }
+
         _cachedPositionInFolder = targetOffset;
     }
 }

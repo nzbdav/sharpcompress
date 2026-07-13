@@ -16,7 +16,7 @@ public partial class PowerPCFilter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.PowerPCConverter(buffer, _ip);
         _ip += (uint)bytesRead;

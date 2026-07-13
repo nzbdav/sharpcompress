@@ -77,14 +77,19 @@ public partial class ZipWriter
     )
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await using var output = await WriteToStreamAsync(
-                entryPath,
-                zipWriterEntryOptions,
-                cancellationToken
-            )
+        var output = await WriteToStreamAsync(entryPath, zipWriterEntryOptions, cancellationToken)
             .ConfigureAwait(false);
-        var progressStream = WrapWithProgress(source, entryPath);
-        await progressStream.CopyToAsync(output, 81920, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var progressStream = WrapWithProgress(source, entryPath);
+            await progressStream
+                .CopyToAsync(output, 81920, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await output.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private async ValueTask<ZipWritingStream> WriteToStreamAsync(

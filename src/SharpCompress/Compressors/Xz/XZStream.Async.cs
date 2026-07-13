@@ -121,7 +121,7 @@ public sealed partial class XZStream
                 var newOffset = offset + bytesRead;
                 var justRead = await _currentBlock
                     .NotNull()
-                    .ReadAsync(buffer, newOffset, remaining, cancellationToken)
+                    .ReadAsync(buffer.AsMemory(newOffset, remaining), cancellationToken)
                     .ConfigureAwait(false);
                 if (justRead < remaining)
                 {

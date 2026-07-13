@@ -89,7 +89,7 @@ internal sealed class GZipChecksumValidationStream : Stream
     )
     {
         var read = await _source
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         UpdateAndValidateAtEof(buffer.AsSpan(offset, read), read);
         return read;

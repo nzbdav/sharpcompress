@@ -83,6 +83,8 @@ public partial class SevenZipArchive
             _database = await reader
                 .ReadDatabaseAsync(new PasswordProvider(ReaderOptions.Password), cancellationToken)
                 .ConfigureAwait(false);
+            _database.SolidFolderDecodedCacheMaxBytes =
+                ReaderOptions.SolidFolderDecodedCacheMaxBytes;
         }
     }
 

@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 #if SUPPORTS_RUNTIME_INTRINSICS
 using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.Arm;
 using System.Runtime.Intrinsics.X86;
 #endif
 
@@ -176,6 +177,11 @@ internal static class Adler32 // From https://github.com/SixLabors/ImageSharp/bl
             return CalculateSse(adler, buffer);
         }
 
+        if (AdvSimd.IsSupported && buffer.Length >= MinBufferSize)
+        {
+            return CalculateAdvSimd(adler, buffer);
+        }
+
         return CalculateScalar(adler, buffer);
 #else
         return CalculateScalar(adler, buffer);
@@ -261,6 +267,92 @@ internal static class Adler32 // From https://github.com/SixLabors/ImageSharp/bl
                     s2 = v_s2.ToScalar();
 
                     // Reduce.
+                    s1 %= BASE;
+                    s2 %= BASE;
+                }
+
+                if (length > 0)
+                {
+                    HandleLeftOver(localBufferPtr, length, ref s1, ref s2);
+                }
+
+                return s1 | (s2 << 16);
+            }
+        }
+    }
+
+    // Based on https://github.com/chromium/chromium/blob/master/third_party/zlib/adler32_simd.c
+    // ARM NEON path using AdvSimd intrinsics (same algorithm as the SSSE3 block).
+    [MethodImpl(InliningOptions.HotPath | InliningOptions.ShortMethod)]
+    private static unsafe uint CalculateAdvSimd(uint adler, ReadOnlySpan<byte> buffer)
+    {
+        var s1 = adler & 0xFFFF;
+        var s2 = (adler >> 16) & 0xFFFF;
+
+        var length = (uint)buffer.Length;
+        var blocks = length / BlockSize;
+        length -= blocks * BlockSize;
+
+        fixed (byte* bufferPtr = &MemoryMarshal.GetReference(buffer))
+        {
+            fixed (byte* tapPtr = &MemoryMarshal.GetReference(Tap1Tap2))
+            {
+                var localBufferPtr = bufferPtr;
+
+                var tap1 = AdvSimd.LoadVector128(tapPtr);
+                var tap2 = AdvSimd.LoadVector128(tapPtr + 0x10);
+
+                while (blocks > 0)
+                {
+                    var n = NMAX / BlockSize;
+                    if (n > blocks)
+                    {
+                        n = blocks;
+                    }
+
+                    blocks -= n;
+
+                    var vPs = Vector128.CreateScalar(s1 * n);
+                    var vS2 = Vector128.CreateScalar(s2);
+                    var vS1 = Vector128<uint>.Zero;
+
+                    do
+                    {
+                        var bytes1 = AdvSimd.LoadVector128(localBufferPtr);
+                        var bytes2 = AdvSimd.LoadVector128(localBufferPtr + 0x10);
+
+                        vPs += vS1;
+
+                        vS1 = AdvSimd.AddPairwiseWideningAndAdd(
+                            vS1,
+                            AdvSimd.AddPairwiseWideningAndAdd(
+                                AdvSimd.AddPairwiseWidening(bytes1),
+                                bytes2
+                            )
+                        );
+
+                        var wprod1 = AdvSimd.MultiplyWideningLower(
+                            bytes1.GetLower(),
+                            tap1.GetLower()
+                        );
+                        wprod1 = AdvSimd.MultiplyWideningUpperAndAdd(wprod1, bytes1, tap1);
+                        vS2 = AdvSimd.AddPairwiseWideningAndAdd(vS2, wprod1);
+
+                        var wprod2 = AdvSimd.MultiplyWideningLower(
+                            bytes2.GetLower(),
+                            tap2.GetLower()
+                        );
+                        wprod2 = AdvSimd.MultiplyWideningUpperAndAdd(wprod2, bytes2, tap2);
+                        vS2 = AdvSimd.AddPairwiseWideningAndAdd(vS2, wprod2);
+
+                        localBufferPtr += BlockSize;
+                    } while (--n > 0);
+
+                    vS2 += vPs << 5;
+
+                    s1 += (uint)Vector128.Sum(vS1.AsInt32());
+                    s2 = (uint)Vector128.Sum(vS2.AsInt32());
+
                     s1 %= BASE;
                     s2 %= BASE;
                 }
@@ -481,4 +573,12 @@ internal static class Adler32 // From https://github.com/SixLabors/ImageSharp/bl
             return (s2 << 16) | s1;
         }
     }
+
+#if SUPPORTS_RUNTIME_INTRINSICS
+    internal static uint CalculateScalarReference(uint adler, ReadOnlySpan<byte> buffer) =>
+        CalculateScalar(adler, buffer);
+
+    internal static uint CalculateAdvSimdReference(uint adler, ReadOnlySpan<byte> buffer) =>
+        CalculateAdvSimd(adler, buffer);
+#endif
 }

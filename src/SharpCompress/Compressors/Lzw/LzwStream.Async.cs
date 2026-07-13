@@ -25,7 +25,7 @@ public partial class LzwStream
             byte[] hdr = new byte[LzwConstants.HDR_SIZE];
 
             int result = await stream
-                .ReadAsync(hdr, 0, hdr.Length, cancellationToken)
+                .ReadAsync(hdr.AsMemory(0, hdr.Length), cancellationToken)
                 .ConfigureAwait(false);
 
             // Check the magic marker
@@ -305,7 +305,7 @@ public partial class LzwStream
     {
         cancellationToken.ThrowIfCancellationRequested();
         got = await baseInputStream
-            .ReadAsync(data, end, data.Length - 1 - end, cancellationToken)
+            .ReadAsync(data.AsMemory(end, data.Length - 1 - end), cancellationToken)
             .ConfigureAwait(false);
         if (got > 0)
         {
@@ -320,7 +320,7 @@ public partial class LzwStream
         byte[] hdr = new byte[LzwConstants.HDR_SIZE];
 
         int result = await baseInputStream
-            .ReadAsync(hdr, 0, hdr.Length, cancellationToken)
+            .ReadAsync(hdr.AsMemory(0, hdr.Length), cancellationToken)
             .ConfigureAwait(false);
 
         if (result < 0)

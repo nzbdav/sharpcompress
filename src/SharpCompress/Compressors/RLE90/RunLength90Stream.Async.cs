@@ -46,7 +46,7 @@ public partial class RunLength90Stream
 
             byte[] singleByte = _singleByteBuffer;
             int bytesRead = await _stream
-                .ReadAsync(singleByte, 0, 1, cancellationToken)
+                .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
                 .ConfigureAwait(false);
             if (bytesRead == 0)
             {

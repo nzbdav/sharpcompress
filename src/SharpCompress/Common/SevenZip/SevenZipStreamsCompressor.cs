@@ -239,7 +239,7 @@ internal sealed class SevenZipStreamsCompressor(Stream outputStream)
         while (
             (
                 read = await source
-                    .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                    .ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
                     .ConfigureAwait(false)
             ) > 0
         )
@@ -251,7 +251,9 @@ internal sealed class SevenZipStreamsCompressor(Stream outputStream)
                 seed,
                 buffer.AsSpan(0, read)
             );
-            await destination.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
+            await destination
+                .WriteAsync(buffer.AsMemory(0, read), cancellationToken)
+                .ConfigureAwait(false);
             totalRead += read;
         }
 

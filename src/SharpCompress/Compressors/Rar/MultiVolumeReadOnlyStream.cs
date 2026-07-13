@@ -8,16 +8,17 @@ namespace SharpCompress.Compressors.Rar;
 
 internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStreamBase
 {
-    private long currentPosition;
-    private long maxPosition;
-
     private IEnumerator<RarFilePart> filePartEnumerator;
-    private Stream? currentStream;
 
     internal MultiVolumeReadOnlyStream(IEnumerable<RarFilePart> parts)
     {
         filePartEnumerator = parts.GetEnumerator();
-        filePartEnumerator.MoveNext();
+        if (!filePartEnumerator.MoveNext())
+        {
+            filePartEnumerator.Dispose();
+            throw new InvalidOperationException("parts must not be empty");
+        }
+
         InitializeNextFilePart();
     }
 
@@ -26,68 +27,70 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
         base.Dispose(disposing);
         if (disposing)
         {
+            DisposeOwnedPartStream();
             filePartEnumerator.Dispose();
-
             currentStream = null;
         }
     }
 
     private void InitializeNextFilePart()
     {
-        maxPosition = filePartEnumerator.Current.FileHeader.CompressedSize;
-        currentPosition = 0;
-        currentStream = filePartEnumerator.Current.GetCompressedStream();
-
-        CurrentCrc = filePartEnumerator.Current.FileHeader.FileCrc;
+        var part = filePartEnumerator.Current;
+        ResetPartState(
+            part.FileHeader.CompressedSize,
+            part.GetCompressedStream().NotNull(),
+            part.FileHeader.IsSplitAfter
+        );
+        CurrentCrc = part.FileHeader.FileCrc;
     }
 
     public override int Read(byte[] buffer, int offset, int count)
     {
+        if (count == 0)
+        {
+            return 0;
+        }
+
         var totalRead = 0;
         var currentOffset = offset;
         var currentCount = count;
         while (currentCount > 0)
         {
-            var readSize = currentCount;
-            if (currentCount > maxPosition - currentPosition)
+            var readSize = GetReadSize(currentCount);
+            if (readSize == 0)
             {
-                readSize = (int)(maxPosition - currentPosition);
+                break;
             }
 
             var read = currentStream.NotNull().Read(buffer, currentOffset, readSize);
             ValidateVolumeRead(read, currentPosition, maxPosition);
 
-            currentPosition += read;
+            AdvanceAfterRead(read);
             currentOffset += read;
             currentCount -= read;
             totalRead += read;
-            if (
-                ((maxPosition - currentPosition) == 0)
-                && filePartEnumerator.Current.FileHeader.IsSplitAfter
-            )
-            {
-                if (filePartEnumerator.Current.FileHeader.R4Salt != null)
-                {
-                    throw new InvalidFormatException(
-                        "Sharpcompress currently does not support multi-volume decryption."
-                    );
-                }
 
-                var fileName = filePartEnumerator.Current.FileHeader.FileName;
-                if (!filePartEnumerator.MoveNext())
-                {
-                    throw new InvalidFormatException(
-                        "Multi-part rar file is incomplete.  Entry expects a new volume: "
-                            + fileName
-                    );
-                }
-
-                InitializeNextFilePart();
-            }
-            else
+            if (!ShouldSwitchPart)
             {
                 break;
             }
+
+            if (filePartEnumerator.Current.FileHeader.R4Salt != null)
+            {
+                throw new InvalidFormatException(
+                    "Sharpcompress currently does not support multi-volume decryption."
+                );
+            }
+
+            var fileName = filePartEnumerator.Current.FileHeader.FileName;
+            if (!filePartEnumerator.MoveNext())
+            {
+                throw new InvalidFormatException(
+                    "Multi-part rar file is incomplete.  Entry expects a new volume: " + fileName
+                );
+            }
+
+            InitializeNextFilePart();
         }
 
         return totalRead;

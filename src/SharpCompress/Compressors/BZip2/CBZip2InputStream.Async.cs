@@ -49,15 +49,15 @@ internal partial class CBZip2InputStream
     {
         var singleByte = _singleByteBuffer;
         var read0 = await bsStream
-            .ReadAsync(singleByte, 0, 1, cancellationToken)
+            .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
             .ConfigureAwait(false);
         var magic0 = read0 == 0 ? -1 : singleByte[0];
         var read1 = await bsStream
-            .ReadAsync(singleByte, 0, 1, cancellationToken)
+            .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
             .ConfigureAwait(false);
         var magic1 = read1 == 0 ? -1 : singleByte[0];
         var read2 = await bsStream
-            .ReadAsync(singleByte, 0, 1, cancellationToken)
+            .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
             .ConfigureAwait(false);
         var magic2 = read2 == 0 ? -1 : singleByte[0];
         if (magic0 == -1 && !isFirstStream)
@@ -69,7 +69,7 @@ internal partial class CBZip2InputStream
             throw new InvalidFormatException("Not a BZIP2 marked stream");
         }
         var read3 = await bsStream
-            .ReadAsync(singleByte, 0, 1, cancellationToken)
+            .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
             .ConfigureAwait(false);
         var magic3 = read3 == 0 ? -1 : singleByte[0];
         if (magic3 < '1' || magic3 > '9')
@@ -415,7 +415,7 @@ internal partial class CBZip2InputStream
                             try
                             {
                                 var readCount = await bsStream
-                                    .ReadAsync(singleByte, 0, 1, cancellationToken)
+                                    .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
                                     .ConfigureAwait(false);
                                 thech = readCount == 0 ? '\uffff' : singleByte[0];
                             }
@@ -504,7 +504,10 @@ internal partial class CBZip2InputStream
                                         try
                                         {
                                             var readCount = await bsStream
-                                                .ReadAsync(singleByte, 0, 1, cancellationToken)
+                                                .ReadAsync(
+                                                    singleByte.AsMemory(0, 1),
+                                                    cancellationToken
+                                                )
                                                 .ConfigureAwait(false);
                                             thech = readCount == 0 ? '\uffff' : singleByte[0];
                                         }
@@ -625,7 +628,7 @@ internal partial class CBZip2InputStream
                                     try
                                     {
                                         var readCount = await bsStream
-                                            .ReadAsync(singleByte, 0, 1, cancellationToken)
+                                            .ReadAsync(singleByte.AsMemory(0, 1), cancellationToken)
                                             .ConfigureAwait(false);
                                         thech = readCount == 0 ? '\uffff' : singleByte[0];
                                     }

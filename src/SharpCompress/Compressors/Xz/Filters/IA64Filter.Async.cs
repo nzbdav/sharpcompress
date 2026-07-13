@@ -16,7 +16,7 @@ public partial class IA64Filter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.IA64Converter(buffer, _ip);
         _ip += (uint)bytesRead;

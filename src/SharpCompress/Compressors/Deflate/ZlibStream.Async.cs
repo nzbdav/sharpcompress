@@ -43,7 +43,7 @@ public partial class ZlibStream
             throw new ObjectDisposedException("ZlibStream");
         }
         return await _baseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -71,7 +71,7 @@ public partial class ZlibStream
             throw new ObjectDisposedException("ZlibStream");
         }
         await _baseStream
-            .WriteAsync(buffer, offset, count, cancellationToken)
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 

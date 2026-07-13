@@ -73,6 +73,21 @@ public class RarStoredStreamingBenchmarks : ArchiveBenchmarkBase
         }
     }
 
+    [Benchmark(Description = "Rar stored (m0): non-seekable large entry read")]
+    public void RarStoredLargeEntryNonSeekable()
+    {
+        var bytes = File.ReadAllBytes(GetArchivePath("Rar.Audio_program.rar"));
+        using var stream = new NonSeekableStream(new MemoryStream(bytes));
+        using var reader = ReaderFactory.OpenReader(stream);
+        while (reader.MoveToNextEntry())
+        {
+            if (!reader.Entry.IsDirectory)
+            {
+                reader.WriteEntryTo(Stream.Null);
+            }
+        }
+    }
+
     private static void ExtractAll(Stream stream)
     {
         using (stream)

@@ -163,8 +163,8 @@ internal partial class Unpack
 
     private async ValueTask<bool> ReadTables20Async(CancellationToken cancellationToken = default)
     {
-        byte[] BitLength = new byte[PackDef.BC20];
-        byte[] Table = new byte[PackDef.MC20 * 4];
+        var BitLength = unpack20BitLength;
+        var Table = unpack20Table;
         int TableSize,
             N,
             I;

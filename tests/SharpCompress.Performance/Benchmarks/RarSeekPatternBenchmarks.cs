@@ -7,8 +7,10 @@ using SharpCompress.Archives.Rar;
 namespace SharpCompress.Performance.Benchmarks;
 
 /// <summary>
-/// HTTP-range-style open→read-at-offset→dispose patterns against RAR entry streams.
-/// Stored (m0) entries use real Seek after issue #20; compressed entries still drain-skip.
+/// HTTP-range-style open→read-at-offset→dispose patterns against small RAR entry streams.
+/// Stored (m0) entries use real <see cref="StoredRarEntryStream"/> seek; compressed entries
+/// re-open <see cref="RarStream"/> and decode-and-discard to the target offset.
+/// See <see cref="RarCompressedLargeSeekBenchmarks"/> for large compressed entry costs.
 /// </summary>
 [MemoryDiagnoser]
 public class RarSeekPatternBenchmarks : ArchiveBenchmarkBase
@@ -19,6 +21,7 @@ public class RarSeekPatternBenchmarks : ArchiveBenchmarkBase
     private byte[] _rarBytes = null!;
     private byte[] _rarNoneBytes = null!;
     private byte[] _rar5NoneBytes = null!;
+    private byte[] _rar5NoneEncryptedBytes = null!;
     private byte[] _buffer = null!;
 
     [GlobalSetup]
@@ -27,6 +30,7 @@ public class RarSeekPatternBenchmarks : ArchiveBenchmarkBase
         _rarBytes = File.ReadAllBytes(GetArchivePath("Rar.rar"));
         _rarNoneBytes = File.ReadAllBytes(GetArchivePath("Rar.none.rar"));
         _rar5NoneBytes = File.ReadAllBytes(GetArchivePath("Rar5.none.rar"));
+        _rar5NoneEncryptedBytes = File.ReadAllBytes(GetArchivePath("Rar5.none.encrypted.rar"));
         _buffer = new byte[ChunkSize];
     }
 
@@ -39,11 +43,50 @@ public class RarSeekPatternBenchmarks : ArchiveBenchmarkBase
     [Benchmark(Description = "Rar5 stored (m0): open→Seek→read 1MB at N offsets→dispose")]
     public long Rar5StoredSeekStorm() => SeekStorm(_rar5NoneBytes, useSeek: true);
 
+    [Benchmark(Description = "Rar5 encrypted stored (m0): open→Seek→read 1MB at N offsets→dispose")]
+    public long Rar5EncryptedStoredSeekStorm() =>
+        SeekEncryptedStorm(_rar5NoneEncryptedBytes, useSeek: true);
+
     private long SeekStorm(byte[] archiveBytes, bool useSeek)
     {
         long total = 0;
         using var stream = new MemoryStream(archiveBytes);
         using var archive = RarArchive.OpenArchive(stream);
+        var entry = archive.Entries.First(e => !e.IsDirectory && e.Size > 0);
+
+        foreach (var offset in Offsets)
+        {
+            if (offset >= entry.Size)
+            {
+                continue;
+            }
+
+            using var entryStream = entry.OpenEntryStream();
+            if (useSeek && entryStream.CanSeek)
+            {
+                entryStream.Seek(offset, SeekOrigin.Begin);
+            }
+            else
+            {
+                Skip(entryStream, offset);
+            }
+
+            var toRead = (int)Math.Min(ChunkSize, entry.Size - offset);
+            var read = entryStream.Read(_buffer, 0, toRead);
+            total += read;
+        }
+
+        return total;
+    }
+
+    private long SeekEncryptedStorm(byte[] archiveBytes, bool useSeek)
+    {
+        long total = 0;
+        using var stream = new MemoryStream(archiveBytes);
+        using var archive = RarArchive.OpenArchive(
+            stream,
+            new SharpCompress.Readers.ReaderOptions { Password = "test" }
+        );
         var entry = archive.Entries.First(e => !e.IsDirectory && e.Size > 0);
 
         foreach (var offset in Offsets)

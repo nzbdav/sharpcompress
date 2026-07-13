@@ -43,7 +43,7 @@ internal partial class OutWindow : IAsyncDisposable
             return;
         }
         await _stream
-            .WriteAsync(_buffer, _streamPos, size, cancellationToken)
+            .WriteAsync(_buffer.AsMemory(_streamPos, size), cancellationToken)
             .ConfigureAwait(false);
         if (_pos >= _windowSize)
         {
@@ -140,7 +140,7 @@ internal partial class OutWindow : IAsyncDisposable
                 curSize = size;
             }
             var numReadBytes = await stream
-                .ReadAsync(_buffer, _pos, curSize, cancellationToken)
+                .ReadAsync(_buffer.AsMemory(_pos, curSize), cancellationToken)
                 .ConfigureAwait(false);
             if (numReadBytes == 0)
             {

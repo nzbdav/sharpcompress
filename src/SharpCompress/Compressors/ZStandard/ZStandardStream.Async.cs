@@ -16,7 +16,7 @@ internal partial class ZStandardStream
         cancellationToken.ThrowIfCancellationRequested();
         var buffer = new byte[4];
         var bytesRead = await stream
-            .ReadAsync(buffer, 0, 4, cancellationToken)
+            .ReadAsync(buffer.AsMemory(0, 4), cancellationToken)
             .ConfigureAwait(false);
         if (bytesRead < 4)
         {

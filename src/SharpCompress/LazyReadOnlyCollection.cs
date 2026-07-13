@@ -86,9 +86,18 @@ internal sealed class LazyReadOnlyCollection<T> : ICollection<T>
 
     internal void EnsureFullyLoaded()
     {
-        if (!_fullyLoaded)
+        lock (_lock)
         {
-            foreach (var _ in this) { }
+            if (_fullyLoaded)
+            {
+                return;
+            }
+
+            while (_source.MoveNext())
+            {
+                _backing.Add(_source.Current);
+            }
+
             _fullyLoaded = true;
         }
     }

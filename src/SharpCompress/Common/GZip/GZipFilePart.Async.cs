@@ -61,7 +61,9 @@ internal sealed partial class GZipFilePart
     {
         // read the header on the first read
         var header = new byte[10];
-        var n = await _stream.ReadAsync(header, 0, 10, cancellationToken).ConfigureAwait(false);
+        var n = await _stream
+            .ReadAsync(header.AsMemory(0, 10), cancellationToken)
+            .ConfigureAwait(false);
 
         // Same IO-free core as the sync ReadAndValidateGzipHeader; only the fill
         // steps (here and below) differ between sync and async.
@@ -74,7 +76,9 @@ internal sealed partial class GZipFilePart
         {
             // read and discard extra field
             var lengthField = new byte[2];
-            _ = await _stream.ReadAsync(lengthField, 0, 2, cancellationToken).ConfigureAwait(false);
+            _ = await _stream
+                .ReadAsync(lengthField.AsMemory(0, 2), cancellationToken)
+                .ConfigureAwait(false);
 
             var extraLength = (short)(lengthField[0] + (lengthField[1] * 256));
             var extra = new byte[extraLength];
@@ -105,7 +109,9 @@ internal sealed partial class GZipFilePart
         if ((flags & 0x02) == 0x02)
         {
             var buf = new byte[1];
-            _ = await _stream.ReadAsync(buf, 0, 1, cancellationToken).ConfigureAwait(false); // CRC16, ignore
+            _ = await _stream
+                .ReadAsync(buf.AsMemory(0, 1), cancellationToken)
+                .ConfigureAwait(false); // CRC16, ignore
         }
     }
 
@@ -120,7 +126,9 @@ internal sealed partial class GZipFilePart
         do
         {
             // workitem 7740
-            var n = await stream.ReadAsync(buf1, 0, 1, cancellationToken).ConfigureAwait(false);
+            var n = await stream
+                .ReadAsync(buf1.AsMemory(0, 1), cancellationToken)
+                .ConfigureAwait(false);
             if (n != 1)
             {
                 throw new ZlibException("Unexpected EOF reading GZIP header.");

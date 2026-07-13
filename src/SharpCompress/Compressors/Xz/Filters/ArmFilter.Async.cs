@@ -16,7 +16,7 @@ public partial class ArmFilter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.ARMConverter(buffer, _ip);
         _ip += (uint)bytesRead;

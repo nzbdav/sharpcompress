@@ -30,7 +30,7 @@ public partial class GZipStream
             throw new ObjectDisposedException("GZipStream");
         }
         var n = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
 
         if (!_firstReadDone)
@@ -88,7 +88,9 @@ public partial class GZipStream
             }
         }
 
-        await BaseStream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+        await BaseStream
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public override async ValueTask WriteAsync(

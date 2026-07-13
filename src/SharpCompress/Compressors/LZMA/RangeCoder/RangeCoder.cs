@@ -80,12 +80,19 @@ internal partial class Encoder
 internal partial class Decoder
 {
     public const uint K_TOP_VALUE = (1 << 24);
+    private const int InBufferSize = 16 * 1024;
+
     public uint _range;
     public uint _code;
 
     public Stream _stream = null!;
     public long _total;
     private byte[]? _singleByteBuffer;
+    private byte[]? _inBuffer;
+    private int _inPos;
+    private int _inLen;
+    private long _inRemaining;
+    private bool _useBufferedInput;
 
     public void Init(Stream stream)
     {
@@ -100,9 +107,11 @@ internal partial class Decoder
         _total = 5;
     }
 
-    public void ReleaseStream() =>
-        // Stream.ReleaseStream();
+    public void ReleaseStream()
+    {
+        ReleaseInputState();
         _stream = null!;
+    }
 
     public void Normalize()
     {

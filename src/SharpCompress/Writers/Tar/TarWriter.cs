@@ -10,6 +10,8 @@ namespace SharpCompress.Writers.Tar;
 
 public partial class TarWriter : AbstractWriter
 {
+    private static ReadOnlyMemory<byte> ZeroBlock { get; } = new byte[1024];
+
     private readonly bool _finalizeArchiveOnClose;
     private readonly TarHeaderWriteFormat _headerFormat;
 

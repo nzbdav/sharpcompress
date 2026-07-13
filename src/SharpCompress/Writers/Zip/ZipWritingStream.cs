@@ -17,6 +17,9 @@ public partial class ZipWriter
 {
     internal class ZipWritingStream : Stream
     {
+        private static readonly byte[] ZeroByte = { 0 };
+        private static readonly byte[] TwoZeroBytes = { 0, 0 };
+
         private readonly CRC32 crc = new();
         private readonly ZipCentralDirectoryEntry entry;
         private readonly Stream originalStream;
@@ -262,7 +265,7 @@ public partial class ZipWriter
                     if (preData is not null)
                     {
                         await counting
-                            .WriteAsync(preData, 0, preData.Length, cancellationToken)
+                            .WriteAsync(preData.AsMemory(0, preData.Length), cancellationToken)
                             .ConfigureAwait(false);
                     }
 
@@ -279,7 +282,7 @@ public partial class ZipWriter
                     if (props is not null)
                     {
                         await counting
-                            .WriteAsync(props, 0, props.Length, cancellationToken)
+                            .WriteAsync(props.AsMemory(0, props.Length), cancellationToken)
                             .ConfigureAwait(false);
                     }
 
@@ -307,7 +310,7 @@ public partial class ZipWriter
                     if (preData is not null)
                     {
                         await counting
-                            .WriteAsync(preData, 0, preData.Length, cancellationToken)
+                            .WriteAsync(preData.AsMemory(0, preData.Length), cancellationToken)
                             .ConfigureAwait(false);
                     }
 
@@ -483,7 +486,7 @@ public partial class ZipWriter
             decompressed += (uint)count;
             crc.SlurpBlock(buffer, offset, count);
             await writeStream
-                .WriteAsync(buffer, offset, count, cancellationToken)
+                .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
                 .ConfigureAwait(false);
 
             CheckPostWriteLimits();
@@ -600,12 +603,13 @@ public partial class ZipWriter
             }
 
             await counting
-                .WriteAsync(postData, 0, postData.Length, cancellationToken)
+                .WriteAsync(postData.AsMemory(0, postData.Length), cancellationToken)
                 .ConfigureAwait(false);
         }
 
         public override async ValueTask DisposeAsync()
         {
+            // IAsyncDisposable has no caller token; footer patching uses CancellationToken.None.
             if (isDisposed)
             {
                 return;
@@ -650,14 +654,16 @@ public partial class ZipWriter
             if (originalStream.CanSeek)
             {
                 originalStream.Position = (long)(entry.HeaderOffset + 6);
-                await originalStream.WriteAsync(new byte[] { 0 }, 0, 1).ConfigureAwait(false);
+                await originalStream
+                    .WriteAsync(ZeroByte.AsMemory(), CancellationToken.None)
+                    .ConfigureAwait(false);
 
                 if (countingCount == 0 && entry.Decompressed == 0)
                 {
                     // set compression to STORED for zero byte files
                     originalStream.Position = (long)(entry.HeaderOffset + 8);
                     await originalStream
-                        .WriteAsync(new byte[] { 0, 0 }, 0, 2)
+                        .WriteAsync(TwoZeroBytes.AsMemory(), CancellationToken.None)
                         .ConfigureAwait(false);
                 }
 
@@ -683,14 +689,22 @@ public partial class ZipWriter
                     originalStream.Position = (long)(entry.HeaderOffset + entry.Zip64HeaderOffset);
                     var intBuf = new byte[8];
                     BinaryPrimitives.WriteUInt16LittleEndian(intBuf, 0x0001);
-                    await originalStream.WriteAsync(intBuf, 0, 2).ConfigureAwait(false);
+                    await originalStream
+                        .WriteAsync(intBuf.AsMemory(0, 2), CancellationToken.None)
+                        .ConfigureAwait(false);
                     BinaryPrimitives.WriteUInt16LittleEndian(intBuf, 8 + 8);
-                    await originalStream.WriteAsync(intBuf, 0, 2).ConfigureAwait(false);
+                    await originalStream
+                        .WriteAsync(intBuf.AsMemory(0, 2), CancellationToken.None)
+                        .ConfigureAwait(false);
 
                     BinaryPrimitives.WriteUInt64LittleEndian(intBuf, entry.Decompressed);
-                    await originalStream.WriteAsync(intBuf, 0, 8).ConfigureAwait(false);
+                    await originalStream
+                        .WriteAsync(intBuf.AsMemory(0, 8), CancellationToken.None)
+                        .ConfigureAwait(false);
                     BinaryPrimitives.WriteUInt64LittleEndian(intBuf, entry.Compressed);
-                    await originalStream.WriteAsync(intBuf, 0, 8).ConfigureAwait(false);
+                    await originalStream
+                        .WriteAsync(intBuf.AsMemory(0, 8), CancellationToken.None)
+                        .ConfigureAwait(false);
                 }
 
                 originalStream.Position = writer.streamPosition + (long)entry.Compressed;
@@ -710,7 +724,9 @@ public partial class ZipWriter
                     intBuf,
                     ZipHeaderFactory.POST_DATA_DESCRIPTOR
                 );
-                await originalStream.WriteAsync(intBuf, 0, 4).ConfigureAwait(false);
+                await originalStream
+                    .WriteAsync(intBuf.AsMemory(0, 4), CancellationToken.None)
+                    .ConfigureAwait(false);
                 await WriteFooterAsync(
                         originalStream,
                         entry.Crc,
@@ -736,7 +752,9 @@ public partial class ZipWriter
             BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(0), crc);
             BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(4), compressed);
             BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(8), uncompressed);
-            await stream.WriteAsync(buf, 0, buf.Length).ConfigureAwait(false);
+            await stream
+                .WriteAsync(buf.AsMemory(0, buf.Length), CancellationToken.None)
+                .ConfigureAwait(false);
         }
     }
 }

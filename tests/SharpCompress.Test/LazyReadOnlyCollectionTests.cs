@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using SharpCompress.Archives;
 using Xunit;
 
 namespace SharpCompress.Test;
@@ -412,5 +414,39 @@ public class LazyReadOnlyCollectionTests
         }
 
         Assert.Equal(items.Length, source.ItemsRequestedCount);
+    }
+
+    [Fact]
+    public async Task ArchiveConcurrentEntriesEnumeration_IsSafe()
+    {
+        var archivePath = Path.Combine(TestBase.TEST_ARCHIVES_PATH, "WinZip26.nocomp.multi.zip");
+        using var archive = ArchiveFactory.OpenArchive(archivePath);
+        const int taskCount = 8;
+
+        var tasks = Enumerable
+            .Range(0, taskCount)
+            .Select(_ =>
+                Task.Run(() =>
+                {
+                    var results = new List<string>();
+                    foreach (var entry in archive.Entries)
+                    {
+                        results.Add(entry.Key ?? string.Empty);
+                    }
+
+                    return results;
+                })
+            )
+            .ToArray();
+
+        var allResults = await Task.WhenAll(tasks);
+
+        foreach (var results in allResults)
+        {
+            Assert.Equal(allResults[0], results);
+        }
+
+        var expectedCount = allResults[0].Count;
+        Assert.Equal(expectedCount, archive.Entries.Count());
     }
 }

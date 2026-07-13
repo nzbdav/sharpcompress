@@ -24,6 +24,10 @@ internal partial class Unpack
 
     private readonly byte[] UnpOldTable20 = new byte[PackDef.MC20 * 4];
 
+    private readonly byte[] unpack20BitLength = new byte[PackDef.BC20];
+
+    private readonly byte[] unpack20Table = new byte[PackDef.MC20 * 4];
+
     private int UnpAudioBlock,
         UnpChannels,
         UnpCurChannel,
@@ -397,8 +401,8 @@ internal partial class Unpack
 
     private bool ReadTables20()
     {
-        Span<byte> BitLength = stackalloc byte[PackDef.BC20];
-        Span<byte> Table = stackalloc byte[PackDef.MC20 * 4];
+        Span<byte> BitLength = unpack20BitLength;
+        Span<byte> Table = unpack20Table;
         int TableSize,
             N,
             I;

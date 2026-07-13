@@ -61,7 +61,9 @@ internal static class SevenZipSignatureHeaderWriter
         header[7] = 2;
 
         // remaining 24 bytes are zero (placeholder for CRC and StartHeader)
-        await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+        await stream
+            .WriteAsync(header.AsMemory(0, header.Length), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -102,7 +104,9 @@ internal static class SevenZipSignatureHeaderWriter
 
         // Write at position 0
         stream.Position = 0;
-        await stream.WriteAsync(header, 0, header.Length, cancellationToken).ConfigureAwait(false);
+        await stream
+            .WriteAsync(header.AsMemory(0, header.Length), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static byte[] BuildFinalHeader(

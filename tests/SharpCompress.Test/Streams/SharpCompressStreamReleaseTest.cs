@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using SharpCompress.Common;
+using SharpCompress.Factories;
 using SharpCompress.IO;
+using SharpCompress.Readers;
 using SharpCompress.Test.Mocks;
 using Xunit;
 
@@ -9,6 +11,36 @@ namespace SharpCompress.Test.Streams;
 
 public class SharpCompressStreamReleaseTest
 {
+    [Fact]
+    public void RarFactory_OpenReader_ReleasesRingBufferAfterDetection()
+    {
+        var path = Path.Combine(TestBase.TEST_ARCHIVES_PATH, "Rar5.none.rar");
+        var data = File.ReadAllBytes(path);
+        var inner = new MemoryStream(data);
+        var nonSeekable = new ForwardOnlyStream(inner);
+        var stream = SharpCompressStream.Create(nonSeekable, 128);
+        stream.StartRecording();
+
+        var factory = new RarFactory();
+        Assert.True(factory.TryOpenReader(stream, ReaderOptions.ForExternalStream, out var reader));
+        Assert.NotNull(reader);
+        Assert.True(stream.IsBufferReleaseRequested);
+
+        using (reader)
+        {
+            while (reader.MoveToNextEntry())
+            {
+                if (!reader.Entry.IsDirectory)
+                {
+                    using var entryStream = reader.OpenEntryStream();
+                    entryStream.CopyTo(Stream.Null);
+                }
+            }
+        }
+
+        Assert.False(stream.HasRingBuffer);
+    }
+
     [Fact]
     public void FreezeAndReleaseBuffer_WhileLogicalBehind_ReplaysThenFreesBuffer()
     {

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections;
 using System.IO;
 using System.Linq;
@@ -178,6 +179,41 @@ public class RarReaderAsyncTests : ReaderTests
 
     [Fact]
     public async ValueTask Rar_Reader_Async() => await ReadAsync("Rar.rar", CompressionType.Rar);
+
+    [Fact]
+    public async ValueTask Rar_Reader_Async_Reads_Into_Native_Memory()
+    {
+        using var stream = File.OpenRead(Path.Combine(TEST_ARCHIVES_PATH, "Rar.rar"));
+        await using var reader = await ReaderFactory.OpenAsyncReader(
+            new AsyncOnlyStream(stream),
+            ReaderOptions.ForExternalStream with
+            {
+                LookForHeader = true,
+            }
+        );
+
+        await reader.MoveToNextEntryAsync();
+        Assert.False(reader.Entry.IsDirectory);
+
+        await using var entryStream = await reader.OpenEntryStreamAsync();
+        var entrySize = checked((int)reader.Entry.Size);
+        using var nativeBuffer = new NativeBufferMemoryManager(entrySize);
+        var destination = nativeBuffer.Memory;
+        var totalRead = 0;
+        while (totalRead < entrySize)
+        {
+            var read = await entryStream.ReadAsync(destination);
+            if (read == 0)
+            {
+                break;
+            }
+
+            totalRead += read;
+            destination = destination.Slice(read);
+        }
+
+        Assert.Equal(entrySize, totalRead);
+    }
 
     [Fact]
     public async ValueTask Rar5_Reader_Async() => await ReadAsync("Rar5.rar", CompressionType.Rar);

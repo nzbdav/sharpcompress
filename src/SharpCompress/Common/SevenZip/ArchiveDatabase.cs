@@ -9,6 +9,11 @@ using SharpCompress.IO;
 
 namespace SharpCompress.Common.SevenZip;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "DisposeFolderStreamCache and Clear release live decoders and decoded-folder buffers."
+)]
 internal partial class ArchiveDatabase
 {
     internal byte _majorVersion;
@@ -36,6 +41,12 @@ internal partial class ArchiveDatabase
     private int _cachedFolderIndex = -1;
     private long _cachedPositionInFolder;
     private int _folderCacheInUse;
+
+    // Decoded-folder buffer for random access within a solid folder (Archive API).
+    private PooledMemoryStream? _decodedFolderBuffer;
+    private int _decodedFolderIndex = -1;
+
+    internal long SolidFolderDecodedCacheMaxBytes { get; set; } = 128L * 1024 * 1024;
 
     internal IPasswordProvider PasswordProvider { get; }
 
@@ -215,11 +226,7 @@ internal partial class ArchiveDatabase
         try
         {
             EnsureFolderStreamAt(baseStream, folderIndex, targetOffset, pw);
-            var entryStream = new ReadOnlySubStream(
-                _cachedFolderStream!,
-                entryLength,
-                leaveOpen: true
-            );
+            var entryStream = CreateCachedEntrySubStream(entryLength);
             return new FolderCacheEntryStream(this, entryStream, targetOffset, entryLength);
         }
         catch
@@ -245,6 +252,87 @@ internal partial class ArchiveDatabase
         return new ReadOnlySubStream(folderStream, entryLength, leaveOpen: false);
     }
 
+    private ReadOnlySubStream CreateCachedEntrySubStream(long entryLength)
+    {
+        if (
+            _decodedFolderBuffer is not null
+            && ReferenceEquals(_cachedFolderStream, _decodedFolderBuffer)
+        )
+        {
+            return new ReadOnlySubStream(
+                _decodedFolderBuffer,
+                _cachedPositionInFolder,
+                entryLength,
+                leaveOpen: true
+            );
+        }
+
+        return new ReadOnlySubStream(_cachedFolderStream!, entryLength, leaveOpen: true);
+    }
+
+    private bool TryUseDecodedFolderCache(int folderIndex, long targetOffset)
+    {
+        if (_decodedFolderIndex != folderIndex || _decodedFolderBuffer is null)
+        {
+            return false;
+        }
+
+        _cachedFolderIndex = folderIndex;
+        _cachedFolderStream = _decodedFolderBuffer;
+        _cachedPositionInFolder = targetOffset;
+        return true;
+    }
+
+    private bool TryBuildDecodedFolderCache(
+        Stream baseStream,
+        int folderIndex,
+        long targetOffset,
+        IPasswordProvider pw
+    )
+    {
+        if (SolidFolderDecodedCacheMaxBytes <= 0)
+        {
+            return false;
+        }
+
+        var unpackSize = _folders[folderIndex].GetUnpackSize();
+        if (unpackSize <= 0 || unpackSize > SolidFolderDecodedCacheMaxBytes)
+        {
+            return false;
+        }
+
+        if (_decodedFolderIndex != folderIndex || _decodedFolderBuffer is null)
+        {
+            InvalidateDecodedFolderCache();
+            DisposeLiveFolderStream();
+
+            var buffer = new PooledMemoryStream(checked((int)unpackSize));
+            try
+            {
+                using (var folderStream = GetFolderStream(baseStream, _folders[folderIndex], pw))
+                {
+                    folderStream.CopyTo(buffer);
+                }
+            }
+            catch
+            {
+                // Some coders (notably PPMd) can fail when materializing an entire folder;
+                // fall back to the live sequential decoder path.
+                buffer.Dispose();
+                return false;
+            }
+
+            buffer.Position = 0;
+            _decodedFolderBuffer = buffer;
+            _decodedFolderIndex = folderIndex;
+        }
+
+        _cachedFolderIndex = folderIndex;
+        _cachedFolderStream = _decodedFolderBuffer;
+        _cachedPositionInFolder = targetOffset;
+        return true;
+    }
+
     private void EnsureFolderStreamAt(
         Stream baseStream,
         int folderIndex,
@@ -252,9 +340,15 @@ internal partial class ArchiveDatabase
         IPasswordProvider pw
     )
     {
+        if (TryUseDecodedFolderCache(folderIndex, targetOffset))
+        {
+            return;
+        }
+
         if (
             _cachedFolderIndex == folderIndex
             && _cachedFolderStream is not null
+            && !ReferenceEquals(_cachedFolderStream, _decodedFolderBuffer)
             && targetOffset >= _cachedPositionInFolder
         )
         {
@@ -263,24 +357,54 @@ internal partial class ArchiveDatabase
             {
                 _cachedFolderStream.Skip(skip);
             }
+
             _cachedPositionInFolder = targetOffset;
             return;
         }
 
-        _cachedFolderStream?.Dispose();
+        if (TryBuildDecodedFolderCache(baseStream, folderIndex, targetOffset, pw))
+        {
+            return;
+        }
+
+        if (_decodedFolderIndex >= 0 && _decodedFolderIndex != folderIndex)
+        {
+            InvalidateDecodedFolderCache();
+        }
+
+        DisposeLiveFolderStream();
         _cachedFolderStream = GetFolderStream(baseStream, _folders[folderIndex], pw);
         _cachedFolderIndex = folderIndex;
         if (targetOffset > 0)
         {
             _cachedFolderStream.Skip(targetOffset);
         }
+
         _cachedPositionInFolder = targetOffset;
+    }
+
+    private void DisposeLiveFolderStream()
+    {
+        if (
+            _cachedFolderStream is not null
+            && !ReferenceEquals(_cachedFolderStream, _decodedFolderBuffer)
+        )
+        {
+            _cachedFolderStream.Dispose();
+        }
+
+        _cachedFolderStream = null;
     }
 
     private void ReleaseFolderStreamCache(long targetOffset, long entryLength, bool fullyConsumed)
     {
         try
         {
+            if (_decodedFolderBuffer is not null)
+            {
+                return;
+            }
+
             if (!fullyConsumed)
             {
                 InvalidateFolderStreamCache();
@@ -298,15 +422,22 @@ internal partial class ArchiveDatabase
 
     private void InvalidateFolderStreamCache()
     {
-        _cachedFolderStream?.Dispose();
-        _cachedFolderStream = null;
+        DisposeLiveFolderStream();
         _cachedFolderIndex = -1;
         _cachedPositionInFolder = 0;
+    }
+
+    private void InvalidateDecodedFolderCache()
+    {
+        _decodedFolderBuffer?.Dispose();
+        _decodedFolderBuffer = null;
+        _decodedFolderIndex = -1;
     }
 
     internal void DisposeFolderStreamCache()
     {
         InvalidateFolderStreamCache();
+        InvalidateDecodedFolderCache();
         Interlocked.Exchange(ref _folderCacheInUse, 0);
     }
 
@@ -360,7 +491,7 @@ internal partial class ArchiveDatabase
             int offset,
             int count,
             CancellationToken cancellationToken
-        ) => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        ) => _inner.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
         public override ValueTask<int> ReadAsync(
             Memory<byte> buffer,

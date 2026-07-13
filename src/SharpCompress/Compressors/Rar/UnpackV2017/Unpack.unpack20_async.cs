@@ -199,8 +199,8 @@ internal partial class Unpack
 
     private async ValueTask<bool> ReadTables20Async(CancellationToken cancellationToken = default)
     {
-        byte[] BitLength = new byte[checked((int)BC20)];
-        byte[] Table = new byte[checked((int)MC20 * 4)];
+        var BitLength = unpack20BitLength;
+        var Table = unpack20Table;
         if (Inp.InAddr > ReadTop - 25)
         {
             if (!await UnpReadBufAsync(cancellationToken).ConfigureAwait(false))

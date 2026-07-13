@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Rar;
 using SharpCompress.Common;
+using SharpCompress.IO;
 using SharpCompress.Readers;
 using SharpCompress.Readers.Rar;
 
@@ -124,6 +125,63 @@ public class RarFactory : Factory, IArchiveFactory, IMultiArchiveFactory, IReade
     #endregion
 
     #region IReaderFactory
+
+    /// <inheritdoc/>
+    internal override bool TryOpenReader(
+        SharpCompressStream sharpCompressStream,
+        ReaderOptions options,
+        out IReader? reader
+    )
+    {
+        reader = null;
+        sharpCompressStream.Rewind();
+        if (!IsArchive(sharpCompressStream, options))
+        {
+            sharpCompressStream.Rewind();
+            return false;
+        }
+
+        if (sharpCompressStream.HasRingBuffer)
+        {
+            sharpCompressStream.FreezeAndReleaseBuffer();
+        }
+        else
+        {
+            sharpCompressStream.Rewind(true);
+        }
+
+        reader = OpenReader(sharpCompressStream, options);
+        return true;
+    }
+
+    internal override async ValueTask<IAsyncReader?> TryOpenReaderAsync(
+        SharpCompressStream sharpCompressStream,
+        ReaderOptions options,
+        CancellationToken cancellationToken = default
+    )
+    {
+        sharpCompressStream.Rewind();
+        if (
+            !await IsArchiveAsync(sharpCompressStream, options, cancellationToken)
+                .ConfigureAwait(false)
+        )
+        {
+            sharpCompressStream.Rewind();
+            return null;
+        }
+
+        if (sharpCompressStream.HasRingBuffer)
+        {
+            sharpCompressStream.FreezeAndReleaseBuffer();
+        }
+        else
+        {
+            sharpCompressStream.Rewind(true);
+        }
+
+        return await OpenAsyncReader(sharpCompressStream, options, cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
     public IReader OpenReader(Stream stream, ReaderOptions? options) =>

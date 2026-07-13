@@ -104,8 +104,15 @@ public abstract partial class AbstractReader<TEntry, TVolume>
             }
         }
         //don't know the size so we have to try to decompress to skip
-        await using var s = await OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
-        await s.SkipEntryAsync(cancellationToken).ConfigureAwait(false);
+        var s = await OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await s.SkipEntryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            await s.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     public async ValueTask WriteEntryToAsync(
@@ -134,11 +141,18 @@ public abstract partial class AbstractReader<TEntry, TVolume>
 
     private async ValueTask WriteAsync(Stream writeStream, CancellationToken cancellationToken)
     {
-        await using Stream s = await OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
-        var sourceStream = WrapWithProgress(s, Entry);
-        await sourceStream
-            .CopyToAsync(writeStream, Options.BufferSize, cancellationToken)
-            .ConfigureAwait(false);
+        var s = await OpenEntryStreamAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var sourceStream = WrapWithProgress(s, Entry);
+            await sourceStream
+                .CopyToAsync(writeStream, Options.BufferSize, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await s.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     public async ValueTask<EntryStream> OpenEntryStreamAsync(
@@ -187,7 +201,7 @@ public abstract partial class AbstractReader<TEntry, TVolume>
     protected virtual async IAsyncEnumerable<TEntry> GetEntriesAsync(Stream stream)
     {
 #pragma warning disable VSTHRD111
-        await Task.CompletedTask;
+        await Task.CompletedTask.ConfigureAwait(false);
 #pragma warning restore VSTHRD111
         foreach (var entry in GetEntries(stream))
         {

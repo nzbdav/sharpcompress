@@ -9,26 +9,27 @@ namespace SharpCompress.Compressors.Rar;
 
 internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOnlyStreamBase
 {
-    private long currentPosition;
-    private long maxPosition;
-
     private IAsyncEnumerator<RarFilePart> filePartEnumerator;
-    private Stream? currentStream;
 
     private MultiVolumeReadOnlyAsyncStream(IAsyncEnumerable<RarFilePart> parts)
     {
         filePartEnumerator = parts.GetAsyncEnumerator();
     }
 
-    // Async methods moved to MultiVolumeReadOnlyAsyncStream.Async.cs
+    private MultiVolumeReadOnlyAsyncStream(IEnumerator<RarFilePart> parts)
+    {
+        filePartEnumerator = new SyncEnumeratorAsyncAdapter(parts);
+    }
 
     private void InitializeNextFilePart()
     {
-        maxPosition = filePartEnumerator.Current.FileHeader.CompressedSize;
-        currentPosition = 0;
-        currentStream = filePartEnumerator.Current.GetCompressedStream();
-
-        CurrentCrc = filePartEnumerator.Current.FileHeader.FileCrc;
+        var part = filePartEnumerator.Current;
+        ResetPartState(
+            part.FileHeader.CompressedSize,
+            part.GetCompressedStream().NotNull(),
+            part.FileHeader.IsSplitAfter
+        );
+        CurrentCrc = part.FileHeader.FileCrc;
     }
 
     public override int Read(byte[] buffer, int offset, int count) =>
@@ -58,4 +59,18 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
 
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();
+
+    private sealed class SyncEnumeratorAsyncAdapter(IEnumerator<RarFilePart> inner)
+        : IAsyncEnumerator<RarFilePart>
+    {
+        public RarFilePart Current => inner.Current;
+
+        public ValueTask<bool> MoveNextAsync() => new(inner.MoveNext());
+
+        public ValueTask DisposeAsync()
+        {
+            inner.Dispose();
+            return default;
+        }
+    }
 }

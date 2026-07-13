@@ -691,6 +691,9 @@ internal partial class ArchiveReader
                 );
 
                 var unpackSize = checked((int)folder.GetUnpackSize());
+                // Decoded bytes are stored in dataVector and outlive this method as DataReader
+                // stream sources (CStreamSwitch), so an exact-size array is required; pooling
+                // would be unsafe because returned buffers could be reused while still referenced.
                 var data = new byte[unpackSize];
                 try
                 {

@@ -51,7 +51,9 @@ public partial class LzmaStream
                 await lzma._outWindow.TrainAsync(presetDictionary).ConfigureAwait(false);
             }
 
-            await lzma._rangeDecoder.InitAsync(inputStream).ConfigureAwait(false);
+            await lzma
+                ._rangeDecoder.InitAsync(inputStream, lzma._rangeDecoderLimit, default)
+                .ConfigureAwait(false);
         }
         else
         {
@@ -146,7 +148,7 @@ public partial class LzmaStream
             }
 
             await _rangeDecoder
-                .InitAsync(_inputStream.NotNull(), cancellationToken)
+                .InitAsync(_inputStream.NotNull(), _rangeDecoderLimit, cancellationToken)
                 .ConfigureAwait(false);
         }
         else if (control > 0x02)

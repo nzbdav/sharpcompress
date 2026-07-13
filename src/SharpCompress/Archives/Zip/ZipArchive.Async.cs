@@ -25,7 +25,10 @@ public partial class ZipArchive
         var volsArray = vols.ToArray();
 
         await foreach (
-            var h in headerFactory.NotNull().ReadSeekableHeaderAsync(volsArray.Last().Stream)
+            var h in headerFactory
+                .NotNull()
+                .ReadSeekableHeaderAsync(volsArray.Last().Stream)
+                .ConfigureAwait(false)
         )
         {
             if (h != null)

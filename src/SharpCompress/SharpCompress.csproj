@@ -37,4 +37,7 @@
     <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="LICENSE.txt" />
     <None Include="..\..\CHANGELOG.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
 </Project>

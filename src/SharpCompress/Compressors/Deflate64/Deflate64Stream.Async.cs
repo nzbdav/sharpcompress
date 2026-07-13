@@ -42,7 +42,7 @@ public sealed partial class Deflate64Stream
             }
 
             var bytes = await _stream
-                .ReadAsync(_buffer, 0, _buffer.Length, cancellationToken)
+                .ReadAsync(_buffer.AsMemory(0, _buffer.Length), cancellationToken)
                 .ConfigureAwait(false);
             if (bytes <= 0)
             {

@@ -59,7 +59,7 @@ internal class Coder
         )
         {
             await stream
-                .WriteAsync(new[] { (byte)(_low >> 24) }, 0, 1, cancellationToken)
+                .WriteAsync(new[] { (byte)(_low >> 24) }.AsMemory(0, 1), cancellationToken)
                 .ConfigureAwait(false);
             _range <<= 8;
             _low <<= 8;
@@ -99,7 +99,9 @@ internal class Coder
             _low <<= 8;
         }
 
-        await stream.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
+        await stream
+            .WriteAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public void RangeDecoderInitialize(Stream stream)
