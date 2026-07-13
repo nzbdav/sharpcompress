@@ -350,6 +350,42 @@ public class UtilityTests
         Assert.Equal(45, result.Minute);
     }
 
+    [Fact]
+    public void DosDateToDateTime_OutOfRangeMonth_DefaultsTo1980_01_01()
+    {
+        // month = 13
+        ushort dosDate = (ushort)(((2020 - 1980) << 9) | (13 << 5) | 1);
+        ushort dosTime = (ushort)((10 << 11) | (30 << 5) | 10);
+
+        var result = Utility.DosDateToDateTime(dosDate, dosTime);
+
+        Assert.Equal(new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Local), result);
+    }
+
+    [Fact]
+    public void DosDateToDateTime_InvalidCalendarDay_DefaultsTo1980_01_01()
+    {
+        // 2021-02-30 (non-leap year)
+        ushort dosDate = (ushort)(((2021 - 1980) << 9) | (2 << 5) | 30);
+        ushort dosTime = (ushort)((10 << 11) | (30 << 5) | 10);
+
+        var result = Utility.DosDateToDateTime(dosDate, dosTime);
+
+        Assert.Equal(new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Local), result);
+    }
+
+    [Fact]
+    public void DosDateToDateTime_OutOfRangeHour_DefaultsTo1980_01_01()
+    {
+        ushort dosDate = (ushort)(((2020 - 1980) << 9) | (1 << 5) | 15);
+        // hour = 24
+        ushort dosTime = (ushort)((24 << 11) | (0 << 5) | 0);
+
+        var result = Utility.DosDateToDateTime(dosDate, dosTime);
+
+        Assert.Equal(new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Local), result);
+    }
+
     #endregion
 
     #region DateTimeToDosTime Tests
