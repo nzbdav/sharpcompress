@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,29 +16,46 @@ public partial class RarArchiveEntry
         CancellationToken cancellationToken = default
     )
     {
-        RarStream stream;
-        if (IsRarV3)
+        // Prefer sync IsSolid: Archive API streams are seekable, and mixed sync Entries +
+        // async OpenEntryStream must not re-parse headers via a second async volume set
+        // (corrupt-but-openable archives can fail a second parse).
+        var isSolidArchive = archive.IsSolid;
+        var unpack = archive.AcquireUnpackForEntry(IsRarV3, isSolidArchive, out var ownsUnpack);
+        Action? onDispose = isSolidArchive ? archive.ReleaseSolidEntryStream : null;
+        MultiVolumeReadOnlyAsyncStream? readStream = null;
+        RarStream? stream = null;
+        try
         {
-            stream = new RarStream(
-                archive.UnpackV1.Value,
-                FileHeader,
-                await MultiVolumeReadOnlyAsyncStream
-                    .Create(Parts.ToAsyncEnumerable().CastAsync<RarFilePart>())
-                    .ConfigureAwait(false)
-            );
-        }
-        else
-        {
-            stream = new RarStream(
-                archive.UnpackV2017.Value,
-                FileHeader,
-                await MultiVolumeReadOnlyAsyncStream
-                    .Create(Parts.ToAsyncEnumerable().CastAsync<RarFilePart>())
-                    .ConfigureAwait(false)
-            );
-        }
+            readStream = await MultiVolumeReadOnlyAsyncStream
+                .Create(Parts.ToAsyncEnumerable().CastAsync<RarFilePart>())
+                .ConfigureAwait(false);
+            stream = new RarStream(unpack, FileHeader, readStream, ownsUnpack, onDispose);
 
-        await stream.InitializeAsync(cancellationToken).ConfigureAwait(false);
-        return stream;
+            await stream.InitializeAsync(cancellationToken).ConfigureAwait(false);
+            return stream;
+        }
+        catch
+        {
+            if (stream is not null)
+            {
+                await stream.DisposeAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                if (readStream is not null)
+                {
+                    await readStream.DisposeAsync().ConfigureAwait(false);
+                }
+
+                if (ownsUnpack && unpack is IDisposable disposableUnpack)
+                {
+                    disposableUnpack.Dispose();
+                }
+
+                onDispose?.Invoke();
+            }
+
+            throw;
+        }
     }
 }

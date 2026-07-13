@@ -32,10 +32,7 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
                 .NotNull()
                 .ReadAsync(buffer, currentOffset, readSize, cancellationToken)
                 .ConfigureAwait(false);
-            if (read < 0)
-            {
-                throw new IncompleteArchiveException("Unexpected end of stream.");
-            }
+            ValidateVolumeRead(read, currentPosition, maxPosition);
 
             currentPosition += read;
             currentOffset += read;
@@ -93,10 +90,7 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
                 .NotNull()
                 .ReadAsync(buffer.Slice(currentOffset, readSize), cancellationToken)
                 .ConfigureAwait(false);
-            if (read < 0)
-            {
-                throw new IncompleteArchiveException("Unexpected end of stream.");
-            }
+            ValidateVolumeRead(read, currentPosition, maxPosition);
 
             currentPosition += read;
             currentOffset += read;

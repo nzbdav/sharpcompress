@@ -13,6 +13,8 @@ internal partial class RarStream : Stream
     private readonly IRarUnpack unpack;
     private readonly FileHeader fileHeader;
     private readonly Stream readStream;
+    private readonly bool ownsUnpack;
+    private readonly Action onDispose;
 
     private bool fetch;
 
@@ -28,11 +30,19 @@ internal partial class RarStream : Stream
     private bool isDisposed;
     private long _position;
 
-    public RarStream(IRarUnpack unpack, FileHeader fileHeader, Stream readStream)
+    public RarStream(
+        IRarUnpack unpack,
+        FileHeader fileHeader,
+        Stream readStream,
+        bool ownsUnpack = false,
+        Action onDispose = null
+    )
     {
         this.unpack = unpack;
         this.fileHeader = fileHeader;
         this.readStream = readStream;
+        this.ownsUnpack = ownsUnpack;
+        this.onDispose = onDispose;
     }
 
     public void Initialize()
@@ -58,6 +68,12 @@ internal partial class RarStream : Stream
                 ArrayPool<byte>.Shared.Return(this.tmpBuffer);
                 this.tmpBuffer = null;
                 readStream.Dispose();
+                if (ownsUnpack && unpack is IDisposable disposableUnpack)
+                {
+                    disposableUnpack.Dispose();
+                }
+
+                onDispose?.Invoke();
             }
             isDisposed = true;
             base.Dispose(disposing);

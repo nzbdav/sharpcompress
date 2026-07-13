@@ -55,10 +55,7 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
             }
 
             var read = currentStream.NotNull().Read(buffer, currentOffset, readSize);
-            if (read < 0)
-            {
-                throw new IncompleteArchiveException("Unexpected end of stream.");
-            }
+            ValidateVolumeRead(read, currentPosition, maxPosition);
 
             currentPosition += read;
             currentOffset += read;

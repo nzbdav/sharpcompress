@@ -72,22 +72,53 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
     public Stream OpenEntryStream()
     {
         var readStream = new MultiVolumeReadOnlyStream(Parts.Cast<RarFilePart>());
-        RarStream stream;
-        if (IsRarV3)
+        var isSolidArchive = archive.IsSolid;
+        var unpack = archive.AcquireUnpackForEntry(IsRarV3, isSolidArchive, out var ownsUnpack);
+        Action? onDispose = isSolidArchive ? archive.ReleaseSolidEntryStream : null;
+        RarStream? stream = null;
+        try
         {
-            stream = RarCrcStream.Create(archive.UnpackV1.Value, FileHeader, readStream);
-        }
-        else if (FileHeader.FileCrc?.Length > 5)
-        {
-            stream = RarBLAKE2spStream.Create(archive.UnpackV2017.Value, FileHeader, readStream);
-        }
-        else
-        {
-            stream = RarCrcStream.Create(archive.UnpackV2017.Value, FileHeader, readStream);
-        }
+            if (IsRarV3)
+            {
+                stream = RarCrcStream.Create(unpack, FileHeader, readStream, ownsUnpack, onDispose);
+            }
+            else if (FileHeader.FileCrc?.Length > 5)
+            {
+                stream = RarBLAKE2spStream.Create(
+                    unpack,
+                    FileHeader,
+                    readStream,
+                    ownsUnpack,
+                    onDispose
+                );
+            }
+            else
+            {
+                stream = RarCrcStream.Create(unpack, FileHeader, readStream, ownsUnpack, onDispose);
+            }
 
-        stream.Initialize();
-        return stream;
+            stream.Initialize();
+            return stream;
+        }
+        catch
+        {
+            if (stream is not null)
+            {
+                stream.Dispose();
+            }
+            else
+            {
+                readStream.Dispose();
+                if (ownsUnpack && unpack is IDisposable disposableUnpack)
+                {
+                    disposableUnpack.Dispose();
+                }
+
+                onDispose?.Invoke();
+            }
+
+            throw;
+        }
     }
 
     public bool IsComplete

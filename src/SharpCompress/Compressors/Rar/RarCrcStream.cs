@@ -16,9 +16,11 @@ internal partial class RarCrcStream : RarStream
     private RarCrcStream(
         IRarUnpack unpack,
         FileHeader fileHeader,
-        MultiVolumeReadOnlyStreamBase readStream
+        MultiVolumeReadOnlyStreamBase readStream,
+        bool ownsUnpack,
+        Action? onDispose
     )
-        : base(unpack, fileHeader, readStream)
+        : base(unpack, fileHeader, readStream, ownsUnpack, onDispose)
     {
         this.readStream = readStream;
         disableCRC = fileHeader.IsEncrypted;
@@ -28,10 +30,12 @@ internal partial class RarCrcStream : RarStream
     public static RarCrcStream Create(
         IRarUnpack unpack,
         FileHeader fileHeader,
-        MultiVolumeReadOnlyStream readStream
+        MultiVolumeReadOnlyStream readStream,
+        bool ownsUnpack = false,
+        Action? onDispose = null
     )
     {
-        var stream = new RarCrcStream(unpack, fileHeader, readStream);
+        var stream = new RarCrcStream(unpack, fileHeader, readStream, ownsUnpack, onDispose);
         return stream;
     }
 

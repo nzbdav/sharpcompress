@@ -139,6 +139,13 @@ public abstract class RarVolume : Volume
                 );
             }
 
+            // Sync and async volume collections may share one SourceStream. Seek to the
+            // start before probing so a prior enumeration does not leave us at EOF.
+            if (Stream.CanSeek)
+            {
+                Stream.Position = 0;
+            }
+
             // we only want to load the archive header to avoid overhead but have to do the nasty thing and reset the stream
             _ = GetVolumeFileParts().First();
             Stream.Position = 0;
@@ -246,6 +253,13 @@ public abstract class RarVolume : Volume
                 throw new ArchiveOperationException(
                     "ArchiveHeader should never been null in a streaming read."
                 );
+            }
+
+            // Sync and async volume collections may share one SourceStream. Seek to the
+            // start before probing so a prior enumeration does not leave us at EOF.
+            if (Stream.CanSeek)
+            {
+                Stream.Position = 0;
             }
 
             // we only want to load the archive header to avoid overhead but have to do the nasty thing and reset the stream

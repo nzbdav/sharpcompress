@@ -106,9 +106,11 @@ internal partial class RarBLAKE2spStream : RarStream
     private RarBLAKE2spStream(
         IRarUnpack unpack,
         FileHeader fileHeader,
-        MultiVolumeReadOnlyStreamBase readStream
+        MultiVolumeReadOnlyStreamBase readStream,
+        bool ownsUnpack,
+        Action? onDispose
     )
-        : base(unpack, fileHeader, readStream)
+        : base(unpack, fileHeader, readStream, ownsUnpack, onDispose)
     {
         this.readStream = readStream;
 
@@ -120,10 +122,12 @@ internal partial class RarBLAKE2spStream : RarStream
     public static RarBLAKE2spStream Create(
         IRarUnpack unpack,
         FileHeader fileHeader,
-        MultiVolumeReadOnlyStream readStream
+        MultiVolumeReadOnlyStream readStream,
+        bool ownsUnpack = false,
+        Action? onDispose = null
     )
     {
-        var stream = new RarBLAKE2spStream(unpack, fileHeader, readStream);
+        var stream = new RarBLAKE2spStream(unpack, fileHeader, readStream, ownsUnpack, onDispose);
         return stream;
     }
 

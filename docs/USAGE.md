@@ -123,6 +123,11 @@ using (var archive = RarArchive.OpenArchive("Test.rar"))
 }
 ```
 
+Non-solid RAR archives may open multiple entry streams at once (for example concurrent HTTP range
+requests). Solid RAR archives share one unpacker: open only one entry stream at a time, or extract
+sequentially with `ExtractAllEntries()` / `WriteToDirectory()`. A second concurrent
+`OpenEntryStream()` on a solid archive throws `ArchiveOperationException`.
+
 ### Extract solid Rar or 7Zip archives with progress reporting
 
 For optimal performance with solid Rar and 7Zip archives, extract entries sequentially. `WriteToDirectory` handles that internally for simple extraction. Use `ExtractAllEntries` when you need to manually iterate in sequential order.

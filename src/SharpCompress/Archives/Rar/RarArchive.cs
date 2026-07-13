@@ -24,18 +24,68 @@ public interface IRarArchive : IArchive, IRarArchiveCommon { }
 
 public interface IRarAsyncArchive : IAsyncArchive, IRarArchiveCommon { }
 
+/// <summary>
+/// RAR archive with random-access entry streams.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Non-solid archives may open multiple entry streams concurrently; each stream owns a private
+/// unpacker instance.
+/// </para>
+/// <para>
+/// Solid archives share a single unpacker and do not support concurrent entry streams. Open at most
+/// one entry stream at a time, or extract sequentially with <see cref="IArchive.ExtractAllEntries"/>.
+/// </para>
+/// </remarks>
 public partial class RarArchive
     : AbstractArchive<RarArchiveEntry, RarVolume>,
         IRarArchive,
         IRarAsyncArchive
 {
     private bool _disposed;
+    private int _activeSolidEntryStreams;
+
     internal Lazy<IRarUnpack> UnpackV2017 { get; } =
         new(() => new Compressors.Rar.UnpackV2017.Unpack());
     internal Lazy<IRarUnpack> UnpackV1 { get; } = new(() => new Compressors.Rar.UnpackV1.Unpack());
 
     private RarArchive(SourceStream sourceStream)
         : base(ArchiveType.Rar, sourceStream) { }
+
+    /// <summary>
+    /// Acquires an unpacker for an entry stream. Non-solid archives get a private instance;
+    /// solid archives reuse the shared instance and enforce single active stream.
+    /// </summary>
+    /// <param name="isRarV3">Whether the entry uses the RAR3 unpacker.</param>
+    /// <param name="isSolidArchive">Archive-level solid flag (use sync or async IsSolid consistently with the open path).</param>
+    /// <param name="ownsUnpack">True when the caller must dispose the returned unpacker with the stream.</param>
+    internal IRarUnpack AcquireUnpackForEntry(
+        bool isRarV3,
+        bool isSolidArchive,
+        out bool ownsUnpack
+    )
+    {
+        if (!isSolidArchive)
+        {
+            ownsUnpack = true;
+            return isRarV3
+                ? new Compressors.Rar.UnpackV1.Unpack()
+                : new Compressors.Rar.UnpackV2017.Unpack();
+        }
+
+        if (System.Threading.Interlocked.CompareExchange(ref _activeSolidEntryStreams, 1, 0) != 0)
+        {
+            throw new ArchiveOperationException(
+                "Solid RAR archives do not support concurrent entry streams; extract sequentially with ExtractAllEntries()."
+            );
+        }
+
+        ownsUnpack = false;
+        return isRarV3 ? UnpackV1.Value : UnpackV2017.Value;
+    }
+
+    internal void ReleaseSolidEntryStream() =>
+        System.Threading.Interlocked.Exchange(ref _activeSolidEntryStreams, 0);
 
     public override void Dispose()
     {
@@ -101,7 +151,20 @@ public partial class RarArchive
         return (RarReader)RarReader.OpenReader(stream, ReaderOptions);
     }
 
-    public override bool IsSolid => Volumes.First().IsSolidArchive;
+    private bool? _isSolid;
+
+    public override bool IsSolid
+    {
+        get
+        {
+            if (_isSolid is null)
+            {
+                _isSolid = Volumes.First().IsSolidArchive;
+            }
+
+            return _isSolid.Value;
+        }
+    }
 
     public override bool IsEncrypted => Entries.First(x => !x.IsDirectory).IsEncrypted;
 

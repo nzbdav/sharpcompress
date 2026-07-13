@@ -15,7 +15,13 @@ internal partial class RarBLAKE2spStream : RarStream
         CancellationToken cancellationToken = default
     )
     {
-        var stream = new RarBLAKE2spStream(unpack, fileHeader, readStream);
+        var stream = new RarBLAKE2spStream(
+            unpack,
+            fileHeader,
+            readStream,
+            ownsUnpack: false,
+            onDispose: null
+        );
         return new ValueTask<RarBLAKE2spStream>(stream);
     }
 

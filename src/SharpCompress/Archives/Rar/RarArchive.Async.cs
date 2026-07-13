@@ -49,8 +49,18 @@ public partial class RarArchive
         return (RarReader)RarReader.OpenReader(stream, ReaderOptions);
     }
 
-    public override async ValueTask<bool> IsSolidAsync() =>
-        await (await VolumesAsync.CastAsync<RarVolume>().FirstAsync().ConfigureAwait(false))
+    public override async ValueTask<bool> IsSolidAsync()
+    {
+        if (_isSolid is not null)
+        {
+            return _isSolid.Value;
+        }
+
+        _isSolid = await (
+            await VolumesAsync.CastAsync<RarVolume>().FirstAsync().ConfigureAwait(false)
+        )
             .IsSolidArchiveAsync()
             .ConfigureAwait(false);
+        return _isSolid.Value;
+    }
 }

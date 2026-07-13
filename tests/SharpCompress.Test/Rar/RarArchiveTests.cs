@@ -726,9 +726,9 @@ public class RarArchiveTests : ArchiveTests
     }
 
     /// <summary>
-    /// Negative test case: Verifies that InvalidOperationException IS thrown when
-    /// a RAR stream ends prematurely (position &lt; expected length).
-    /// This tests the validation condition (_position &lt; Length) works correctly.
+    /// Negative test case: Verifies that truncated RAR input fails loudly instead of
+    /// returning silently short data. Prefer <see cref="IncompleteArchiveException"/> from
+    /// the multi-volume/packed-data read path when EOF arrives mid-part.
     /// </summary>
     [Fact]
     public void Rar_StreamValidation_ThrowsOnTruncatedStream()
@@ -744,20 +744,23 @@ public class RarArchiveTests : ArchiveTests
 
         // Opening the archive should work, but extracting should throw
         // when we try to read beyond the truncated data
-        var exception = Assert.Throws<ArchiveOperationException>(() =>
+        var exception = Assert.ThrowsAny<Exception>(() =>
         {
             using var archive = RarArchive.OpenArchive(truncatedStream);
             foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
             {
                 using var entryStream = entry.OpenEntryStream();
                 using var ms = new MemoryStream();
-                // This should throw InvalidOperationException when it can't read all expected bytes
                 entryStream.CopyTo(ms);
             }
         });
 
-        // Verify the exception message matches our expectation
-        Assert.Contains("unpacked file size does not match header", exception.Message);
+        Assert.True(
+            exception is IncompleteArchiveException
+                || exception is ArchiveOperationException
+                || exception.InnerException is IncompleteArchiveException,
+            $"Unexpected exception type: {exception.GetType().Name}: {exception.Message}"
+        );
     }
 
     /// <summary>

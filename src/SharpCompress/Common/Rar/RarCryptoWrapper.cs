@@ -38,24 +38,33 @@ internal sealed class RarCryptoWrapper : Stream
         {
             var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
             Span<byte> cipherText = stackalloc byte[16];
-            for (var i = 0; i < alignedSize / 16; i++)
-            {
-                //long ax = System.currentTimeMillis();
-                _actualStream.Read(cipherText);
 
-                var readBytes = _rijndael.ProcessBlock(cipherText);
-                foreach (var readByte in readBytes)
+            try
+            {
+                for (var i = 0; i < alignedSize / 16; i++)
                 {
-                    _data.Enqueue(readByte);
+                    _actualStream.ReadExactly(cipherText);
+
+                    var readBytes = _rijndael.ProcessBlock(cipherText);
+                    foreach (var readByte in readBytes)
+                    {
+                        _data.Enqueue(readByte);
+                    }
                 }
             }
-
-            for (var i = 0; i < count; i++)
+            catch (EndOfStreamException e)
             {
-                buffer[offset + i] = _data.Dequeue();
+                throw new InvalidFormatException("Unexpected end of encrypted stream", e);
             }
         }
-        return count;
+
+        var bytesToReturn = Math.Min(count, _data.Count);
+        for (var i = 0; i < bytesToReturn; i++)
+        {
+            buffer[offset + i] = _data.Dequeue();
+        }
+
+        return bytesToReturn;
     }
 
     public override Task<int> ReadAsync(

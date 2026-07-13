@@ -121,6 +121,52 @@ public class AsyncParityAndCancellationTests : TestBase
         });
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task SevenZip_AsyncExtraction_ShouldRespectCancellationDuringRead()
+    {
+        var archiveBytes = await File.ReadAllBytesAsync(
+            Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z")
+        );
+        using var cts = new CancellationTokenSource();
+        await using var stream = new CancelAfterBytesReadStream(
+            new MemoryStream(archiveBytes),
+            cts,
+            cancelAfterBytes: 256
+        );
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await using var archive = await ArchiveFactory.OpenAsyncArchive(
+                stream,
+                cancellationToken: cts.Token
+            );
+            await archive.WriteToDirectoryAsync(SCRATCH_FILES_PATH, cancellationToken: cts.Token);
+        });
+    }
+
+    [Fact(Timeout = 30_000)]
+    public async Task Zip_AsyncExtraction_ShouldRespectCancellationDuringRead()
+    {
+        var archiveBytes = await File.ReadAllBytesAsync(
+            Path.Combine(TEST_ARCHIVES_PATH, "Zip.deflate.zip")
+        );
+        using var cts = new CancellationTokenSource();
+        await using var stream = new CancelAfterBytesReadStream(
+            new MemoryStream(archiveBytes),
+            cts,
+            cancelAfterBytes: 256
+        );
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await using var archive = await ArchiveFactory.OpenAsyncArchive(
+                stream,
+                cancellationToken: cts.Token
+            );
+            await archive.WriteToDirectoryAsync(SCRATCH_FILES_PATH, cancellationToken: cts.Token);
+        });
+    }
+
     [Fact]
     public async Task OpenAsyncReader_CallerProvidedStream_ShouldRemainOpenByDefault()
     {
@@ -294,74 +340,4 @@ public class AsyncParityAndCancellationTests : TestBase
         CompressionType CompressionType,
         string Content
     );
-
-    private sealed class CancelAfterBytesReadStream(
-        Stream stream,
-        CancellationTokenSource cancellationTokenSource,
-        long cancelAfterBytes
-    ) : Stream
-    {
-        private long _bytesRead;
-
-        public override bool CanRead => stream.CanRead;
-        public override bool CanSeek => stream.CanSeek;
-        public override bool CanWrite => false;
-        public override long Length => stream.Length;
-        public override long Position
-        {
-            get => stream.Position;
-            set => stream.Position = value;
-        }
-
-        public override void Flush() => stream.Flush();
-
-        public override int Read(byte[] buffer, int offset, int count) =>
-            throw new NotSupportedException("Use async reads for this test stream.");
-
-        public override async ValueTask<int> ReadAsync(
-            Memory<byte> buffer,
-            CancellationToken cancellationToken = default
-        )
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            _bytesRead = read;
-            if (_bytesRead > cancelAfterBytes)
-            {
-                cancellationTokenSource.Cancel();
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            return read;
-        }
-
-        public override Task<int> ReadAsync(
-            byte[] buffer,
-            int offset,
-            int count,
-            CancellationToken cancellationToken
-        ) => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                stream.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        public override async ValueTask DisposeAsync()
-        {
-            await stream.DisposeAsync().ConfigureAwait(false);
-            await base.DisposeAsync().ConfigureAwait(false);
-        }
-
-        public override long Seek(long offset, SeekOrigin origin) => stream.Seek(offset, origin);
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) =>
-            throw new NotSupportedException();
-    }
 }

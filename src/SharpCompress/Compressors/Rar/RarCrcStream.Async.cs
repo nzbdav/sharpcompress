@@ -16,7 +16,13 @@ internal partial class RarCrcStream : RarStream
         CancellationToken cancellationToken = default
     )
     {
-        var stream = new RarCrcStream(unpack, fileHeader, readStream);
+        var stream = new RarCrcStream(
+            unpack,
+            fileHeader,
+            readStream,
+            ownsUnpack: false,
+            onDispose: null
+        );
         return new ValueTask<RarCrcStream>(stream);
     }
 
