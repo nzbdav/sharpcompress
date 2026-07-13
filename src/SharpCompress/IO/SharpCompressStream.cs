@@ -470,6 +470,25 @@ public partial class SharpCompressStream : Stream, IStreamStack
     internal virtual bool TrySkipForward(long count)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        // Some format factories intentionally layer a detection buffer over an
+        // existing wrapper (for example, Tar needs a larger BZip2 probe window).
+        // Once FreezeAndReleaseBuffer has actually detached that ring, forward
+        // skips can safely use the underlying stream's native strategy.
+        if (_bufferReleaseRequested && _ringBuffer is null)
+        {
+            if (stream is SharpCompressStream sharpCompressStream)
+            {
+                return sharpCompressStream.TrySkipForward(count);
+            }
+
+            if (stream.CanSeek)
+            {
+                stream.Position += count;
+                return true;
+            }
+        }
+
         return false;
     }
 
