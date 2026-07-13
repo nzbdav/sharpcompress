@@ -12,21 +12,23 @@ namespace SharpCompress.IO;
 /// <remarks>
 /// <para>
 /// Prefer the static <see cref="Create(Stream, int?)"/> / <see cref="CreateNonDisposing"/>
-/// factories over constructing this type directly. Factories select passthrough,
-/// seekable-delegate, or ring-buffered mode and ownership rules for the underlying stream.
-/// See also the internal <c>SeekableSharpCompressStream</c> subclass used for seekable inputs.
+/// factories over constructing this type directly. Factories select passthrough
+/// (<c>PassthroughSharpCompressStream</c>), seekable-delegate
+/// (<c>SeekableSharpCompressStream</c>), or ring-buffered mode and ownership rules
+/// for the underlying stream. Each concrete type implements exactly one buffering strategy.
 /// </para>
 ///
 /// <para><b>Modes</b></para>
 /// <list type="bullet">
 /// <item>
-/// <b>Passthrough</b> (<see cref="CreateNonDisposing"/>): no ring buffer; reads/writes/seeks
-/// forward to the underlying stream. <see cref="CanSeek"/> / <see cref="Position"/> /
-/// <see cref="Length"/> / write / flush all delegate. Recording APIs are illegal (see below).
+/// <b>Passthrough</b> (<see cref="CreateNonDisposing"/> → <c>PassthroughSharpCompressStream</c>):
+/// no ring buffer; reads/writes/seeks forward to the underlying stream.
+/// <see cref="CanSeek"/> / <see cref="Position"/> / <see cref="Length"/> / write / flush all
+/// delegate. Recording APIs are illegal (see below).
 /// </item>
 /// <item>
-/// <b>Ring-buffered</b> (<see cref="Create(Stream, int?)"/> on a non-seekable stream): a
-/// <see cref="RingBuffer"/> stores bytes read from the underlying stream so limited backward
+/// <b>Ring-buffered</b> (<see cref="Create(Stream, int?)"/> on a non-seekable stream → this type):
+/// a <see cref="RingBuffer"/> stores bytes read from the underlying stream so limited backward
 /// seeking and format-detection rewind are possible. <see cref="CanSeek"/> is true for buffered
 /// position changes within the recorded/buffered window; write and flush are not supported.
 /// </item>
@@ -140,7 +142,9 @@ public partial class SharpCompressStream : Stream, IStreamStack
 {
     public virtual Stream BaseStream() => stream;
 
-    private readonly Stream stream;
+    // Underlying stream; subclasses that replace the buffering strategy (passthrough / seekable)
+    // may still reference this field or supply their own.
+    protected readonly Stream stream;
     private bool isDisposed;
     private long streamPosition;
 
@@ -156,13 +160,10 @@ public partial class SharpCompressStream : Stream, IStreamStack
     // When true, the ring buffer is disposed once logical position catches up to streamPosition.
     private bool _bufferReleaseRequested;
 
-    // Passthrough mode - no buffering, delegates CanSeek to underlying stream
-    private readonly bool _isPassthrough;
-
     /// <summary>
     /// Gets whether this stream is in passthrough mode (no buffering, delegates to underlying stream).
     /// </summary>
-    internal bool IsPassthrough => _isPassthrough;
+    internal virtual bool IsPassthrough => false;
 
     /// <summary>
     /// Gets whether to leave the underlying stream open when disposed.
@@ -176,18 +177,12 @@ public partial class SharpCompressStream : Stream, IStreamStack
     }
 
     /// <summary>
-    /// Private constructor for passthrough mode.
+    /// Constructor for ring-buffered mode and for subclasses that share the base stream field.
     /// </summary>
-    protected SharpCompressStream(
-        Stream stream,
-        bool leaveStreamOpen,
-        bool passthrough,
-        int? bufferSize
-    )
+    protected SharpCompressStream(Stream stream, bool leaveStreamOpen, int? bufferSize)
     {
         this.stream = stream;
         LeaveStreamOpen = leaveStreamOpen;
-        _isPassthrough = passthrough;
         _logicalPosition = 0;
 
         if (bufferSize.HasValue && bufferSize.Value > 0)
@@ -234,13 +229,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     public virtual void Rewind(bool stopRecording)
     {
-        if (_isPassthrough)
-        {
-            throw new ArchiveOperationException(
-                "Rewind cannot be called on a passthrough stream. Use Create() first."
-            );
-        }
-
         if (_bufferReleaseRequested)
         {
             throw new ArchiveOperationException(
@@ -280,12 +268,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     public virtual void StopRecording()
     {
-        if (_isPassthrough)
-        {
-            throw new ArchiveOperationException(
-                "StopRecording cannot be called on a passthrough stream. Use Create() first."
-            );
-        }
         if (_bufferReleaseRequested)
         {
             throw new ArchiveOperationException(
@@ -322,13 +304,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// </remarks>
     public virtual void FreezeAndReleaseBuffer()
     {
-        if (_isPassthrough)
-        {
-            throw new ArchiveOperationException(
-                "FreezeAndReleaseBuffer cannot be called on a passthrough stream. Use Create() first."
-            );
-        }
-
         if (_bufferReleaseRequested)
         {
             throw new ArchiveOperationException(
@@ -362,12 +337,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// </param>
     public virtual void StartRecording(int? minBufferSize = null)
     {
-        if (_isPassthrough)
-        {
-            throw new ArchiveOperationException(
-                "StartRecording cannot be called on a passthrough stream. Use Create() first."
-            );
-        }
         if (_bufferReleaseRequested)
         {
             throw new ArchiveOperationException(
@@ -405,29 +374,16 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     public override bool CanRead => true;
 
-    public override bool CanSeek => !_isPassthrough || stream.CanSeek;
+    public override bool CanSeek => true;
 
-    public override bool CanWrite => _isPassthrough && stream.CanWrite;
+    public override bool CanWrite => false;
 
-    public override void Flush()
-    {
-        if (_isPassthrough)
-        {
-            stream.Flush();
-            return;
-        }
-        throw new NotSupportedException();
-    }
+    public override void Flush() => throw new NotSupportedException();
 
     public override long Length
     {
         get
         {
-            if (_isPassthrough)
-            {
-                return stream.Length;
-            }
-
             if (_ringBuffer is not null)
             {
                 return _ringBuffer.Length;
@@ -438,26 +394,8 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     public override long Position
     {
-        get
-        {
-            // In passthrough mode, delegate to underlying stream
-            if (_isPassthrough)
-            {
-                return stream.Position;
-            }
-            // Use logical position (same for both recording and ring buffer modes)
-            return _logicalPosition;
-        }
-        set
-        {
-            // In passthrough mode, delegate to underlying stream
-            if (_isPassthrough)
-            {
-                stream.Position = value;
-                return;
-            }
-            SeekToPosition(value);
-        }
+        get => _logicalPosition;
+        set => SeekToPosition(value);
     }
 
     private void SeekToPosition(long targetPosition)
@@ -490,17 +428,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// </summary>
     internal virtual bool TrySetBufferedPosition(long targetPosition)
     {
-        if (_isPassthrough)
-        {
-            if (!stream.CanSeek)
-            {
-                return false;
-            }
-
-            stream.Position = targetPosition;
-            return true;
-        }
-
 #if DEBUG
         if (_bufferReleaseRequested && targetPosition < _logicalPosition)
         {
@@ -541,12 +468,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
         if (count == 0)
         {
             return 0;
-        }
-
-        // In passthrough mode, delegate directly to underlying stream
-        if (_isPassthrough)
-        {
-            return stream.Read(buffer, offset, count);
         }
 
         // If ring buffer exists, use unified buffered read logic
@@ -631,12 +552,6 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
     public override long Seek(long offset, SeekOrigin origin)
     {
-        // In passthrough mode, delegate to underlying stream
-        if (_isPassthrough)
-        {
-            return stream.Seek(offset, origin);
-        }
-
         long targetPosition = origin switch
         {
             SeekOrigin.Begin => offset,
@@ -649,43 +564,12 @@ public partial class SharpCompressStream : Stream, IStreamStack
         return targetPosition;
     }
 
-    public override void SetLength(long value)
-    {
-        if (_isPassthrough)
-        {
-            stream.SetLength(value);
-            return;
-        }
-        throw new NotSupportedException();
-    }
+    public override void SetLength(long value) => throw new NotSupportedException();
 
-    public override void Write(byte[] buffer, int offset, int count)
-    {
-        if (_isPassthrough)
-        {
-            stream.Write(buffer, offset, count);
-            return;
-        }
+    public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();
-    }
 
-    public override int Read(Span<byte> buffer)
-    {
-        if (_isPassthrough)
-        {
-            return stream.Read(buffer);
-        }
-        // Fall back to base implementation for buffered modes
-        return base.Read(buffer);
-    }
+    public override int Read(Span<byte> buffer) => base.Read(buffer);
 
-    public override void Write(ReadOnlySpan<byte> buffer)
-    {
-        if (_isPassthrough)
-        {
-            stream.Write(buffer);
-            return;
-        }
-        throw new NotSupportedException();
-    }
+    public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
 }

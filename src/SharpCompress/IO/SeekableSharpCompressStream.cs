@@ -17,7 +17,7 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
     public override bool LeaveStreamOpen { get; }
 
     public SeekableSharpCompressStream(Stream stream, bool leaveStreamOpen = false)
-        : base(Null, true, false, null)
+        : base(Null, leaveStreamOpen: true, bufferSize: null)
     {
         ThrowHelper.ThrowIfNull(stream);
         if (!stream.CanSeek)

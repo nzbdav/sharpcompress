@@ -36,7 +36,7 @@ public partial class SharpCompressStream
     /// A passthrough <see cref="SharpCompressStream"/> that does not dispose <paramref name="stream"/>.
     /// </returns>
     public static SharpCompressStream CreateNonDisposing(Stream stream) =>
-        new(stream, leaveStreamOpen: true, passthrough: true, bufferSize: null);
+        new PassthroughSharpCompressStream(stream);
 
     /// <summary>
     /// Creates a <see cref="SharpCompressStream"/> that supports recording and rewinding over
@@ -58,8 +58,9 @@ public partial class SharpCompressStream
     /// <para><b>Already-wrapped streams — unwrap / return-as-is rules:</b></para>
     /// <list type="bullet">
     /// <item>
-    /// Passthrough <see cref="SharpCompressStream"/>: unwrapped and rewrapped. Seekable underlying
-    /// streams become <c>SeekableSharpCompressStream</c>; non-seekable underlying streams become a
+    /// Passthrough <see cref="SharpCompressStream"/> (<c>PassthroughSharpCompressStream</c>):
+    /// unwrapped and rewrapped. Seekable underlying streams become
+    /// <c>SeekableSharpCompressStream</c>; non-seekable underlying streams become a
     /// ring-buffered <see cref="SharpCompressStream"/>. In both cases
     /// <see cref="LeaveStreamOpen"/> is <see langword="true"/> so prior
     /// <see cref="CreateNonDisposing"/> ownership is preserved.
@@ -99,7 +100,7 @@ public partial class SharpCompressStream
         // If it's a passthrough SharpCompressStream, unwrap it and create proper seekable wrapper
         if (stream is SharpCompressStream sharpCompressStream)
         {
-            if (sharpCompressStream._isPassthrough)
+            if (sharpCompressStream is PassthroughSharpCompressStream)
             {
                 // Unwrap the passthrough and create appropriate wrapper
                 var underlying = sharpCompressStream.stream;
@@ -109,7 +110,7 @@ public partial class SharpCompressStream
                     return new SeekableSharpCompressStream(underlying, true);
                 }
                 // Non-seekable underlying stream - wrap with rolling buffer
-                return new SharpCompressStream(underlying, true, false, rewindableBufferSize);
+                return new SharpCompressStream(underlying, true, rewindableBufferSize);
             }
             // Not passthrough - return as-is
             return sharpCompressStream;
@@ -132,6 +133,6 @@ public partial class SharpCompressStream
 
         // For non-seekable streams, create a SharpCompressStream with rolling buffer
         // to allow limited backward seeking (required by decompressors that over-read)
-        return new SharpCompressStream(stream, false, false, rewindableBufferSize);
+        return new SharpCompressStream(stream, false, rewindableBufferSize);
     }
 }
