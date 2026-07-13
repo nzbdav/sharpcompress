@@ -22,6 +22,12 @@ internal class SeekableFilePart : RarFilePart
         _password = password;
     }
 
+    /// <summary>
+    /// Underlying volume stream. Shared across parts on the same volume; callers must
+    /// re-seek before each read.
+    /// </summary>
+    internal Stream VolumeStream => _stream;
+
     internal override Stream GetCompressedStream()
     {
         _stream.Position = FileHeader.DataStartPosition;
