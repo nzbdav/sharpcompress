@@ -11,7 +11,8 @@ internal static partial class Utility
     extension(Stream source)
     {
         /// <summary>
-        /// Read exactly the requested number of bytes from a stream asynchronously. Throws EndOfStreamException if not enough data is available.
+        /// Read exactly the requested number of bytes from a stream asynchronously.
+        /// Throws <see cref="IncompleteArchiveException"/> if not enough data is available.
         /// </summary>
         public async ValueTask ReadExactAsync(
             byte[] buffer,
@@ -21,31 +22,17 @@ internal static partial class Utility
         )
         {
             ThrowHelper.ThrowIfNull(source);
-
             ThrowHelper.ThrowIfNull(buffer);
 
-            if (offset < 0 || offset > buffer.Length)
+            try
             {
-                throw new ArgumentOutOfRangeException(nameof(offset));
-            }
-
-            if (length < 0 || length > buffer.Length - offset)
-            {
-                throw new ArgumentOutOfRangeException(nameof(length));
-            }
-
-            while (length > 0)
-            {
-                var fetched = await source
-                    .ReadAsync(buffer.AsMemory(offset, length), cancellationToken)
+                await source
+                    .ReadExactlyAsync(buffer.AsMemory(offset, length), cancellationToken)
                     .ConfigureAwait(false);
-                if (fetched <= 0)
-                {
-                    throw new IncompleteArchiveException("Unexpected end of stream.");
-                }
-
-                offset += fetched;
-                length -= fetched;
+            }
+            catch (EndOfStreamException)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.");
             }
         }
 
@@ -69,23 +56,15 @@ internal static partial class Utility
             CancellationToken cancellationToken = default
         )
         {
-            var total = 0;
-            int read;
-            while (
-                (
-                    read = await source
-                        .ReadAsync(buffer.AsMemory(total, buffer.Length - total), cancellationToken)
-                        .ConfigureAwait(false)
-                ) > 0
-            )
+            try
             {
-                total += read;
-                if (total >= buffer.Length)
-                {
-                    return true;
-                }
+                await source.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
+                return true;
             }
-            return (total >= buffer.Length);
+            catch (EndOfStreamException)
+            {
+                return false;
+            }
         }
 
         public async ValueTask<bool> ReadFullyAsync(
@@ -95,26 +74,17 @@ internal static partial class Utility
             CancellationToken cancellationToken = default
         )
         {
-            var total = 0;
-            int read;
-            while (
-                (
-                    read = await source
-                        .ReadAsync(
-                            buffer.AsMemory(offset + total, count - total),
-                            cancellationToken
-                        )
-                        .ConfigureAwait(false)
-                ) > 0
-            )
+            try
             {
-                total += read;
-                if (total >= count)
-                {
-                    return true;
-                }
+                await source
+                    .ReadExactlyAsync(buffer.AsMemory(offset, count), cancellationToken)
+                    .ConfigureAwait(false);
+                return true;
             }
-            return (total >= count);
+            catch (EndOfStreamException)
+            {
+                return false;
+            }
         }
     }
 

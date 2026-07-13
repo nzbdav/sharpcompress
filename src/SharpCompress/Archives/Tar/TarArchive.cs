@@ -17,7 +17,7 @@ public partial class TarArchive
     protected override IEnumerable<TarVolume> LoadVolumes(SourceStream sourceStream)
     {
         sourceStream.NotNull("SourceStream is null").LoadAllParts();
-        return new TarVolume(sourceStream, ReaderOptions, 1).AsEnumerable();
+        return [new TarVolume(sourceStream, ReaderOptions, 1)];
     }
 
     internal TarArchive(SourceStream sourceStream)

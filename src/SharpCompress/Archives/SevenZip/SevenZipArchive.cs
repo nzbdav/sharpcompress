@@ -26,7 +26,7 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
     protected override IEnumerable<SevenZipVolume> LoadVolumes(SourceStream sourceStream)
     {
         sourceStream.NotNull("SourceStream is null").LoadAllParts(); //request all streams
-        return new SevenZipVolume(sourceStream, ReaderOptions, 0).AsEnumerable(); //simple single volume or split, multivolume not supported
+        return [new SevenZipVolume(sourceStream, ReaderOptions, 0)]; //simple single volume or split, multivolume not supported
     }
 
     internal SevenZipArchive()
@@ -193,6 +193,9 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
             );
         }
 
+        // Sync fallback: LZMA decoder async paths have historically corrupted decoder state
+        // (IndexOutOfRangeException, DataErrorException). Prefer sync GetEntryStream until
+        // LzmaStream.ReadAsync / Decoder.CodeAsync / OutWindow async are fixed.
         protected override ValueTask<EntryStream> GetEntryStreamAsync(
             CancellationToken cancellationToken = default
         ) => new(GetEntryStream());
@@ -202,104 +205,6 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
             _currentFolderStream?.Dispose();
             _currentFolderStream = null;
             base.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// WORKAROUND: Forces async operations to use synchronous equivalents.
-    /// This is necessary because the LZMA decoder has bugs in its async implementation
-    /// that cause state corruption (IndexOutOfRangeException, DataErrorException).
-    ///
-    /// The proper fix would be to repair the LZMA decoder's async methods
-    /// (LzmaStream.ReadAsync, Decoder.CodeAsync, OutWindow async operations),
-    /// but that requires deep changes to the decoder state machine.
-    /// </summary>
-    private sealed class SyncOnlyStream : Stream
-    {
-        private readonly Stream _baseStream;
-
-        public SyncOnlyStream(Stream baseStream) => _baseStream = baseStream;
-
-        public override bool CanRead => _baseStream.CanRead;
-        public override bool CanSeek => _baseStream.CanSeek;
-        public override bool CanWrite => _baseStream.CanWrite;
-        public override long Length => _baseStream.Length;
-        public override long Position
-        {
-            get => _baseStream.Position;
-            set => _baseStream.Position = value;
-        }
-
-        public override void Flush() => _baseStream.Flush();
-
-        public override int Read(byte[] buffer, int offset, int count) =>
-            _baseStream.Read(buffer, offset, count);
-
-        public override long Seek(long offset, SeekOrigin origin) =>
-            _baseStream.Seek(offset, origin);
-
-        public override void SetLength(long value) => _baseStream.SetLength(value);
-
-        public override void Write(byte[] buffer, int offset, int count) =>
-            _baseStream.Write(buffer, offset, count);
-
-        // Force async operations to use sync equivalents to avoid LZMA decoder bugs
-        public override Task<int> ReadAsync(
-            byte[] buffer,
-            int offset,
-            int count,
-            CancellationToken cancellationToken
-        )
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_baseStream.Read(buffer, offset, count));
-        }
-
-        public override Task WriteAsync(
-            byte[] buffer,
-            int offset,
-            int count,
-            CancellationToken cancellationToken
-        )
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _baseStream.Write(buffer, offset, count);
-            return Task.CompletedTask;
-        }
-
-        public override Task FlushAsync(CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _baseStream.Flush();
-            return Task.CompletedTask;
-        }
-
-        public override ValueTask<int> ReadAsync(
-            Memory<byte> buffer,
-            CancellationToken cancellationToken = default
-        )
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return new ValueTask<int>(_baseStream.Read(buffer.Span));
-        }
-
-        public override ValueTask WriteAsync(
-            ReadOnlyMemory<byte> buffer,
-            CancellationToken cancellationToken = default
-        )
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            _baseStream.Write(buffer.Span);
-            return ValueTask.CompletedTask;
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _baseStream.Dispose();
-            }
-            base.Dispose(disposing);
         }
     }
 

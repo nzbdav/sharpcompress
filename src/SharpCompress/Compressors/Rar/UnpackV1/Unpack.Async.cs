@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
@@ -276,7 +277,7 @@ internal sealed partial class Unpack
                 var Length = LDecode[Number -= 271] + 3;
                 if ((Bits = LBits[Number]) > 0)
                 {
-                    Length += Utility.URShift(GetBits(), (16 - Bits));
+                    Length += GetBits() >>> (16 - Bits);
                     AddBits(Bits);
                 }
 
@@ -288,7 +289,7 @@ internal sealed partial class Unpack
                     {
                         if (Bits > 4)
                         {
-                            Distance += ((Utility.URShift(GetBits(), (20 - Bits))) << 4);
+                            Distance += ((GetBits() >>> (20 - Bits)) << 4);
                             AddBits(Bits - 4);
                         }
 
@@ -314,7 +315,7 @@ internal sealed partial class Unpack
                     }
                     else
                     {
-                        Distance += Utility.URShift(GetBits(), (16 - Bits));
+                        Distance += GetBits() >>> (16 - Bits);
                         AddBits(Bits);
                     }
                 }
@@ -379,7 +380,7 @@ internal sealed partial class Unpack
                 var Length = LDecode[LengthNumber] + 2;
                 if ((Bits = LBits[LengthNumber]) > 0)
                 {
-                    Length += Utility.URShift(GetBits(), (16 - Bits));
+                    Length += GetBits() >>> (16 - Bits);
                     AddBits(Bits);
                 }
 
@@ -393,7 +394,7 @@ internal sealed partial class Unpack
                 var Distance = SDDecode[Number -= 263] + 1;
                 if ((Bits = SDBits[Number]) > 0)
                 {
-                    Distance += Utility.URShift(GetBits(), (16 - Bits));
+                    Distance += GetBits() >>> (16 - Bits);
                     AddBits(Bits);
                 }
 
@@ -474,7 +475,7 @@ internal sealed partial class Unpack
                     {
                         if (ParentPrg.GlobalData.Count < Prg.GlobalData.Count)
                         {
-                            ParentPrg.GlobalData.SetSize(Prg.GlobalData.Count);
+                            CollectionsMarshal.SetCount(ParentPrg.GlobalData, Prg.GlobalData.Count);
                         }
 
                         for (var i = 0; i < Prg.GlobalData.Count - RarVM.VM_FIXEDGLOBALSIZE; i++)
@@ -523,7 +524,10 @@ internal sealed partial class Unpack
 
                             if (pPrg.GlobalData.Count > RarVM.VM_FIXEDGLOBALSIZE)
                             {
-                                NextPrg.GlobalData.SetSize(pPrg.GlobalData.Count);
+                                CollectionsMarshal.SetCount(
+                                    NextPrg.GlobalData,
+                                    pPrg.GlobalData.Count
+                                );
 
                                 for (
                                     var i = 0;
@@ -542,7 +546,10 @@ internal sealed partial class Unpack
                             {
                                 if (pPrg.GlobalData.Count < NextPrg.GlobalData.Count)
                                 {
-                                    pPrg.GlobalData.SetSize(NextPrg.GlobalData.Count);
+                                    CollectionsMarshal.SetCount(
+                                        pPrg.GlobalData,
+                                        NextPrg.GlobalData.Count
+                                    );
                                 }
 
                                 for (
@@ -701,11 +708,11 @@ internal sealed partial class Unpack
 
             for (var i = 0; i < PackDef.BC; i++)
             {
-                var length = (Utility.URShift(GetBits(), 12)) & 0xFF;
+                var length = (GetBits() >>> 12) & 0xFF;
                 AddBits(4);
                 if (length == 15)
                 {
-                    var zeroCount = (Utility.URShift(GetBits(), 12)) & 0xFF;
+                    var zeroCount = (GetBits() >>> 12) & 0xFF;
                     AddBits(4);
                     if (zeroCount == 0)
                     {
@@ -753,12 +760,12 @@ internal sealed partial class Unpack
                     int N;
                     if (Number == 16)
                     {
-                        N = (Utility.URShift(GetBits(), 13)) + 3;
+                        N = (GetBits() >>> 13) + 3;
                         AddBits(3);
                     }
                     else
                     {
-                        N = (Utility.URShift(GetBits(), 9)) + 11;
+                        N = (GetBits() >>> 9) + 11;
                         AddBits(7);
                     }
 
@@ -773,12 +780,12 @@ internal sealed partial class Unpack
                     int N;
                     if (Number == 18)
                     {
-                        N = (Utility.URShift(GetBits(), 13)) + 3;
+                        N = (GetBits() >>> 13) + 3;
                         AddBits(3);
                     }
                     else
                     {
-                        N = (Utility.URShift(GetBits(), 9)) + 11;
+                        N = (GetBits() >>> 9) + 11;
                         AddBits(7);
                     }
 

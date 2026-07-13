@@ -68,5 +68,5 @@ public class SevenZipEntry : Entry
     public int? ExtendedAttrib =>
         FilePart.Header.ExtendedAttrib.HasValue ? (int?)FilePart.Header.ExtendedAttrib.Value : null;
 
-    internal override IEnumerable<FilePart> Parts => FilePart.AsEnumerable<FilePart>();
+    internal override IEnumerable<FilePart> Parts => [FilePart];
 }

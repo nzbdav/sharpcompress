@@ -12,53 +12,6 @@ namespace SharpCompress.Test;
 
 public class UtilityTests
 {
-    #region URShift Tests
-
-    [Fact]
-    public void URShift_Int_PositiveNumber_ShiftsCorrectly()
-    {
-        var result = Utility.URShift(16, 2);
-        Assert.Equal(4, result);
-    }
-
-    [Fact]
-    public void URShift_Int_NegativeNumber_PerformsUnsignedShift()
-    {
-        // -1 in binary is all 1s (0xFFFFFFFF), shifted right by 1 should be 0x7FFFFFFF
-        var result = Utility.URShift(-1, 1);
-        Assert.Equal(int.MaxValue, result);
-    }
-
-    [Fact]
-    public void URShift_Int_Zero_ReturnsZero()
-    {
-        var result = Utility.URShift(0, 5);
-        Assert.Equal(0, result);
-    }
-
-    [Fact]
-    public void URShift_Long_PositiveNumber_ShiftsCorrectly()
-    {
-        var result = Utility.URShift(32L, 3);
-        Assert.Equal(4L, result);
-    }
-
-    [Fact]
-    public void URShift_Long_NegativeNumber_PerformsUnsignedShift()
-    {
-        var result = Utility.URShift(-1L, 1);
-        Assert.Equal(long.MaxValue, result);
-    }
-
-    [Fact]
-    public void URShift_Long_Zero_ReturnsZero()
-    {
-        var result = Utility.URShift(0L, 10);
-        Assert.Equal(0L, result);
-    }
-
-    #endregion
-
     #region ReadFully Tests
 
     [Fact]
@@ -330,105 +283,6 @@ public class UtilityTests
         stream.Skip(0);
 
         Assert.Equal(2, stream.Position);
-    }
-
-    #endregion
-
-    #region SetSize Tests
-
-    [Fact]
-    public void SetSize_GrowsList_AddsZeroBytes()
-    {
-        var list = new List<byte> { 1, 2, 3 };
-
-        Utility.SetSize(list, 5);
-
-        Assert.Equal(5, list.Count);
-        Assert.Equal(new byte[] { 1, 2, 3, 0, 0 }, list);
-    }
-
-    [Fact]
-    public void SetSize_ShrinksListByOne()
-    {
-        var list = new List<byte> { 1, 2, 3, 4, 5 };
-
-        Utility.SetSize(list, 3);
-
-        Assert.Equal(3, list.Count);
-        Assert.Equal(new byte[] { 1, 2, 3 }, list);
-    }
-
-    [Fact]
-    public void SetSize_ToZero_ClearsAllItems()
-    {
-        var list = new List<byte> { 1, 2, 3 };
-
-        Utility.SetSize(list, 0);
-
-        Assert.Empty(list);
-    }
-
-    [Fact]
-    public void SetSize_SameSize_NoChange()
-    {
-        var list = new List<byte> { 1, 2, 3 };
-
-        Utility.SetSize(list, 3);
-
-        Assert.Equal(3, list.Count);
-        Assert.Equal(new byte[] { 1, 2, 3 }, list);
-    }
-
-    #endregion
-
-    #region ForEach Tests
-
-    [Fact]
-    public void ForEach_ExecutesActionForEachItem()
-    {
-        var items = new[] { 1, 2, 3, 4, 5 };
-        var results = new List<int>();
-
-        items.ForEach(x => results.Add(x));
-
-        Assert.Equal(items, results);
-    }
-
-    [Fact]
-    public void ForEach_EmptyCollection_NoExecutions()
-    {
-        var items = Array.Empty<int>();
-        var count = 0;
-
-        items.ForEach(x => count++);
-
-        Assert.Equal(0, count);
-    }
-
-    #endregion
-
-    #region AsEnumerable Tests
-
-    [Fact]
-    public void AsEnumerable_SingleItem_YieldsItem()
-    {
-        var item = 42;
-
-        var result = item.AsEnumerable().ToList();
-
-        Assert.Single(result);
-        Assert.Equal(42, result[0]);
-    }
-
-    [Fact]
-    public void AsEnumerable_String_YieldsString()
-    {
-        var item = "test";
-
-        var result = item.AsEnumerable().ToList();
-
-        Assert.Single(result);
-        Assert.Equal("test", result[0]);
     }
 
     #endregion
@@ -742,32 +596,6 @@ public class UtilityTests
         Assert.Equal(expected, result);
     }
 #endif
-
-    #endregion
-
-    #region ToReadOnly Tests
-
-    [Fact]
-    public void ToReadOnly_IList_ReturnsReadOnlyCollection()
-    {
-        var list = new List<int> { 1, 2, 3, 4, 5 };
-
-        var result = list.ToReadOnly();
-
-        Assert.Equal(5, result.Count);
-        Assert.Equal(1, result[0]);
-        Assert.Equal(5, result[4]);
-    }
-
-    [Fact]
-    public void ToReadOnly_EmptyList_ReturnsEmptyReadOnlyCollection()
-    {
-        var list = new List<int>();
-
-        var result = list.ToReadOnly();
-
-        Assert.Empty(result);
-    }
 
     #endregion
 

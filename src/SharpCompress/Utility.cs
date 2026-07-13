@@ -1,7 +1,6 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -23,61 +22,7 @@ internal static partial class Utility
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
-    public static bool UseSyncOverAsyncDispose()
-    {
-        var useSyncOverAsync = false;
-        return useSyncOverAsync;
-    }
-
     private static readonly HashSet<char> invalidChars = new(Path.GetInvalidFileNameChars());
-
-    public static ReadOnlyCollection<T> ToReadOnly<T>(this IList<T> items) => new(items);
-
-    /// <summary>
-    /// Performs an unsigned bitwise right shift with the specified number
-    /// </summary>
-    /// <param name="number">Number to operate on</param>
-    /// <param name="bits">Amount of bits to shift</param>
-    /// <returns>The resulting number from the shift operation</returns>
-    public static int URShift(int number, int bits) => (int)((uint)number >> bits);
-
-    /// <summary>
-    /// Performs an unsigned bitwise right shift with the specified number
-    /// </summary>
-    /// <param name="number">Number to operate on</param>
-    /// <param name="bits">Amount of bits to shift</param>
-    /// <returns>The resulting number from the shift operation</returns>
-    public static long URShift(long number, int bits) => (long)((ulong)number >> bits);
-
-    public static void SetSize(this List<byte> list, int count)
-    {
-        if (count > list.Count)
-        {
-            // Ensure the list only needs to grow once
-            list.Capacity = count;
-            for (var i = list.Count; i < count; i++)
-            {
-                list.Add(0x0);
-            }
-        }
-        else
-        {
-            list.RemoveRange(count, list.Count - count);
-        }
-    }
-
-    public static void ForEach<T>(this IEnumerable<T> items, Action<T> action)
-    {
-        foreach (var item in items)
-        {
-            action(item);
-        }
-    }
-
-    public static IEnumerable<T> AsEnumerable<T>(this T item)
-    {
-        yield return item;
-    }
 
     public static DateTime DosDateToDateTime(ushort iDate, ushort iTime)
     {
@@ -216,34 +161,21 @@ internal static partial class Utility
         }
 
         /// <summary>
-        /// Read exactly the requested number of bytes from a stream. Throws EndOfStreamException if not enough data is available.
+        /// Read exactly the requested number of bytes from a stream.
+        /// Throws <see cref="IncompleteArchiveException"/> if not enough data is available.
         /// </summary>
         public void ReadExact(byte[] buffer, int offset, int length)
         {
             ThrowHelper.ThrowIfNull(source);
-
             ThrowHelper.ThrowIfNull(buffer);
 
-            if (offset < 0 || offset > buffer.Length)
+            try
             {
-                throw new ArgumentOutOfRangeException(nameof(offset));
+                source.ReadExactly(buffer.AsSpan(offset, length));
             }
-
-            if (length < 0 || length > buffer.Length - offset)
+            catch (EndOfStreamException)
             {
-                throw new ArgumentOutOfRangeException(nameof(length));
-            }
-
-            while (length > 0)
-            {
-                var fetched = source.Read(buffer, offset, length);
-                if (fetched <= 0)
-                {
-                    throw new IncompleteArchiveException("Unexpected end of stream.");
-                }
-
-                offset += fetched;
-                length -= fetched;
+                throw new IncompleteArchiveException("Unexpected end of stream.");
             }
         }
     }

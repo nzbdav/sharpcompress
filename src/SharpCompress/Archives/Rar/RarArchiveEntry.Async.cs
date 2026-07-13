@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
@@ -27,7 +28,7 @@ public partial class RarArchiveEntry
         try
         {
             readStream = await MultiVolumeReadOnlyAsyncStream
-                .Create(Parts.ToAsyncEnumerable().CastAsync<RarFilePart>())
+                .Create(Parts.ToAsyncEnumerable().Cast<RarFilePart>())
                 .ConfigureAwait(false);
             stream = new RarStream(unpack, FileHeader, readStream, ownsUnpack, onDispose);
 

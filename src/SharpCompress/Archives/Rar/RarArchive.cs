@@ -131,7 +131,7 @@ public partial class RarArchive
             ));
         }
 
-        return new StreamRarArchiveVolume(sourceStream, ReaderOptions, i++).AsEnumerable();
+        return [new StreamRarArchiveVolume(sourceStream, ReaderOptions, i++)];
     }
 
     protected override IReader CreateReaderForSolidExtraction()

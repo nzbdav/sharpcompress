@@ -1158,7 +1158,6 @@ public static unsafe partial class Methods
             {
                 return 4;
             }
-#if NET9_0_OR_GREATER
             if (AdvSimd.Arm64.IsSupported)
             {
                 if (rowEntries == 32)
@@ -1171,7 +1170,6 @@ public static unsafe partial class Methods
                     return 1;
                 }
             }
-#endif
         }
         return 1;
     }
@@ -1265,7 +1263,6 @@ public static unsafe partial class Methods
             }
             else if (rowEntries == 32)
             {
-#if NET9_0_OR_GREATER
                 if (AdvSimd.Arm64.IsSupported)
                 {
                     /* Same idea as with rowEntries == 16 but doing AND with
@@ -1287,11 +1284,9 @@ public static unsafe partial class Methods
                     return BitOperations.RotateRight(matches, (int)headGrouped)
                         & 0x5555555555555555;
                 }
-#endif
             }
             else
             { /* rowEntries == 64 */
-#if NET9_0_OR_GREATER
                 if (AdvSimd.Arm64.IsSupported)
                 {
                     (
@@ -1317,7 +1312,6 @@ public static unsafe partial class Methods
                     ulong matches = t4.As<byte, ulong>().GetElement(0);
                     return BitOperations.RotateRight(matches, (int)headGrouped);
                 }
-#endif
             }
         }
 

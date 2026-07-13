@@ -33,7 +33,7 @@ public abstract partial class RarReader
         }
 
         var stream = await MultiVolumeReadOnlyAsyncStream
-            .Create(CreateFilePartEnumerableForCurrentEntryAsync().CastAsync<RarFilePart>())
+            .Create(CreateFilePartEnumerableForCurrentEntryAsync().Cast<RarFilePart>())
             .ConfigureAwait(false);
         if (Entry.IsRarV3)
         {

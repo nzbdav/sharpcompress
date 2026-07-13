@@ -26,7 +26,7 @@ public static class RarArchiveExtensions
         /// </summary>
         public async ValueTask<bool> IsFirstVolumeAsync() =>
             (
-                await archive.VolumesAsync.CastAsync<RarVolume>().FirstAsync().ConfigureAwait(false)
+                await archive.VolumesAsync.Cast<RarVolume>().FirstAsync().ConfigureAwait(false)
             ).IsFirstVolume;
 
         /// <summary>
@@ -34,7 +34,7 @@ public static class RarArchiveExtensions
         /// </summary>
         public async ValueTask<bool> IsMultipartVolumeAsync() =>
             (
-                await archive.VolumesAsync.CastAsync<RarVolume>().FirstAsync().ConfigureAwait(false)
+                await archive.VolumesAsync.Cast<RarVolume>().FirstAsync().ConfigureAwait(false)
             ).IsMultiVolume;
     }
 }

@@ -263,9 +263,9 @@ public abstract class RarVolume : Volume
             }
 
             // we only want to load the archive header to avoid overhead but have to do the nasty thing and reset the stream
-#pragma warning disable CA2016 // Forward token if available; polyfill FirstAsync has no token overload
-            await GetVolumeFilePartsAsync(cancellationToken).FirstAsync().ConfigureAwait(false);
-#pragma warning restore CA2016
+            await GetVolumeFilePartsAsync(cancellationToken)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
             Stream.Position = 0;
         }
     }
