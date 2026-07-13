@@ -145,4 +145,39 @@ public class SharpCompressStreamFactoryTest
         var stream = SharpCompressStream.Create(passthroughStream);
         Assert.IsType<SharpCompressStream>(stream);
     }
+
+    [Fact]
+    public void Create_WithPassthroughOverBufferedStream_ReturnsBufferedStream()
+    {
+        var source = new ForwardOnlyStream(new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }));
+        var buffered = SharpCompressStream.Create(source);
+        var passthrough = SharpCompressStream.CreateNonDisposing(buffered);
+
+        var result = SharpCompressStream.Create(passthrough);
+
+        Assert.Same(buffered, result);
+        Assert.IsNotType<SeekableSharpCompressStream>(result);
+    }
+
+    [Fact]
+    public void Create_WithPassthroughOverSeekableWrapper_ReturnsSeekableWrapper()
+    {
+        var seekable = SharpCompressStream.Create(new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }));
+        var passthrough = SharpCompressStream.CreateNonDisposing(seekable);
+
+        var result = SharpCompressStream.Create(passthrough);
+
+        Assert.Same(seekable, result);
+        Assert.IsType<SeekableSharpCompressStream>(result);
+    }
+
+    [Fact]
+    public void SeekableWrapper_RejectsSharpCompressStream()
+    {
+        var buffered = SharpCompressStream.Create(
+            new ForwardOnlyStream(new MemoryStream(new byte[] { 1, 2, 3 }))
+        );
+
+        Assert.Throws<ArgumentException>(() => new SeekableSharpCompressStream(buffered));
+    }
 }

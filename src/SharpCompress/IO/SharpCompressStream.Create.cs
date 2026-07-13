@@ -97,22 +97,29 @@ public partial class SharpCompressStream
     {
         var rewindableBufferSize = bufferSize ?? Constants.RewindableBufferSize;
 
-        // If it's a passthrough SharpCompressStream, unwrap it and create proper seekable wrapper
+        // Unwrap non-disposing passthroughs. If the underlying stream is already a
+        // SharpCompressStream, return that concrete buffering strategy as-is. In
+        // particular, a ring-buffered stream reports CanSeek for replay within its
+        // buffered window, but it must never be treated as natively seekable.
         if (stream is SharpCompressStream sharpCompressStream)
         {
-            if (sharpCompressStream is PassthroughSharpCompressStream)
+            while (sharpCompressStream is PassthroughSharpCompressStream)
             {
-                // Unwrap the passthrough and create appropriate wrapper
                 var underlying = sharpCompressStream.stream;
+                if (underlying is SharpCompressStream underlyingSharpCompressStream)
+                {
+                    sharpCompressStream = underlyingSharpCompressStream;
+                    continue;
+                }
+
                 if (underlying.CanSeek)
                 {
-                    // Create SeekableSharpCompressStream that preserves LeaveStreamOpen
                     return new SeekableSharpCompressStream(underlying, true);
                 }
-                // Non-seekable underlying stream - wrap with rolling buffer
+
                 return new SharpCompressStream(underlying, true, rewindableBufferSize);
             }
-            // Not passthrough - return as-is
+
             return sharpCompressStream;
         }
 

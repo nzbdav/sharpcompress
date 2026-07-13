@@ -20,6 +20,13 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
         : base(Null, leaveStreamOpen: true, bufferSize: null)
     {
         ThrowHelper.ThrowIfNull(stream);
+        if (stream is SharpCompressStream)
+        {
+            throw new ArgumentException(
+                "A SharpCompressStream must not be wrapped in SeekableSharpCompressStream.",
+                nameof(stream)
+            );
+        }
         if (!stream.CanSeek)
         {
             throw new ArgumentException("Stream must be seekable", nameof(stream));
