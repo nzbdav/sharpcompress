@@ -144,6 +144,19 @@ public sealed record ReaderOptions : IReaderOptions
         CompressionProviderRegistry.Default;
 
     /// <summary>
+    /// When true, disposing an entry stream before it is fully read cancels the reader
+    /// (<see cref="IReader.Cancel"/>) instead of draining the remaining entry bytes. After cancellation,
+    /// further <see cref="IReader.MoveToNextEntry"/> calls throw <see cref="ReaderCancelledException"/>.
+    /// Default false: dispose drains to the end of the entry so the reader can continue — on remote/network
+    /// sources that downloads the remainder.
+    /// </summary>
+    /// <remarks>
+    /// Applies to the Reader API (<see cref="IReader.OpenEntryStream"/>). Archive entry streams that are not
+    /// backed by a reader ignore this option.
+    /// </remarks>
+    public bool CancelOnEntryStreamDispose { get; set; }
+
+    /// <summary>
     /// Creates a new ReaderOptions instance with default values.
     /// </summary>
     public ReaderOptions() { }

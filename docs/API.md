@@ -339,6 +339,9 @@ var hinted = ReaderOptions.ForExternalStream.WithExtensionHint("tar.gz");
 // Increase for non-seekable streams with large detection probes, such as SFX RAR
 var buffered = ReaderOptions.ForExternalStream.WithRewindableBufferSize(1_048_576);
 
+// Stop draining remaining entry bytes when an EntryStream is disposed early (Reader API only)
+var cancelEarly = ReaderOptions.ForExternalStream.WithCancelOnEntryStreamDispose(true);
+
 // Extraction presets
 var safeOptions = ExtractionOptions.SafeExtract;  // No overwrite
 var flatOptions = ExtractionOptions.FlatExtract;  // No directory structure

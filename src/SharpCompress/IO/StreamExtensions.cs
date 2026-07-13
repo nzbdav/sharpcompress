@@ -12,6 +12,8 @@ public static class StreamExtensions
     {
         public void Skip(long advanceAmount)
         {
+            // Buffered SharpCompressStream reports CanSeek=true for ring-buffer replay only;
+            // arbitrary Position seeks are not safe there.
             if (stream.CanSeek && stream is not SharpCompressStream)
             {
                 stream.Position += advanceAmount;

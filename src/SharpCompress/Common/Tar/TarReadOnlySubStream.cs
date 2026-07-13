@@ -76,6 +76,16 @@ internal class TarReadOnlySubStream : Stream
         _isPositionedAtNextEntry = true;
     }
 
+    /// <summary>
+    /// Marks the entry abandoned so dispose does not drain remaining payload bytes.
+    /// Used when the reader is cancelled via <c>CancelOnEntryStreamDispose</c>.
+    /// </summary>
+    internal void AbandonWithoutAdvance()
+    {
+        BytesLeftToRead = 0;
+        _isPositionedAtNextEntry = true;
+    }
+
     private async ValueTask AdvanceToNextHeaderAsync()
     {
         if (_isPositionedAtNextEntry)

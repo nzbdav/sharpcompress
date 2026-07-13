@@ -27,7 +27,7 @@ internal partial class ReadOnlySubStream : Stream, IStreamStack
         _position = 0;
     }
 
-    private long BytesLeftToRead { get; set; }
+    internal long BytesLeftToRead { get; private set; }
 
     public override bool CanRead => true;
 
@@ -93,6 +93,22 @@ internal partial class ReadOnlySubStream : Stream, IStreamStack
 
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();
+
+    /// <summary>
+    /// Advances past remaining bytes without returning them to the caller.
+    /// Uses a position seek when the underlying stream supports it.
+    /// </summary>
+    internal void SkipRemaining()
+    {
+        if (BytesLeftToRead <= 0)
+        {
+            return;
+        }
+
+        _stream.Skip(BytesLeftToRead);
+        _position += BytesLeftToRead;
+        BytesLeftToRead = 0;
+    }
 
     protected override void Dispose(bool disposing)
     {

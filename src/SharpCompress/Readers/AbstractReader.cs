@@ -259,7 +259,7 @@ public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncR
     /// Retains a reference to the entry stream, so we can check whether it completed later.
     /// </summary>
     protected EntryStream CreateEntryStream(Stream? decompressed) =>
-        new(this, decompressed.NotNull());
+        new(this, decompressed.NotNull(), Options.CancelOnEntryStreamDispose);
 
     protected virtual EntryStream GetEntryStream() =>
         CreateEntryStream(Entry.Parts.First().GetCompressedStream());

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common.Tar;
 using SharpCompress.IO;
 
 namespace SharpCompress.Common;
@@ -13,7 +14,14 @@ public partial class EntryStream
     /// </summary>
     public async ValueTask SkipEntryAsync(CancellationToken cancellationToken = default)
     {
-        await this.SkipAsync(cancellationToken).ConfigureAwait(false);
+        if (_stream is ReadOnlySubStream subStream)
+        {
+            await subStream.SkipRemainingAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await this.SkipAsync(cancellationToken).ConfigureAwait(false);
+        }
         _completed = true;
     }
 
@@ -26,11 +34,22 @@ public partial class EntryStream
         _isDisposed = true;
         if (!(_completed || _reader.Cancelled))
         {
-            await SkipEntryAsync().ConfigureAwait(false);
+            if (_cancelOnDispose)
+            {
+                _reader.Cancel();
+                if (_stream is TarReadOnlySubStream tarStream)
+                {
+                    tarStream.AbandonWithoutAdvance();
+                }
+            }
+            else
+            {
+                await SkipEntryAsync().ConfigureAwait(false);
+            }
         }
 
         //Need a safe standard approach to this - it's okay for compression to overreads. Handling needs to be standardised
-        if (_stream is IStreamStack ss)
+        if (!_reader.Cancelled && _stream is IStreamStack ss)
         {
             if (ss.BaseStream() is SharpCompress.Compressors.Deflate.DeflateStream deflateStream)
             {

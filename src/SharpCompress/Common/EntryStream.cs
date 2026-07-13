@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common.Tar;
 using SharpCompress.IO;
 using SharpCompress.Readers;
 
@@ -12,13 +13,15 @@ public partial class EntryStream : Stream
 {
     private readonly IReader _reader;
     private readonly Stream _stream;
+    private readonly bool _cancelOnDispose;
     private bool _completed;
     private bool _isDisposed;
 
-    internal EntryStream(IReader reader, Stream stream)
+    internal EntryStream(IReader reader, Stream stream, bool cancelOnDispose = false)
     {
         _reader = reader;
         _stream = stream;
+        _cancelOnDispose = cancelOnDispose;
     }
 
     /// <summary>
@@ -26,7 +29,14 @@ public partial class EntryStream : Stream
     /// </summary>
     public void SkipEntry()
     {
-        this.Skip();
+        if (_stream is ReadOnlySubStream subStream)
+        {
+            subStream.SkipRemaining();
+        }
+        else
+        {
+            this.Skip();
+        }
         _completed = true;
     }
 
@@ -39,11 +49,22 @@ public partial class EntryStream : Stream
         _isDisposed = true;
         if (!(_completed || _reader.Cancelled))
         {
-            SkipEntry();
+            if (_cancelOnDispose)
+            {
+                _reader.Cancel();
+                if (_stream is TarReadOnlySubStream tarStream)
+                {
+                    tarStream.AbandonWithoutAdvance();
+                }
+            }
+            else
+            {
+                SkipEntry();
+            }
         }
 
         //Need a safe standard approach to this - it's okay for compression to overreads. Handling needs to be standardised
-        if (_stream is IStreamStack ss)
+        if (!_reader.Cancelled && _stream is IStreamStack ss)
         {
             if (
                 ss.GetStream<SharpCompress.Compressors.Deflate.DeflateStream>()

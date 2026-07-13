@@ -45,4 +45,16 @@ internal partial class ReadOnlySubStream
         }
         return read;
     }
+
+    internal async ValueTask SkipRemainingAsync(CancellationToken cancellationToken = default)
+    {
+        if (BytesLeftToRead <= 0)
+        {
+            return;
+        }
+
+        await _stream.SkipAsync(BytesLeftToRead, cancellationToken).ConfigureAwait(false);
+        _position += BytesLeftToRead;
+        BytesLeftToRead = 0;
+    }
 }
