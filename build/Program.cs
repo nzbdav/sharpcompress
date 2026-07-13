@@ -20,6 +20,7 @@ const string Publish = "publish";
 const string DisplayBenchmarkResults = "display-benchmark-results";
 const string CompareBenchmarkResults = "compare-benchmark-results";
 const string GenerateBaseline = "generate-baseline";
+const string WriteBaselineFromResults = "write-baseline-from-results";
 
 Target(
     Clean,
@@ -304,37 +305,8 @@ Target(
             $"run --project {perfProject} --configuration Release --no-build -- --filter \"*\" --exporters markdown --artifacts {artifactsDir}"
         );
 
-        var resultsDir = Path.Combine(artifactsDir, "results");
-        if (!Directory.Exists(resultsDir))
-        {
-            Console.WriteLine("ERROR: No benchmark results generated.");
-            return;
-        }
+        WriteBaselineFromMarkdownReports(Path.Combine(artifactsDir, "results"), baselinePath);
 
-        var markdownFiles = Directory
-            .GetFiles(resultsDir, "*-report-github.md")
-            .OrderBy(f => f)
-            .ToList();
-
-        if (markdownFiles.Count == 0)
-        {
-            Console.WriteLine("ERROR: No markdown reports found.");
-            return;
-        }
-
-        Console.WriteLine($"Combining {markdownFiles.Count} benchmark reports...");
-        var baselineContent = new List<string>();
-
-        foreach (var file in markdownFiles)
-        {
-            var lines = File.ReadAllLines(file);
-            baselineContent.AddRange(lines.Select(l => l.Trim()).Where(l => l.StartsWith('|')));
-        }
-
-        File.WriteAllText(baselinePath, string.Join(Environment.NewLine, baselineContent));
-        Console.WriteLine($"Baseline written to {baselinePath}");
-
-        // Clean up artifacts directory
         if (Directory.Exists(artifactsDir))
         {
             Directory.Delete(artifactsDir, true);
@@ -343,9 +315,52 @@ Target(
     }
 );
 
+Target(
+    WriteBaselineFromResults,
+    () =>
+    {
+        WriteBaselineFromMarkdownReports(
+            "benchmark-results/results",
+            "tests/SharpCompress.Performance/baseline-results.md"
+        );
+    }
+);
+
 Target("default", [Publish], () => Console.WriteLine("Done!"));
 
 await RunTargetsAndExitAsync(args);
+
+static void WriteBaselineFromMarkdownReports(string resultsDir, string baselinePath)
+{
+    if (!Directory.Exists(resultsDir))
+    {
+        throw new InvalidOperationException($"No benchmark results found at '{resultsDir}'.");
+    }
+
+    var markdownFiles = Directory
+        .GetFiles(resultsDir, "*-report-github.md")
+        .OrderBy(f => f)
+        .ToList();
+
+    if (markdownFiles.Count == 0)
+    {
+        throw new InvalidOperationException(
+            $"No markdown reports (*-report-github.md) found in '{resultsDir}'."
+        );
+    }
+
+    Console.WriteLine($"Combining {markdownFiles.Count} benchmark reports...");
+    var baselineContent = new List<string>();
+
+    foreach (var file in markdownFiles)
+    {
+        var lines = File.ReadAllLines(file);
+        baselineContent.AddRange(lines.Select(l => l.Trim()).Where(l => l.StartsWith('|')));
+    }
+
+    File.WriteAllText(baselinePath, string.Join(Environment.NewLine, baselineContent));
+    Console.WriteLine($"Baseline written to {baselinePath}");
+}
 
 static void WriteOutput(List<string> output, string? githubStepSummary)
 {

@@ -8,6 +8,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: Open a PR updating baseline-results.md from this run
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,11 +25,15 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  UPDATE_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline }}
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline && 'write' || 'read' }}
+      pull-requests: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline && 'write' || 'none' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -40,8 +49,9 @@ jobs:
         run: dotnet build tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release
 
       - name: Run benchmarks
+        id: benchmarks
         run: dotnet run --project tests/SharpCompress.Performance/SharpCompress.Performance.csproj --configuration Release --no-build -- --filter "*" --exporters json markdown --artifacts benchmark-results
-        continue-on-error: true
+        continue-on-error: ${{ env.UPDATE_BASELINE != 'true' }}
 
       - name: Display benchmark results
         if: always()
@@ -59,3 +69,57 @@ jobs:
           path: benchmark-results/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Write baseline from CI results
+        if: env.UPDATE_BASELINE == 'true' && steps.benchmarks.outcome == 'success'
+        run: dotnet run --project build/build.csproj -- write-baseline-from-results
+
+      - name: Open PR to update baseline
+        if: env.UPDATE_BASELINE == 'true' && steps.benchmarks.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          BASELINE_PATH="tests/SharpCompress.Performance/baseline-results.md"
+          BRANCH="chore/update-performance-baseline"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if git diff --quiet -- "$BASELINE_PATH"; then
+            {
+              echo "## Baseline update"
+              echo ""
+              echo "No changes to \`$BASELINE_PATH\` compared with this commit. PR skipped."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B "$BRANCH"
+          git add "$BASELINE_PATH"
+          git commit -m "chore(perf): update performance baseline from CI"
+          git push -u origin "$BRANCH" --force
+
+          PR_BODY="## Summary
+          - Refreshes \`baseline-results.md\` from CI BenchmarkDotNet results on \`ubuntu-latest\`
+          - Source run: ${RUN_URL}
+          - Source commit: \`${{ github.sha }}\`
+
+          ## Test plan
+          - [ ] Review mean/allocated deltas vs the previous baseline
+          - [ ] Confirm intentional perf changes (or runner noise) before merging"
+
+          if gh pr view "$BRANCH" --json number --jq .number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "chore(perf): update performance baseline from CI" --body "$PR_BODY"
+            PR_URL=$(gh pr view "$BRANCH" --json url --jq .url)
+          else
+            PR_URL=$(gh pr create --base main --head "$BRANCH" --title "chore(perf): update performance baseline from CI" --body "$PR_BODY")
+          fi
+
+          {
+            echo "## Baseline update"
+            echo ""
+            echo "Opened or updated PR: $PR_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

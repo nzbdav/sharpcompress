@@ -53,9 +53,19 @@ dotnet run --project tests/SharpCompress.Performance/SharpCompress.Performance.c
 
 The baseline results are stored in `baseline-results.md` and represent the expected performance characteristics of the library. These results are used in CI to detect significant performance regressions.
 
-### Generate Baseline (Automated)
+### Update Baseline from CI (recommended)
 
-Use the build target to generate baseline results:
+Baselines should come from GitHub Actions so they match the `ubuntu-latest` runners used for comparison:
+
+1. Open **Actions → Performance Benchmarks → Run workflow**
+2. Enable **Open a PR updating baseline-results.md from this run**
+3. Review and merge the PR (`chore/update-performance-baseline`)
+
+If the run produces the same numbers as the checked-in baseline, no PR is opened.
+
+### Generate Baseline (Automated, local)
+
+Use the build target to generate baseline results on your machine:
 ```bash
 dotnet run --project build/build.csproj -- generate-baseline
 ```
@@ -65,6 +75,15 @@ This will:
 2. Run all benchmarks
 3. Combine the markdown reports into `baseline-results.md`
 4. Clean up temporary artifacts
+
+Local numbers often differ from CI due to hardware; prefer the CI path above when updating the shared baseline.
+
+### Write Baseline from Existing Results
+
+If you already have BenchmarkDotNet markdown reports under `benchmark-results/results/`:
+```bash
+dotnet run --project build/build.csproj -- write-baseline-from-results
+```
 
 ### Generate Baseline (Manual)
 
@@ -101,19 +120,19 @@ The profiler will run a sample benchmark and save snapshots that can be opened i
 ## CI Integration
 
 The performance benchmarks run automatically in GitHub Actions on:
-- Push to `master` or `release` branches
-- Pull requests to `master` or `release` branches
-- Manual workflow dispatch
+- Push to `main`
+- Pull requests to `main`
+- Manual workflow dispatch (optionally open a PR to refresh `baseline-results.md`)
 
-Results are displayed in the GitHub Actions summary and uploaded as artifacts.
+Results are displayed in the GitHub Actions summary and uploaded as the `benchmark-results` artifact (14-day retention). Comparison against the checked-in baseline is advisory (>25% mean or allocated deltas).
 
 ## Benchmark Configuration
 
-The benchmarks are configured with minimal iterations for CI efficiency:
-- **Warmup Count**: 1 iteration
-- **Iteration Count**: 3 iterations
-- **Invocation Count**: 1
-- **Unroll Factor**: 1
+The benchmarks are configured for CI with:
+- **Warmup Count**: 5 iterations
+- **Iteration Count**: 30 iterations
+- **Invocation Count**: 30
+- **Unroll Factor**: 2
 - **Toolchain**: InProcessEmitToolchain (for fast execution)
 
 These settings provide a good balance between speed and accuracy for CI purposes. For more accurate results, use the `Short`, `Medium`, or `Long` job configurations.
