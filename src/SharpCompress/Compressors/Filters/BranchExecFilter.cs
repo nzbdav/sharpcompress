@@ -1,7 +1,7 @@
 /*
  * BranchExecFilter.cs -- Converters for executable
  * <Contribution by Louis-Michel Bergeron, on behalf of aDolus Technolog Inc., 2022>
- * @TODO Encoding
+ * Encoding selection for branch converters is not parameterized.
  */
 
 using System;

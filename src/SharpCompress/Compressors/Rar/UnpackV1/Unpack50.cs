@@ -100,11 +100,10 @@ internal partial class Unpack
     private bool TablesRead5;
     private int WriteBorder;
 
-    // TODO: see logic in unpack.cpp Unpack::Init()
+    // Window sizing mirrors unpack.cpp Unpack::Init(); keep in sync with PackDef limits.
     private const int MaxWinSize = PackDef.MAXWINSIZE;
     private const int MaxWinMask = PackDef.MAXWINMASK;
 
-    // TODO: rename var
     private int UnpPtr
     {
         get => unpPtr;
@@ -153,7 +152,6 @@ internal partial class Unpack
     }
     private List<UnpackFilter> Filters => filters;
 
-    // TODO: make sure these aren't already somewhere else
     public int BlockSize;
     public int BlockBitSize;
     public int BlockStart;
@@ -444,9 +442,6 @@ internal partial class Unpack
             {
                 Array.Copy(InBuf, inAddr, InBuf, 0, DataSize);
             }
-
-            // TODO: perf
-            //Buffer.BlockCopy(InBuf, inAddr, InBuf, 0, DataSize);
 
             Inp.InAddr = 0;
             ReadTop = DataSize;

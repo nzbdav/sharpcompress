@@ -289,8 +289,6 @@ internal class PpmContext : Pointer
             model.PrevSuccess = 0;
             model.FoundState.Address = 0;
         }
-
-        //int a = 0;//TODO just 4 debugging
     }
 
     //	public static void ppmdSwap(ModelPPM model, StatePtr state1, StatePtr state2)

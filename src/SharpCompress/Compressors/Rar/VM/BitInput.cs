@@ -11,7 +11,6 @@ internal class BitInput : IDisposable
     public int inAddr;
     public int inBit;
 
-    // TODO: rename var
     public int InAddr
     {
         get => inAddr;
@@ -36,9 +35,7 @@ internal class BitInput : IDisposable
         inBit = 0;
     }
 
-    internal void faddbits(uint bits) =>
-        // TODO uint
-        AddBits((int)bits);
+    internal void faddbits(uint bits) => AddBits((int)bits);
 
     /// <summary>
     /// also named faddbits
@@ -51,13 +48,9 @@ internal class BitInput : IDisposable
         inBit = bits & 7;
     }
 
-    internal uint fgetbits() =>
-        // TODO uint
-        (uint)GetBits();
+    internal uint fgetbits() => (uint)GetBits();
 
-    internal uint getbits() =>
-        // TODO uint
-        (uint)GetBits();
+    internal uint getbits() => (uint)GetBits();
 
     /// <summary>
     /// (also named fgetbits)

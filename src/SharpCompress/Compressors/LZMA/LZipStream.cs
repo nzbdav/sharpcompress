@@ -10,10 +10,10 @@ using SharpCompress.Providers;
 
 namespace SharpCompress.Compressors.LZMA;
 
-// TODO:
-// - Write as well as read
+// Remaining LZIP gaps tracked in #61:
 // - Multi-volume support
 // - Use of the data size / member size values at the end of the stream
+// - Length/Position when trailer sizes are available
 
 /// <summary>
 /// Stream supporting the LZIP format, as documented at http://www.nongnu.org/lzip/manual/lzip_manual.html
@@ -168,8 +168,7 @@ public sealed partial class LZipStream : Stream, IFinishable
 
     public override void Flush() => _stream.Flush();
 
-    // TODO: Both Length and Position are sometimes feasible, but would require
-    // reading the output length when we initialize.
+    // See #61: Length/Position are feasible once trailer output length is available.
     public override long Length => throw new NotImplementedException();
 
     public override long Position
@@ -256,7 +255,7 @@ public sealed partial class LZipStream : Stream, IFinishable
         Span<byte> header = stackalloc byte[6];
         var n = stream.Read(header);
 
-        // TODO: Handle reading only part of the header?
+        // Incomplete header read is treated as not-LZIP (return 0); callers do not retry partial reads.
 
         if (n != 6)
         {

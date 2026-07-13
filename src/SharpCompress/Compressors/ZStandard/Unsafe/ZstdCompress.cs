@@ -3248,7 +3248,7 @@ public static unsafe partial class Methods
             );
             if (@params->ldmParams.enableLdm == ZSTD_paramSwitch_e.ZSTD_ps_enable)
             {
-                /* TODO: avoid memset? */
+                /* Consider avoiding memset if measured beneficial. */
                 nuint ldmHSize = (nuint)1 << (int)@params->ldmParams.hashLog;
                 zc->ldmState.hashTable = (ldmEntry_t*)ZSTD_cwksp_reserve_aligned64(
                     ws,
@@ -3283,7 +3283,7 @@ public static unsafe partial class Methods
             zc->outBuff = (sbyte*)ZSTD_cwksp_reserve_buffer(ws, buffOutSize);
             if (@params->ldmParams.enableLdm == ZSTD_paramSwitch_e.ZSTD_ps_enable)
             {
-                /* TODO: avoid memset? */
+                /* Consider avoiding memset if measured beneficial. */
                 nuint numBuckets =
                     (nuint)1
                     << (int)(@params->ldmParams.hashLog - @params->ldmParams.bucketSizeLog);

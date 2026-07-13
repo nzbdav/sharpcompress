@@ -2099,7 +2099,7 @@ public static unsafe partial class Methods
         ZSTD_longOffset_e isLongOffset
     )
     {
-        // HACK, force nbSeq to stack (better register usage)
+        // Force nbSeq onto the stack for better register usage.
         System.Threading.Volatile.Read(ref nbSeq);
         byte* ip = (byte*)seqStart;
         byte* iend = ip + seqSize;

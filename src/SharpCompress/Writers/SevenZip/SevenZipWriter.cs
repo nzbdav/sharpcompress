@@ -14,8 +14,7 @@ namespace SharpCompress.Writers.SevenZip;
 /// <summary>
 /// Writes 7z archives in non-solid mode (each file compressed independently).
 /// Requires a seekable output stream for back-patching the signature header.
-/// TODO: solid mode support in a future iteration.
-/// TODO: IWritableArchive support in a future iteration.
+/// Remaining work tracked in #63: solid mode and IWritableArchive support.
 /// </summary>
 public partial class SevenZipWriter : AbstractWriter
 {

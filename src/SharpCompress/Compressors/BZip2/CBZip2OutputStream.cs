@@ -32,7 +32,6 @@ namespace SharpCompress.Compressors.BZip2;
   *
   * @author <a href="mailto:keiron@aftexsw.com">Keiron Liddle</a>
   *
-  * TODO:    Update to BZip2 1.0.1
   * <b>NB:</b> note this class has been modified to add a leading BZ to the
   * start of the BZIP2 stream to make it compatible with other PGP programs.
   */

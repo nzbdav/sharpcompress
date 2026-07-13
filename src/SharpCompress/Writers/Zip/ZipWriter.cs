@@ -340,7 +340,7 @@ public partial class ZipWriter : AbstractWriter
             stream.Write(intBuf.Slice(0, 4)); // Disk number
             stream.Write(intBuf.Slice(0, 4)); // Central dir disk
 
-            // TODO: entries.Count is int, so max 2^31 files
+            // See #65: entries.Count is int, so max 2^31 files.
             BinaryPrimitives.WriteUInt64LittleEndian(intBuf, (ulong)entries.Count);
             stream.Write(intBuf); // Entries in this disk
             stream.Write(intBuf); // Total entries

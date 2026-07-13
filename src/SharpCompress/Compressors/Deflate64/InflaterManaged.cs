@@ -528,7 +528,7 @@ internal sealed class InflaterManaged
                 case InflaterState.DecodeTop:
                     // decode an element from the literal tree
 
-                    // TODO: optimize this!!!
+                    // See #62: hot-path literal-tree decode candidate for optimization.
                     symbol = _literalLengthTree.GetNextSymbol(_input);
                     if (symbol < 0)
                     {

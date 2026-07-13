@@ -827,13 +827,7 @@ internal sealed class RarVM : BitInput
                 prg.Commands.Add(curCmd);
                 prg.CommandCount++;
 
-                // TODO
-                // curCmd->Op1.Data=FilterType;
-                // >>>>>> CurCmd->Op1.Addr=&CurCmd->Op1.Data; <<<<<<<<<< not set
-                // do i need to ?
-                // >>>>>> CurCmd->Op2.Addr=&CurCmd->Op2.Data; <<<<<<<<<< "
-                // CurCmd->Op1.Type=CurCmd->Op2.Type=VM_OPNONE;
-                // CodeSize=0;
+                // Managed port stores operand data on the command; C++ sets Op1.Addr=&Op1.Data pointers which are unnecessary here.
             }
             var dataFlag = GetBits();
             AddBits(1);
@@ -880,7 +874,7 @@ internal sealed class RarVM : BitInput
 
                 var opNum = (VMCmdFlags.VM_CmdFlags[(int)curCmd.OpCode] & VMCmdFlags.VMCF_OPMASK);
 
-                // TODO >>> CurCmd->Op1.Addr=CurCmd->Op2.Addr=NULL; <<<???
+                // Operand Addr pointers are unused in the managed port.
                 if (opNum > 0)
                 {
                     decodeArg(curCmd.Op1, curCmd.IsByteMode);
@@ -936,8 +930,7 @@ internal sealed class RarVM : BitInput
         var curCmd2 = new VMPreparedCommand();
         curCmd2.OpCode = VMCommands.VM_RET;
 
-        // TODO CurCmd->Op1.Addr=&CurCmd->Op1.Data;
-        // CurCmd->Op2.Addr=&CurCmd->Op2.Data;
+        // Operand Addr pointers are unused in the managed port.
         curCmd2.Op1.Type = VMOpType.VM_OPNONE;
         curCmd2.Op2.Type = VMOpType.VM_OPNONE;
 

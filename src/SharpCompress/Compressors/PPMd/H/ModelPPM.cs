@@ -470,7 +470,6 @@ internal class ModelPpm : IDisposable
         {
             UpdateModel();
 
-            //this.foundState.Address=foundState.Address);//TODO just 4 debugging
             if (_escCount == 0)
             {
                 ClearMask();
@@ -541,7 +540,6 @@ internal class ModelPpm : IDisposable
         {
             UpdateModel();
 
-            //this.foundState.Address=foundState.Address);//TODO just 4 debugging
             if (_escCount == 0)
             {
                 ClearMask();
@@ -643,7 +641,7 @@ internal class ModelPpm : IDisposable
 
         // UpBranch;
         // UpState.Successor=(PPM_CONTEXT*) (((byte*) UpBranch)+1);
-        upState.SetSuccessor(upBranch.Address + 1); //TODO check if +1 necessary
+        upState.SetSuccessor(upBranch.Address + 1); // successor is byte after upBranch; +1 matches upstream PPMd port (necessity not independently verified).
         if (pc.NumStats != 1)
         {
             if (pc.Address <= SubAlloc.PText)
@@ -866,14 +864,6 @@ internal class ModelPpm : IDisposable
         var address = fs.GetSuccessor();
         _maxContext.Address = address;
         _minContext.Address = address;
-
-        //TODO-----debug
-        //		int pos = minContext.getFreqData().getStats();
-        //		State a = new State(getHeap());
-        //		a.Address=pos);
-        //		pos+=State.size;
-        //		a.Address=pos);
-        //--dbg end
     }
 
     // Debug
