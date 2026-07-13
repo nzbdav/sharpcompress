@@ -78,6 +78,29 @@ public class RarAdversarialStreamTests : ArchiveTests
     }
 
     [Theory]
+    [InlineData("Rar.encrypted_filesOnly.rar", "test")]
+    [InlineData("Rar5.encrypted_filesOnly.rar", "test")]
+    public void Rar_Encrypted_AlternatingOddReads_MatchBaseline(string archiveName, string password)
+    {
+        int[] pattern = [1, 7, 15, 16, 17, 8192];
+        var bytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
+        var options = ReaderOptions.ForExternalStream with { Password = password };
+
+        var baseline = ExtractRarEntryBytes(new MemoryStream(bytes, writable: false), options);
+        var alternating = ExtractRarEntryBytesWithReadPattern(
+            new MemoryStream(bytes, writable: false),
+            options,
+            pattern
+        );
+
+        Assert.Equal(baseline.Count, alternating.Count);
+        foreach (var key in baseline.Keys)
+        {
+            Assert.Equal(baseline[key], alternating[key]);
+        }
+    }
+
+    [Theory]
     [InlineData("Rar.encrypted_filesOnly.rar", "test", 1)]
     [InlineData("Rar5.encrypted_filesOnly.rar", "test", 7)]
     public async Task Rar_Encrypted_ChunkyReads_MatchBaseline_Async(
@@ -402,6 +425,35 @@ public class RarAdversarialStreamTests : ArchiveTests
             using var entryStream = entry.OpenEntryStream();
             using var ms = new MemoryStream();
             entryStream.CopyTo(ms);
+            results[entry.Key!] = ms.ToArray();
+        }
+
+        return results;
+    }
+
+    private static Dictionary<string, byte[]> ExtractRarEntryBytesWithReadPattern(
+        Stream stream,
+        ReaderOptions options,
+        int[] readSizes
+    )
+    {
+        var results = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        using var archive = RarArchive.OpenArchive(stream, options);
+        foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+        {
+            using var entryStream = entry.OpenEntryStream();
+            using var ms = new MemoryStream();
+            var patternIndex = 0;
+            var buffer = new byte[readSizes.Max()];
+            int read;
+            while (
+                (read = entryStream.Read(buffer, 0, readSizes[patternIndex++ % readSizes.Length]))
+                > 0
+            )
+            {
+                ms.Write(buffer, 0, read);
+            }
+
             results[entry.Key!] = ms.ToArray();
         }
 
