@@ -509,7 +509,7 @@ public partial class GZipStream : Stream
     {
         var header = BuildHeader();
         await BaseStream
-            ._stream.WriteAsync(header, 0, header.Length, cancellationToken)
+            ._stream.WriteAsync(header.AsMemory(0, header.Length), cancellationToken)
             .ConfigureAwait(false);
         return header.Length; // bytes written
     }

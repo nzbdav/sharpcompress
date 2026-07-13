@@ -16,7 +16,7 @@ public partial class ArmThumbFilter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.ARMTConverter(buffer, _ip);
         _ip += (uint)bytesRead;

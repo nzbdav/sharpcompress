@@ -29,7 +29,7 @@ internal partial class BufferedSubStream
             _stream.Position = origin;
         }
         _cacheLength = await _stream
-            .ReadAsync(_cache, 0, count, cancellationToken)
+            .ReadAsync(_cache.AsMemory(0, count), cancellationToken)
             .ConfigureAwait(false);
         origin += _cacheLength;
         BytesLeftToRead -= _cacheLength;

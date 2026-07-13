@@ -32,7 +32,7 @@ public partial class SqueezeStream
     )
     {
         return await _decodedStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -48,7 +48,7 @@ public partial class SqueezeStream
     {
         byte[] numNodesBytes = new byte[2];
         int bytesRead = await _stream
-            .ReadAsync(numNodesBytes, 0, 2, cancellationToken)
+            .ReadAsync(numNodesBytes.AsMemory(0, 2), cancellationToken)
             .ConfigureAwait(false);
 
         if (bytesRead != 2)
@@ -68,7 +68,7 @@ public partial class SqueezeStream
         {
             byte[] nodeBytes = new byte[4];
             bytesRead = await _stream
-                .ReadAsync(nodeBytes, 0, 4, cancellationToken)
+                .ReadAsync(nodeBytes.AsMemory(0, 4), cancellationToken)
                 .ConfigureAwait(false);
 
             if (bytesRead != 4)

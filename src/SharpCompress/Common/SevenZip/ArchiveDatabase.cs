@@ -360,7 +360,7 @@ internal partial class ArchiveDatabase
             int offset,
             int count,
             CancellationToken cancellationToken
-        ) => _inner.ReadAsync(buffer, offset, count, cancellationToken);
+        ) => _inner.ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
         public override ValueTask<int> ReadAsync(
             Memory<byte> buffer,

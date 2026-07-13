@@ -47,7 +47,7 @@ internal abstract partial class Filter
         while (!_endReached && inSize < count)
         {
             var baseRead = await _baseStream
-                .ReadAsync(buffer, offset + inSize, count - inSize, cancellationToken)
+                .ReadAsync(buffer.AsMemory(offset + inSize, count - inSize), cancellationToken)
                 .ConfigureAwait(false);
             inSize += baseRead;
             if (baseRead == 0)
@@ -58,7 +58,7 @@ internal abstract partial class Filter
         while (!_endReached && _read < _tail.Length)
         {
             var baseRead = await _baseStream
-                .ReadAsync(_tail, _read, _tail.Length - _read, cancellationToken)
+                .ReadAsync(_tail.AsMemory(_read, _tail.Length - _read), cancellationToken)
                 .ConfigureAwait(false);
             _read += baseRead;
             if (baseRead == 0)
@@ -207,7 +207,7 @@ internal abstract partial class Filter
     {
         Transform(buffer, offset, count);
         await _baseStream
-            .WriteAsync(buffer, offset, count, cancellationToken)
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 

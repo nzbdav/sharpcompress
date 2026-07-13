@@ -235,9 +235,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
 
             await _stream
                 .WriteAsync(
-                    _workingBuffer,
-                    0,
-                    _workingBuffer.Length - _z.AvailableBytesOut,
+                    _workingBuffer.AsMemory(0, _workingBuffer.Length - _z.AvailableBytesOut),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
@@ -429,9 +427,10 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 {
                     await _stream
                         .WriteAsync(
-                            _workingBuffer,
-                            0,
-                            _workingBuffer.Length - _z.AvailableBytesOut,
+                            _workingBuffer.AsMemory(
+                                0,
+                                _workingBuffer.Length - _z.AvailableBytesOut
+                            ),
                             cancellationToken
                         )
                         .ConfigureAwait(false);
@@ -456,10 +455,14 @@ internal class ZlibBaseStream : Stream, IStreamStack
                     // Emit the GZIP trailer: CRC32 and  size mod 2^32
                     byte[] intBuf = new byte[4];
                     BinaryPrimitives.WriteInt32LittleEndian(intBuf, crc.NotNull().Crc32Result);
-                    await _stream.WriteAsync(intBuf, 0, 4, cancellationToken).ConfigureAwait(false);
+                    await _stream
+                        .WriteAsync(intBuf.AsMemory(0, 4), cancellationToken)
+                        .ConfigureAwait(false);
                     var c2 = (int)(crc.NotNull().TotalBytesRead & 0x00000000FFFFFFFF);
                     BinaryPrimitives.WriteInt32LittleEndian(intBuf, c2);
-                    await _stream.WriteAsync(intBuf, 0, 4, cancellationToken).ConfigureAwait(false);
+                    await _stream
+                        .WriteAsync(intBuf.AsMemory(0, 4), cancellationToken)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
@@ -490,7 +493,10 @@ internal class ZlibBaseStream : Stream, IStreamStack
                         _z.InputBuffer.AsSpan(_z.NextIn, _z.AvailableBytesIn).CopyTo(trailer);
                         var bytesNeeded = 8 - _z.AvailableBytesIn;
                         var bytesRead = await _stream
-                            .ReadAsync(trailer, _z.AvailableBytesIn, bytesNeeded, cancellationToken)
+                            .ReadAsync(
+                                trailer.AsMemory(_z.AvailableBytesIn, bytesNeeded),
+                                cancellationToken
+                            )
                             .ConfigureAwait(false);
                     }
                 }
@@ -706,7 +712,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
         do
         {
             // workitem 7740
-            var n = await _stream.ReadAsync(_buf1, 0, 1, cancellationToken).ConfigureAwait(false);
+            var n = await _stream
+                .ReadAsync(_buf1.AsMemory(0, 1), cancellationToken)
+                .ConfigureAwait(false);
             if (n != 1)
             {
                 throw new ZlibException("Unexpected EOF reading GZIP header.");
@@ -790,7 +798,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
 
         // read the header on the first read
         byte[] header = new byte[10];
-        var n = await _stream.ReadAsync(header, 0, 10, cancellationToken).ConfigureAwait(false);
+        var n = await _stream
+            .ReadAsync(header.AsMemory(0, 10), cancellationToken)
+            .ConfigureAwait(false);
 
         // workitem 8501: handle edge case (decompress empty stream)
         if (n == 0)
@@ -814,13 +824,15 @@ internal class ZlibBaseStream : Stream, IStreamStack
         if ((header[3] & 0x04) == 0x04)
         {
             // read and discard extra field
-            n = await _stream.ReadAsync(header, 0, 2, cancellationToken).ConfigureAwait(false); // 2-byte length field
+            n = await _stream
+                .ReadAsync(header.AsMemory(0, 2), cancellationToken)
+                .ConfigureAwait(false); // 2-byte length field
             totalBytesRead += n;
 
             var extraLength = (short)(header[0] + header[1] * 256);
             var extra = new byte[extraLength];
             n = await _stream
-                .ReadAsync(extra, 0, extra.Length, cancellationToken)
+                .ReadAsync(extra.AsMemory(0, extra.Length), cancellationToken)
                 .ConfigureAwait(false);
             if (n != extraLength)
             {
@@ -840,7 +852,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
         }
         if ((header[3] & 0x02) == 0x02)
         {
-            await _stream.ReadAsync(_buf1, 0, 1, cancellationToken).ConfigureAwait(false); // CRC16, ignore
+            await _stream.ReadAsync(_buf1.AsMemory(0, 1), cancellationToken).ConfigureAwait(false); // CRC16, ignore
         }
 
         return totalBytesRead;
@@ -1136,7 +1148,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 // No data available, so try to Read data from the captive stream.
                 _z.NextIn = 0;
                 _z.AvailableBytesIn = await _stream
-                    .ReadAsync(_workingBuffer, 0, _bufferSize, cancellationToken)
+                    .ReadAsync(_workingBuffer.AsMemory(0, _bufferSize), cancellationToken)
                     .ConfigureAwait(false);
                 if (_z.AvailableBytesIn == 0)
                 {

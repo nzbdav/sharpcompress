@@ -50,7 +50,7 @@ internal partial class WinzipAesCryptoStream
             bytesToRead = (int)_totalBytesLeftToRead;
         }
         var read = await _stream
-            .ReadAsync(buffer, offset, bytesToRead, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, bytesToRead), cancellationToken)
             .ConfigureAwait(false);
         _totalBytesLeftToRead -= read;
 

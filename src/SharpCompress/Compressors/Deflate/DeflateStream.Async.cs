@@ -42,7 +42,7 @@ public partial class DeflateStream
             throw new ObjectDisposedException("DeflateStream");
         }
         return await _baseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -70,7 +70,7 @@ public partial class DeflateStream
             throw new ObjectDisposedException("DeflateStream");
         }
         await _baseStream
-            .WriteAsync(buffer, offset, count, cancellationToken)
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
     }
 

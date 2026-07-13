@@ -33,7 +33,7 @@ internal partial class RarCrcStream : RarStream
         CancellationToken cancellationToken
     )
     {
-        var result = await base.ReadAsync(buffer, offset, count, cancellationToken)
+        var result = await base.ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         if (result != 0)
         {

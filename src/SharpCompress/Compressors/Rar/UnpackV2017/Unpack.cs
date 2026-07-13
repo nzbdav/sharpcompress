@@ -36,7 +36,9 @@ internal partial class Unpack : IRarUnpack
         CancellationToken cancellationToken = default
     ) =>
         // NOTE: caller has logic to check for -1 for error we throw instead.
-        await readStream.ReadAsync(buf, offset, count, cancellationToken).ConfigureAwait(false);
+        await readStream
+            .ReadAsync(buf.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
 
     private void UnpIO_UnpWrite(byte[] buf, size_t offset, uint count) =>
         writeStream.Write(buf, checked((int)offset), checked((int)count));
@@ -154,13 +156,15 @@ internal partial class Unpack : IRarUnpack
             do
             {
                 var n = await readStream
-                    .ReadAsync(buffer, 0, size, cancellationToken)
+                    .ReadAsync(buffer.AsMemory(0, size), cancellationToken)
                     .ConfigureAwait(false);
                 if (n == 0)
                 {
                     break;
                 }
-                await writeStream.WriteAsync(buffer, 0, n, cancellationToken).ConfigureAwait(false);
+                await writeStream
+                    .WriteAsync(buffer.AsMemory(0, n), cancellationToken)
+                    .ConfigureAwait(false);
                 DestUnpSize -= n;
             } while (!Suspended);
         }

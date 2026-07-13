@@ -82,7 +82,7 @@ internal sealed partial class Unpack
             do
             {
                 var code = await readStream
-                    .ReadAsync(buffer, 0, size, cancellationToken)
+                    .ReadAsync(buffer.AsMemory(0, size), cancellationToken)
                     .ConfigureAwait(false);
                 if (code == 0 || code == -1)
                 {
@@ -91,7 +91,7 @@ internal sealed partial class Unpack
 
                 code = code < destUnpSize ? code : (int)destUnpSize;
                 await writeStream
-                    .WriteAsync(buffer, 0, code, cancellationToken)
+                    .WriteAsync(buffer.AsMemory(0, code), cancellationToken)
                     .ConfigureAwait(false);
                 destUnpSize -= code;
             } while (!suspended && destUnpSize > 0);
@@ -570,7 +570,10 @@ internal sealed partial class Unpack
                         }
 
                         await writeStream
-                            .WriteAsync(FilteredData, 0, FilteredDataSize, cancellationToken)
+                            .WriteAsync(
+                                FilteredData.AsMemory(0, FilteredDataSize),
+                                cancellationToken
+                            )
                             .ConfigureAwait(false);
                         writtenFileSize += FilteredDataSize;
                         destUnpSize -= FilteredDataSize;
@@ -646,7 +649,7 @@ internal sealed partial class Unpack
         }
 
         await writeStream
-            .WriteAsync(data, offset, writeSize, cancellationToken)
+            .WriteAsync(data.AsMemory(offset, writeSize), cancellationToken)
             .ConfigureAwait(false);
 
         writtenFileSize += size;

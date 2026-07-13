@@ -73,7 +73,9 @@ public sealed class Crc32Stream : Stream
         CancellationToken cancellationToken
     )
     {
-        await stream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+        await stream
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
         seed = CalculateCrc(_table, seed, buffer.AsSpan(offset, count));
     }
 

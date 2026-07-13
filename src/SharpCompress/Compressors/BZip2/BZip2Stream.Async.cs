@@ -80,7 +80,7 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var buffer = new byte[2];
         var bytesRead = await stream
-            .ReadAsync(buffer, 0, 2, cancellationToken)
+            .ReadAsync(buffer.AsMemory(0, 2), cancellationToken)
             .ConfigureAwait(false);
         if (bytesRead < 2 || buffer[0] != 'B' || buffer[1] != 'Z')
         {
@@ -104,14 +104,20 @@ public sealed partial class BZip2Stream : IAsyncDisposable
         int offset,
         int count,
         CancellationToken cancellationToken = default
-    ) => await stream.ReadAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+    ) =>
+        await stream
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
 
     public override async Task WriteAsync(
         byte[] buffer,
         int offset,
         int count,
         CancellationToken cancellationToken = default
-    ) => await stream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+    ) =>
+        await stream
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
 
     public override async ValueTask DisposeAsync()
     {

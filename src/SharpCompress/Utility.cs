@@ -130,7 +130,7 @@ internal static partial class Utility
                 {
                     var toRead = (int)Math.Min(array.Length, advanceAmount);
                     var read = await source
-                        .ReadAsync(array, 0, toRead, cancellationToken)
+                        .ReadAsync(array.AsMemory(0, toRead), cancellationToken)
                         .ConfigureAwait(false);
                     if (read <= 0)
                     {

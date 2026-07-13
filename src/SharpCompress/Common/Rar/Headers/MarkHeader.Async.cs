@@ -14,7 +14,7 @@ internal partial class MarkHeader
     )
     {
         var bytesRead = await stream
-            .ReadAsync(buffer, 0, 1, cancellationToken)
+            .ReadAsync(buffer.AsMemory(0, 1), cancellationToken)
             .ConfigureAwait(false);
         if (bytesRead == 1)
         {

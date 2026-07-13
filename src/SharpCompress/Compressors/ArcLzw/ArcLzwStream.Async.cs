@@ -25,7 +25,7 @@ public partial class ArcLzwStream
         while (totalRead < _compressedSize)
         {
             int read = await _stream
-                .ReadAsync(data, totalRead, _compressedSize - totalRead, cancellationToken)
+                .ReadAsync(data.AsMemory(totalRead, _compressedSize - totalRead), cancellationToken)
                 .ConfigureAwait(false);
             if (read == 0)
             {

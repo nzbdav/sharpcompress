@@ -98,7 +98,9 @@ internal class CountingStream : Stream
         CancellationToken cancellationToken
     )
     {
-        await _stream.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+        await _stream
+            .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
+            .ConfigureAwait(false);
         _bytesWritten += count;
     }
 
@@ -110,7 +112,7 @@ internal class CountingStream : Stream
     )
     {
         var read = await _stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         _bytesRead += read;
         return read;

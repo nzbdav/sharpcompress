@@ -24,7 +24,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
             // So after Initialize(), stream has 'h' and bit buffer has '0'+N with bsLive=8.
             var header = new byte[] { (byte)'B', (byte)'Z', (byte)'h' };
             await bsStream
-                .WriteAsync(header, 0, header.Length, cancellationToken)
+                .WriteAsync(header.AsMemory(0, header.Length), cancellationToken)
                 .ConfigureAwait(false);
             // Replicate the bit buffer state that Initialize() leaves:
             bytesOut = 1; // 'h' was written via BsW (Initialize increments bytesOut via BsW)
@@ -178,7 +178,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
             var ch = bsBuff >> 24;
             bsAsyncWriteBuffer[0] = (byte)ch;
             await bsStream
-                .WriteAsync(bsAsyncWriteBuffer, 0, 1, cancellationToken)
+                .WriteAsync(bsAsyncWriteBuffer.AsMemory(0, 1), cancellationToken)
                 .ConfigureAwait(false);
             bsBuff <<= 8;
             bsLive -= 8;
@@ -193,7 +193,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
             var ch = bsBuff >> 24;
             bsAsyncWriteBuffer[0] = (byte)ch;
             await bsStream
-                .WriteAsync(bsAsyncWriteBuffer, 0, 1, cancellationToken)
+                .WriteAsync(bsAsyncWriteBuffer.AsMemory(0, 1), cancellationToken)
                 .ConfigureAwait(false);
             bsBuff <<= 8;
             bsLive -= 8;

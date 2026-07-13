@@ -22,7 +22,9 @@ internal partial class Encoder
                 var b = (byte)(temp + (_low >> 32));
                 var buffer = SingleByteBuffer;
                 buffer[0] = b;
-                await _stream.WriteAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+                await _stream
+                    .WriteAsync(buffer.AsMemory(0, 1), cancellationToken)
+                    .ConfigureAwait(false);
                 temp = 0xFF;
             } while (--_cacheSize != 0);
             _cache = (byte)(((uint)_low) >> 24);
@@ -183,7 +185,9 @@ internal partial class Decoder
     private async ValueTask<byte> NextLegacyByteAsync(CancellationToken cancellationToken)
     {
         var buffer = SingleByteBuffer;
-        var read = await _stream.ReadAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+        var read = await _stream
+            .ReadAsync(buffer.AsMemory(0, 1), cancellationToken)
+            .ConfigureAwait(false);
         if (read == 0)
         {
             throw new IncompleteArchiveException("Unexpected end of stream.");
@@ -285,7 +289,7 @@ internal partial class Decoder
         {
             var buffer = SingleByteBuffer;
             var read = await _stream
-                .ReadAsync(buffer, 0, 1, cancellationToken)
+                .ReadAsync(buffer.AsMemory(0, 1), cancellationToken)
                 .ConfigureAwait(false);
             if (read == 0)
             {
@@ -340,7 +344,9 @@ internal partial class Decoder
     private async ValueTask Normalize2LegacyAsync(CancellationToken cancellationToken)
     {
         var buffer = SingleByteBuffer;
-        var read = await _stream.ReadAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+        var read = await _stream
+            .ReadAsync(buffer.AsMemory(0, 1), cancellationToken)
+            .ConfigureAwait(false);
         if (read == 0)
         {
             throw new IncompleteArchiveException("Unexpected end of stream.");
@@ -458,7 +464,7 @@ internal partial class Decoder
             if (range < K_TOP_VALUE)
             {
                 var read = await _stream
-                    .ReadAsync(buffer, 0, 1, cancellationToken)
+                    .ReadAsync(buffer.AsMemory(0, 1), cancellationToken)
                     .ConfigureAwait(false);
                 if (read == 0)
                 {

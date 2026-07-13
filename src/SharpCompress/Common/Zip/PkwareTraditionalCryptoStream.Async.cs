@@ -22,7 +22,7 @@ internal partial class PkwareTraditionalCryptoStream
         ThrowHelper.ThrowIfNull(buffer);
 
         var readBytes = await _stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         _encryptor.Decrypt(buffer.AsSpan(offset, readBytes));
         return readBytes;
@@ -73,7 +73,7 @@ internal partial class PkwareTraditionalCryptoStream
 
         var encrypted = _encryptor.Encrypt(plaintext, count);
         await _stream
-            .WriteAsync(encrypted, 0, encrypted.Length, cancellationToken)
+            .WriteAsync(encrypted.AsMemory(0, encrypted.Length), cancellationToken)
             .ConfigureAwait(false);
     }
 

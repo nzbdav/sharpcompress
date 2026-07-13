@@ -16,7 +16,7 @@ public partial class SparcFilter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.SPARCConverter(buffer, _ip);
         _ip += (uint)bytesRead;

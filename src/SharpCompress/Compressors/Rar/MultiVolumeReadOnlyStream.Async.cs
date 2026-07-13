@@ -30,7 +30,7 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
 
             var read = await currentStream
                 .NotNull()
-                .ReadAsync(buffer, currentOffset, readSize, cancellationToken)
+                .ReadAsync(buffer.AsMemory(currentOffset, readSize), cancellationToken)
                 .ConfigureAwait(false);
             ValidateVolumeRead(read, currentPosition, maxPosition);
 

@@ -16,7 +16,7 @@ public partial class X86Filter
     )
     {
         var bytesRead = await BaseStream
-            .ReadAsync(buffer, offset, count, cancellationToken)
+            .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
         BranchExecFilter.X86Converter(buffer, _ip, ref _state);
         _ip += (uint)bytesRead;

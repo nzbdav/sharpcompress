@@ -37,7 +37,10 @@ internal sealed partial class AesDecoderStream
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var read = await mStream
-                    .ReadAsync(mBuffer, mEnding, mBuffer.Length - mEnding, cancellationToken)
+                    .ReadAsync(
+                        mBuffer.AsMemory(mEnding, mBuffer.Length - mEnding),
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
                 if (read == 0)
                 {
