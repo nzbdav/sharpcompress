@@ -29,7 +29,11 @@ public partial class EntryStream : Stream
     /// </summary>
     public void SkipEntry()
     {
-        if (_stream is ReadOnlySubStream subStream)
+        if (_stream is TarReadOnlySubStream tarSubStream)
+        {
+            tarSubStream.SkipRemaining();
+        }
+        else if (_stream is ReadOnlySubStream subStream)
         {
             subStream.SkipRemaining();
         }

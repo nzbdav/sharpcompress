@@ -82,6 +82,68 @@ public class SeekableSharpCompressStreamTest
     }
 
     [Fact]
+    public void TrySkipForward_SeekableWrapper_AdvancesWithoutReading()
+    {
+        var counting = new CountingReadStream(
+            new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }),
+            leaveOpen: true
+        );
+        var stream = new SeekableSharpCompressStream(counting);
+
+        var skipped = stream.TrySkipForward(3);
+
+        Assert.True(skipped);
+        Assert.Equal(3, stream.Position);
+        Assert.Equal(0, counting.BytesRead);
+    }
+
+    [Fact]
+    public void TrySkipForward_PassthroughDelegatesToSeekableSource()
+    {
+        var counting = new CountingReadStream(
+            new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }),
+            leaveOpen: true
+        );
+        var stream = SharpCompressStream.CreateNonDisposing(counting);
+
+        var skipped = stream.TrySkipForward(4);
+
+        Assert.True(skipped);
+        Assert.Equal(4, stream.Position);
+        Assert.Equal(0, counting.BytesRead);
+    }
+
+    [Fact]
+    public void TrySkipForward_BufferedWrapperRefuses()
+    {
+        var counting = new CountingReadStream(
+            new ForwardOnlyStream(new MemoryStream(new byte[] { 1, 2, 3, 4, 5 })),
+            leaveOpen: true
+        );
+        var stream = SharpCompressStream.Create(counting);
+
+        var skipped = stream.TrySkipForward(3);
+
+        Assert.False(skipped);
+        Assert.Equal(0, stream.Position);
+        Assert.Equal(0, counting.BytesRead);
+    }
+
+    [Fact]
+    public void TrySkipForward_PassthroughDelegatesToBufferedWrapper()
+    {
+        var buffered = SharpCompressStream.Create(
+            new ForwardOnlyStream(new MemoryStream(new byte[] { 1, 2, 3, 4, 5 }))
+        );
+        var stream = SharpCompressStream.CreateNonDisposing(buffered);
+
+        var skipped = stream.TrySkipForward(3);
+
+        Assert.False(skipped);
+        Assert.Equal(0, stream.Position);
+    }
+
+    [Fact]
     public void IsRecording_AlwaysFalse()
     {
         var ms = new MemoryStream();

@@ -40,6 +40,24 @@ internal sealed partial class PassthroughSharpCompressStream : SharpCompressStre
         return true;
     }
 
+    internal override bool TrySkipForward(long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        if (stream is SharpCompressStream sharpCompressStream)
+        {
+            return sharpCompressStream.TrySkipForward(count);
+        }
+
+        if (!stream.CanSeek)
+        {
+            return false;
+        }
+
+        stream.Position += count;
+        return true;
+    }
+
     public override int Read(byte[] buffer, int offset, int count) =>
         stream.Read(buffer, offset, count);
 

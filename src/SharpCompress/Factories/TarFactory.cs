@@ -296,12 +296,33 @@ public class TarFactory
 
     #region IReaderFactory
 
+    private static SharpCompressStream CreateDetectionStream(Stream stream)
+    {
+        var candidate = SharpCompressStream.Create(stream, TarWrapper.MaximumRewindBufferSize);
+
+        // ReaderFactory may already supply a recording ring buffer sized only for
+        // general format detection. Tar wrapper probes (notably BZip2) require a
+        // larger rewind window, so retain the historical nested buffer there.
+        // Genuinely seekable wrappers need no extra buffer and can be reused.
+        var detectionStream =
+            ReferenceEquals(candidate, stream) && candidate.GetType() == typeof(SharpCompressStream)
+                ? new SharpCompressStream(stream)
+                : candidate;
+
+        if (detectionStream.IsRecording)
+        {
+            detectionStream.StopRecording();
+        }
+        detectionStream.StartRecording(TarWrapper.MaximumRewindBufferSize);
+
+        return detectionStream;
+    }
+
     /// <inheritdoc/>
     public IReader OpenReader(Stream stream, ReaderOptions? options)
     {
         options ??= ReaderOptions.ForExternalStream;
-        var sharpCompressStream = new SharpCompressStream(stream);
-        sharpCompressStream.StartRecording(TarWrapper.MaximumRewindBufferSize);
+        var sharpCompressStream = CreateDetectionStream(stream);
         foreach (var wrapper in TarWrapper.Wrappers)
         {
             sharpCompressStream.Rewind();
@@ -315,6 +336,7 @@ public class TarFactory
                 );
                 if (TarArchive.IsTarFile(decompressedStream))
                 {
+                    sharpCompressStream.Rewind();
                     // Issue #27 allowlist: release the ring buffer only for uncompressed Tar.
                     // Tar.BZip2/ZStandard/GZip/etc. still need post-detection rewind/over-read
                     // protection via frozen recording (StopRecording).
@@ -342,8 +364,7 @@ public class TarFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         options ??= ReaderOptions.ForExternalStream;
-        var sharpCompressStream = new SharpCompressStream(stream);
-        sharpCompressStream.StartRecording(TarWrapper.MaximumRewindBufferSize);
+        var sharpCompressStream = CreateDetectionStream(stream);
         foreach (var wrapper in TarWrapper.Wrappers)
         {
             sharpCompressStream.Rewind();

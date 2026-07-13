@@ -61,6 +61,22 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
         return true;
     }
 
+    internal override bool TrySkipForward(long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+        // Defensive delegation: the constructor rejects this today, but keeping
+        // the guard here prevents a future construction path from treating a
+        // ring-buffered wrapper as natively seekable.
+        if (_stream is SharpCompressStream sharpCompressStream)
+        {
+            return sharpCompressStream.TrySkipForward(count);
+        }
+
+        _stream.Position += count;
+        return true;
+    }
+
     internal override bool IsRecording => _recordedPosition.HasValue;
 
     public override void Flush() => _stream.Flush();

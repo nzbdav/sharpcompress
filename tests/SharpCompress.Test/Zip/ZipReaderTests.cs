@@ -38,6 +38,24 @@ public class ZipReaderTests : ReaderTests
     }
 
     [Fact]
+    public void SkipUnreadEntry_SeekableSourceDoesNotReadEntryPayload()
+    {
+        var path = Path.Combine(TEST_ARCHIVES_PATH, "PrePostHeaders.zip");
+        using var stream = new ReadGuardStream(File.OpenRead(path));
+        using var reader = ReaderFactory.OpenReader(stream);
+
+        Assert.True(reader.MoveToNextEntry());
+        while (reader.Entry.IsDirectory)
+        {
+            Assert.True(reader.MoveToNextEntry());
+        }
+
+        stream.RejectReadsBefore(stream.Position + reader.Entry.CompressedSize);
+
+        Assert.True(reader.MoveToNextEntry());
+    }
+
+    [Fact]
     public void Zip_Zip64_Streamed_Read() => Read("Zip.zip64.zip", CompressionType.Deflate);
 
     [Fact]

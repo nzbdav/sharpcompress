@@ -14,7 +14,11 @@ public partial class EntryStream
     /// </summary>
     public async ValueTask SkipEntryAsync(CancellationToken cancellationToken = default)
     {
-        if (_stream is ReadOnlySubStream subStream)
+        if (_stream is TarReadOnlySubStream tarSubStream)
+        {
+            await tarSubStream.SkipRemainingAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (_stream is ReadOnlySubStream subStream)
         {
             await subStream.SkipRemainingAsync(cancellationToken).ConfigureAwait(false);
         }

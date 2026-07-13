@@ -37,6 +37,24 @@ public class ZipReaderAsyncTests : ReaderTests
     }
 
     [Fact]
+    public async ValueTask SkipUnreadEntryAsync_SeekableSourceDoesNotReadEntryPayload()
+    {
+        var path = Path.Combine(TEST_ARCHIVES_PATH, "PrePostHeaders.zip");
+        await using var stream = new ReadGuardStream(File.OpenRead(path));
+        await using var reader = await ReaderFactory.OpenAsyncReader(stream);
+
+        Assert.True(await reader.MoveToNextEntryAsync());
+        while (reader.Entry.IsDirectory)
+        {
+            Assert.True(await reader.MoveToNextEntryAsync());
+        }
+
+        stream.RejectReadsBefore(stream.Position + reader.Entry.CompressedSize);
+
+        Assert.True(await reader.MoveToNextEntryAsync());
+    }
+
+    [Fact]
     public async ValueTask Zip_Zip64_Streamed_Read_Async() =>
         await ReadAsync("Zip.zip64.zip", CompressionType.Deflate);
 

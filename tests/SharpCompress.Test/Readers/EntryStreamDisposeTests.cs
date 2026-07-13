@@ -14,7 +14,10 @@ public class EntryStreamDisposeTests : TestBase
     public void Dispose_Default_DrainsRemainingEntryBytes()
     {
         var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
-        var counting = new CountingReadStream(new MemoryStream(archiveBytes), leaveOpen: false);
+        var counting = new CountingReadStream(
+            new ForwardOnlyStream(new MemoryStream(archiveBytes)),
+            leaveOpen: false
+        );
         using var reader = ReaderFactory.OpenReader(counting, ReaderOptions.ForExternalStream);
 
         reader.MoveToNextEntry().Should().BeTrue();
@@ -34,6 +37,61 @@ public class EntryStreamDisposeTests : TestBase
         counting.BytesRead.Should().BeGreaterThan(afterOpen + 16);
         reader.Cancelled.Should().BeFalse();
         reader.MoveToNextEntry().Should().BeTrue();
+    }
+
+    [Fact]
+    public void Dispose_Default_SeekableSourceSeeksPastRemainingEntryBytes()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        var counting = new CountingReadStream(new MemoryStream(archiveBytes), leaveOpen: false);
+        using var reader = ReaderFactory.OpenReader(counting, ReaderOptions.ForExternalStream);
+
+        reader.MoveToNextEntry().Should().BeTrue();
+        while (reader.Entry.IsDirectory)
+        {
+            reader.MoveToNextEntry().Should().BeTrue();
+        }
+
+        long bytesAfterPartialRead;
+        using (var entryStream = reader.OpenEntryStream())
+        {
+            var buffer = new byte[16];
+            entryStream.Read(buffer, 0, buffer.Length).Should().BeGreaterThan(0);
+            bytesAfterPartialRead = counting.BytesRead;
+        }
+
+        counting.BytesRead.Should().Be(bytesAfterPartialRead);
+        reader.Cancelled.Should().BeFalse();
+        reader.MoveToNextEntry().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_Default_SeekableSourceSeeksPastRemainingEntryBytes()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        var counting = new CountingReadStream(new MemoryStream(archiveBytes), leaveOpen: false);
+        await using var reader = await ReaderFactory.OpenAsyncReader(
+            counting,
+            ReaderOptions.ForExternalStream
+        );
+
+        (await reader.MoveToNextEntryAsync()).Should().BeTrue();
+        while (reader.Entry.IsDirectory)
+        {
+            (await reader.MoveToNextEntryAsync()).Should().BeTrue();
+        }
+
+        long bytesAfterPartialRead;
+        await using (var entryStream = await reader.OpenEntryStreamAsync())
+        {
+            var buffer = new byte[16];
+            (await entryStream.ReadAsync(buffer)).Should().BeGreaterThan(0);
+            bytesAfterPartialRead = counting.BytesRead;
+        }
+
+        counting.BytesRead.Should().Be(bytesAfterPartialRead);
+        reader.Cancelled.Should().BeFalse();
+        (await reader.MoveToNextEntryAsync()).Should().BeTrue();
     }
 
     [Fact]

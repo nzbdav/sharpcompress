@@ -463,6 +463,16 @@ public partial class SharpCompressStream : Stream, IStreamStack
         return false;
     }
 
+    /// <summary>
+    /// Attempts to advance without reading and discarding bytes.
+    /// Ring-buffered streams wrap non-seekable sources, so they cannot skip this way.
+    /// </summary>
+    internal virtual bool TrySkipForward(long count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        return false;
+    }
+
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (count == 0)
