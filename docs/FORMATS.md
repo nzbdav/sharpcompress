@@ -28,7 +28,7 @@
 1. SOLID Rars are only supported in the RarReader API.
 2. Zip format supports pkware and WinzipAES encryption. However, encrypted LZMA is not supported. Zip64 reading/writing is supported but only with seekable streams as the Zip spec doesn't support Zip64 data in post data descriptors. Deflate64, Shrink, Reduce, Implode, and XZ are only supported for reading. ZStandard is supported for reading and writing. See [Zip Format Notes](#zip-format-notes) for details on multi-volume archives and streaming behavior.
 3. The Tar format requires a file size in the header. If no size is specified to the TarWriter and the stream is not seekable, then an exception will be thrown.
-4. The 7Zip format doesn't allow for reading as a forward-only stream, so 7Zip read support is only through the Archive API. Writing is supported through SevenZipWriter for non-solid archives with LZMA/LZMA2 and requires a seekable output stream. See [7Zip Format Notes](#7zip-format-notes) for details on async extraction behavior.
+4. The 7Zip format doesn't allow for reading as a forward-only stream, so 7Zip read support is only through the Archive API. Writing is supported through SevenZipWriter for non-solid archives with LZMA/LZMA2 and requires a seekable output stream. See [7Zip Format Notes](#7zip-format-notes) for solid-folder reuse and async extraction details.
 5. LZip has no support for extra data like the file name or timestamp. There is a default filename used when looking at the entry Key on the archive.
 
 `ArchiveFactory.GetArchiveInformation(...).SupportsRandomAccess` is `true` when the detected format has an Archive API in this table. It is `false` for reader-only formats such as Ace, Arc, Arj, and standalone LZW. Compressed tar wrappers are supported by `ReaderFactory`/`TarReader`, not by `ArchiveFactory`/`TarArchive`; ArchiveFactory detection blocks them instead of opening the outer compression wrapper as a standalone archive.
@@ -42,15 +42,7 @@
 ### 7Zip Format Notes
 
 - **Solid folder reuse (Archive API)**: Sequential `OpenEntryStream()` / `OpenEntryStreamAsync()` calls within the same solid folder reuse the folder decoder and skip only the remaining bytes to the next entry. Opening an earlier entry in the same folder (or otherwise seeking backward) requires a full folder re-decode — inherent to solid 7z. Concurrent entry opens on the same archive bypass the cache and each build a fresh decoder (prefer one active stream, or use `ExtractAllEntries()` for sequential extraction).
-- **Async Extraction Performance**: When using async extraction methods (e.g., `ExtractAllEntries()` with `MoveToNextEntryAsync()`), each file creates its own decompression stream to avoid state corruption in the LZMA decoder. This is less efficient than synchronous extraction, which can reuse a single decompression stream for multiple files in the same folder.
-  
-  **Performance Impact**: For archives with many small files in the same compression folder, async extraction will be slower than synchronous extraction because it must:
-  1. Create a new LZMA decoder for each file
-  2. Skip through the decompressed data to reach each file's starting position
-  
-  **Recommendation**: For best performance with 7Zip archives, use synchronous extraction methods (`MoveToNextEntry()` and `WriteEntryToDirectory()`) when possible. Use async methods only when you need to avoid blocking the thread (e.g., in UI applications or async-only contexts).
-
-  **Technical Details**: 7Zip archives group files into "folders" (compression units), where all files in a folder share one continuous LZMA-compressed stream. The LZMA decoder maintains internal state (dictionary window, decoder positions) that assumes sequential, non-interruptible processing. Async operations can yield control during awaits, which would corrupt this shared state. To avoid this, async extraction creates a fresh decoder stream for each file.
+- **Async extraction**: `OpenEntryStreamAsync` and `ExtractAllEntriesAsync` use real async decoder I/O (`GetFolderStreamAsync` / folder-stream caching). `ExtractAllEntriesAsync` reuses one folder stream across sequential entries in the same solid folder, matching sync `ExtractAllEntries` behavior. Prefer `ExtractAllEntries()` / `ExtractAllEntriesAsync()` for solid sequential extraction; prefer sync APIs when you do not need to free the calling thread.
 
 ### XZ Format Notes
 

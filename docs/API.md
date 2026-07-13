@@ -190,7 +190,8 @@ Solid RAR archives allow only one active entry stream at a time; a second concur
 7z notes: sequential Archive API `OpenEntryStream` / `OpenEntryStreamAsync` within a solid folder
 reuses the folder decoder. Opening an earlier entry in the same folder still requires a full
 re-decode. Concurrent opens bypass the cache (each builds a fresh decoder) rather than throwing;
-prefer one active stream or `ExtractAllEntries()` for solid sequential extraction.
+prefer one active stream or `ExtractAllEntries()` / `ExtractAllEntriesAsync()` for solid sequential
+extraction. Async 7z entry streams use real async LZMA/LZMA2 decoder I/O (not a sync fallback).
 
 ### Entry Properties
 
