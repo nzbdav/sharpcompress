@@ -68,6 +68,24 @@ using (var reader = ReaderFactory.OpenReader(stream))
 - ✗ Forward-only (no random access)
 - ✗ Entry lookup requires iteration
 
+### 7z solid folder decoded cache (Archive API)
+
+Solid 7z folders normally require decompressing from the start of the folder to reach any entry. For Archive API random access (re-open same entry, backward order within a folder), SharpCompress can retain the most recently accessed folder's **decoded** bytes in a bounded in-memory buffer.
+
+```csharp
+var options = new ReaderOptions
+{
+    // Default: 128 MB. Set to 0 to disable decoded-folder caching.
+    SolidFolderDecodedCacheMaxBytes = 128L * 1024 * 1024,
+};
+using var archive = SevenZipArchive.OpenArchive(stream, options);
+using var entryStream = archive.Entries.First(e => !e.IsDirectory).OpenEntryStream();
+```
+
+When a folder's decompressed size fits within the cap, the first open decodes the whole folder once; subsequent opens in any order read slices from memory. Folders larger than the cap fall back to the streaming folder decoder (forward-only reuse within a live decode session).
+
+The rewind ring buffer used by `ReaderFactory` for format detection is released after RAR detection via `FreezeAndReleaseBuffer`, so steady-state RAR Reader streaming does not pay ring copy overhead.
+
 ---
 
 ## Buffer Sizing

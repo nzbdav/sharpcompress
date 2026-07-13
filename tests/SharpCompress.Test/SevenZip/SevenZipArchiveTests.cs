@@ -458,6 +458,24 @@ public class SevenZipArchiveTests : ArchiveTests
         Assert.Equal(expected[entries[1].Key.NotNull()], ms.ToArray());
     }
 
+    [Fact]
+    public void SevenZipArchive_Solid_ArchiveApi_ReOpenSameEntry_UsesDecodedCache()
+    {
+        var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
+        var expected = ReadSolidEntriesViaExtractAllEntries(testArchive);
+
+        using var archive = SevenZipArchive.OpenArchive(testArchive);
+        var key = archive.Entries.Where(e => !e.IsDirectory).Last().Key.NotNull();
+
+        for (var i = 0; i < 2; i++)
+        {
+            using var entryStream = archive.Entries.First(e => e.Key == key).OpenEntryStream();
+            using var ms = new MemoryStream();
+            entryStream.CopyTo(ms);
+            Assert.Equal(expected[key], ms.ToArray());
+        }
+    }
+
     private static Dictionary<string, byte[]> ReadSolidEntriesViaExtractAllEntries(
         string testArchive
     )

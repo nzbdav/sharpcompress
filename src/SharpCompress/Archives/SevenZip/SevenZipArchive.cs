@@ -93,6 +93,8 @@ public partial class SevenZipArchive
             var reader = new ArchiveReader();
             reader.Open(stream, lookForHeader: ReaderOptions.LookForHeader);
             _database = reader.ReadDatabase(new PasswordProvider(ReaderOptions.Password));
+            _database.SolidFolderDecodedCacheMaxBytes =
+                ReaderOptions.SolidFolderDecodedCacheMaxBytes;
         }
     }
 
