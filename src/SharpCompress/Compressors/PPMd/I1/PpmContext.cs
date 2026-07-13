@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace SharpCompress.Compressors.PPMd.I1;
 
 /// <summary>
@@ -20,17 +18,17 @@ internal partial class Model
     internal struct PpmContext
     {
         public uint _address;
-        public byte[] _memory;
-        public static readonly PpmContext ZERO = new(0, null);
+        public byte[] _memory = null!;
+        public static readonly PpmContext ZERO = new(0, null!);
         public const int SIZE = 12;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PpmContext"/> structure.
         /// </summary>
-        public PpmContext(uint address, byte[] memory)
+        public PpmContext(uint address, byte[]? memory)
         {
             _address = address;
-            _memory = memory;
+            _memory = memory!;
         }
 
         /// <summary>
@@ -253,7 +251,7 @@ internal partial class Model
         /// </summary>
         /// <returns>true if obj and this instance are the same type and represent the same value; otherwise, false.</returns>
         /// <param name="obj">Another object to compare to.</param>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is PpmContext context)
             {

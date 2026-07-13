@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.IO;
 using System.Runtime.CompilerServices;
 
@@ -9,7 +7,7 @@ internal partial class Encoder
 {
     public const uint K_TOP_VALUE = (1 << 24);
 
-    private Stream _stream;
+    private Stream _stream = null!;
 
     public ulong _low;
     public uint _range;
@@ -19,7 +17,7 @@ internal partial class Encoder
 
     public void SetStream(Stream stream) => _stream = stream;
 
-    public void ReleaseStream() => _stream = null;
+    public void ReleaseStream() => _stream = null!;
 
     public void Init()
     {
@@ -85,9 +83,9 @@ internal partial class Decoder
     public uint _range;
     public uint _code;
 
-    public Stream _stream;
+    public Stream _stream = null!;
     public long _total;
-    private byte[] _singleByteBuffer;
+    private byte[]? _singleByteBuffer;
 
     public void Init(Stream stream)
     {
@@ -104,7 +102,7 @@ internal partial class Decoder
 
     public void ReleaseStream() =>
         // Stream.ReleaseStream();
-        _stream = null;
+        _stream = null!;
 
     public void Normalize()
     {

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -207,15 +205,15 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
             }
         }
 
-        private Encoder2[] _coders;
-        private BitEncoder[] _models;
+        private Encoder2[] _coders = null!;
+        private BitEncoder[] _models = null!;
         private int _numPrevBits;
         private int _numPosBits;
         private uint _posMask;
 
         public void Create(int numPosBits, int numPrevBits)
         {
-            if (_coders != null && _numPrevBits == numPrevBits && _numPosBits == numPosBits)
+            if (_coders is not null && _numPrevBits == numPrevBits && _numPosBits == numPosBits)
             {
                 return;
             }
@@ -250,8 +248,8 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
             }
 
             ArrayPool<BitEncoder>.Shared.Return(_models);
-            _models = null;
-            _coders = null;
+            _models = null!;
+            _coders = null!;
         }
 
         public void Init()
@@ -491,7 +489,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
     }
 
     private readonly Optimal[] _optimum = new Optimal[K_NUM_OPTS];
-    private BinTree _matchFinder;
+    private BinTree _matchFinder = null!;
     private readonly RangeCoder.Encoder _rangeEncoder = new();
 
     private readonly BitEncoder[] _isMatch = new BitEncoder[
@@ -557,7 +555,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
 
     private long _nowPos64;
     private bool _finished;
-    private Stream _inStream;
+    private Stream? _inStream;
 
     private EMatchFinderType _matchFinderType = EMatchFinderType.Bt4;
     private bool _writeEndMark;
@@ -606,7 +604,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
     {
         _literalEncoder.Dispose();
         _matchFinder?.Dispose();
-        _matchFinder = null;
+        _matchFinder = null!;
     }
 
     private void SetWriteEndMarkerMode(bool writeEndMarker) => _writeEndMark = writeEndMarker;
@@ -1457,7 +1455,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
         outSize = 0;
         finished = true;
 
-        if (_inStream != null)
+        if (_inStream is not null)
         {
             _matchFinder.SetStream(_inStream);
             _needReleaseMfStream = true;
@@ -1700,7 +1698,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
         long outSize = 0;
         var finished = true;
 
-        if (_inStream != null)
+        if (_inStream is not null)
         {
             _matchFinder.SetStream(_inStream);
             _needReleaseMfStream = true;
@@ -1978,7 +1976,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
 
     private void ReleaseMfStream()
     {
-        if (_matchFinder != null && _needReleaseMfStream)
+        if (_matchFinder is not null && _needReleaseMfStream)
         {
             _matchFinder.ReleaseStream();
             _needReleaseMfStream = false;
@@ -1995,7 +1993,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
         ReleaseOutStream();
     }
 
-    public void SetStreams(Stream inStream, Stream outStream, long inSize, long outSize)
+    public void SetStreams(Stream? inStream, Stream outStream, long inSize, long outSize)
     {
         _inStream = inStream;
         _finished = false;
@@ -2023,7 +2021,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
         Stream outStream,
         long inSize,
         long outSize,
-        ICodeProgress progress
+        ICodeProgress? progress
     )
     {
         _needReleaseMfStream = false;
@@ -2047,7 +2045,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
         }
     }
 
-    public long Code(Stream inStream, bool final)
+    public long Code(Stream? inStream, bool final)
     {
         _matchFinder.SetStream(inStream);
         _processingMode = !final;
@@ -2073,7 +2071,7 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
     }
 
     public async ValueTask<long> CodeAsync(
-        Stream inStream,
+        Stream? inStream,
         bool final,
         CancellationToken cancellationToken = default
     )
@@ -2265,10 +2263,10 @@ internal partial class Encoder : ICoder, ISetCoderProperties, IWriteCoderPropert
                         throw new InvalidParamException();
                     }
                     _matchFinderType = (EMatchFinderType)m;
-                    if (_matchFinder != null && matchFinderIndexPrev != _matchFinderType)
+                    if (_matchFinder is not null && matchFinderIndexPrev != _matchFinderType)
                     {
                         _dictionarySizePrev = 0xFFFFFFFF;
-                        _matchFinder = null;
+                        _matchFinder = null!;
                     }
                     break;
                 }

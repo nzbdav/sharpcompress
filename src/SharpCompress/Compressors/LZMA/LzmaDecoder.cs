@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -125,15 +123,15 @@ public partial class Decoder : ICoder, ISetDecoderProperties, IDisposable
             }
         }
 
-        private Decoder2[] _coders;
-        private BitDecoder[] _models;
+        private Decoder2[] _coders = null!;
+        private BitDecoder[] _models = null!;
         private int _numPrevBits;
         private int _numPosBits;
         private uint _posMask;
 
         public void Create(int numPosBits, int numPrevBits)
         {
-            if (_coders != null && _numPrevBits == numPrevBits && _numPosBits == numPosBits)
+            if (_coders is not null && _numPrevBits == numPrevBits && _numPosBits == numPosBits)
             {
                 return;
             }
@@ -172,7 +170,7 @@ public partial class Decoder : ICoder, ISetDecoderProperties, IDisposable
         ) => _coders[GetState(pos, prevByte)].DecodeWithMatchByte(rangeDecoder, matchByte);
     }
 
-    private OutWindow _outWindow;
+    private OutWindow? _outWindow;
 
     private readonly BitDecoder[] _isMatchDecoders = new BitDecoder[
         Base.K_NUM_STATES << Base.K_NUM_POS_STATES_BITS_MAX
@@ -300,7 +298,7 @@ public partial class Decoder : ICoder, ISetDecoderProperties, IDisposable
         Stream outStream,
         long inSize,
         long outSize,
-        ICodeProgress progress
+        ICodeProgress? progress
     )
     {
         if (_outWindow is null)

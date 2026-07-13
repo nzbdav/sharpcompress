@@ -23,7 +23,7 @@ internal sealed class State : Pointer
         set => Memory[Address + 1] = (byte)value;
     }
 
-    internal State Initialize(byte[] mem) => Initialize<State>(mem);
+    internal State Initialize(byte[]? mem) => Initialize<State>(mem);
 
     internal void IncrementFreq(int dFreq) =>
         Memory[Address + 1] = (byte)(Memory[Address + 1] + dFreq);

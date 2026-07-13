@@ -1,8 +1,6 @@
 ﻿using System.Buffers;
 using size_t = System.UInt32;
 
-#nullable disable
-
 namespace SharpCompress.Compressors.Rar.UnpackV2017;
 
 internal partial class BitInput
@@ -25,7 +23,7 @@ internal partial class BitInput
         }
         else
         {
-            InBuf = null;
+            InBuf = null!;
         }
     }
 
@@ -46,10 +44,10 @@ internal partial class BitInput
 
     public virtual void Dispose()
     {
-        if (!ExternalBuffer && InBuf != null)
+        if (!ExternalBuffer && InBuf is not null)
         {
             ArrayPool<byte>.Shared.Return(InBuf);
-            InBuf = null;
+            InBuf = null!;
         }
     }
 }

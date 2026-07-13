@@ -14,7 +14,7 @@ internal partial class BitInput : IDisposable
     //BitInput(bool AllocBuffer);
     //~BitInput();
 
-    public byte[] InBuf; // Dynamically allocated input buffer.
+    public byte[] InBuf = null!; // Dynamically allocated input buffer.
 
     public void InitBitInput() => InAddr = InBit = 0;
 

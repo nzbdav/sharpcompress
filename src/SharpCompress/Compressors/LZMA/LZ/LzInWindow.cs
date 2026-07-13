@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -8,8 +6,8 @@ namespace SharpCompress.Compressors.LZMA.LZ;
 
 internal class InWindow : IDisposable
 {
-    public byte[] _bufferBase; // pointer to buffer with data
-    private Stream _stream;
+    public byte[] _bufferBase = null!; // pointer to buffer with data
+    private Stream? _stream;
     private uint _posLimit; // offset (from _buffer) of first byte when new block reading must be done
     private bool _streamEndWasReached; // if (true) then _streamPos shows real end of stream
 
@@ -56,10 +54,9 @@ internal class InWindow : IDisposable
             {
                 return;
             }
-            var numReadBytes =
-                _stream != null
-                    ? _stream.Read(_bufferBase, (int)(_bufferOffset + _streamPos), size)
-                    : 0;
+            var numReadBytes = _stream is not null
+                ? _stream.Read(_bufferBase, (int)(_bufferOffset + _streamPos), size)
+                : 0;
             if (numReadBytes == 0)
             {
                 _posLimit = _streamPos;
@@ -88,7 +85,7 @@ internal class InWindow : IDisposable
         }
 
         ArrayPool<byte>.Shared.Return(_bufferBase);
-        _bufferBase = null;
+        _bufferBase = null!;
     }
 
     public virtual void Dispose()
@@ -112,7 +109,7 @@ internal class InWindow : IDisposable
         _streamEndWasReached = false;
     }
 
-    public void SetStream(Stream stream)
+    public void SetStream(Stream? stream)
     {
         _stream = stream;
         if (_streamEndWasReached)

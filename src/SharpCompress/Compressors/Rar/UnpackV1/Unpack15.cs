@@ -20,13 +20,13 @@ internal partial class Unpack
     private bool suspended;
 
     //private ComprDataIO unpIO;
-    private Stream readStream;
-    private Stream writeStream;
+    private Stream readStream = null!;
+    private Stream writeStream = null!;
     private int readTop;
 
     private long destUnpSize;
 
-    private byte[] window;
+    private byte[] window = null!;
 
     private readonly int[] oldDist = new int[4];
 

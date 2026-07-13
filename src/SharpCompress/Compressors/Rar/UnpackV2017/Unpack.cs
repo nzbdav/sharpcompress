@@ -10,9 +10,9 @@ namespace SharpCompress.Compressors.Rar.UnpackV2017;
 
 internal partial class Unpack : IRarUnpack
 {
-    private FileHeader fileHeader;
-    private Stream readStream;
-    private Stream writeStream;
+    private FileHeader fileHeader = null!;
+    private Stream readStream = null!;
+    private Stream writeStream = null!;
 
     private void _UnpackCtor()
     {

@@ -10,7 +10,7 @@ internal class RarNode : Pointer
 
     public const int SIZE = 4;
 
-    public RarNode(byte[] memory)
+    public RarNode(byte[]? memory)
         : base(memory) { }
 
     internal int GetNext()

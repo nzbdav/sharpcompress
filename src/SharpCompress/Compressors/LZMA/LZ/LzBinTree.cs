@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -50,7 +48,7 @@ internal sealed class BinTree : InWindow
         }
     }
 
-    public new void SetStream(Stream stream) => base.SetStream(stream);
+    public new void SetStream(Stream? stream) => base.SetStream(stream);
 
     public new void ReleaseStream() => base.ReleaseStream();
 

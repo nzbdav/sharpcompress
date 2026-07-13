@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+
 /*
  * Copyright 2001,2004-2005 The Apache Software Foundation
  *
@@ -21,8 +22,6 @@ using System.IO;
  * <keiron@aftexsw.com> to whom the Ant project is very grateful for his
  * great code.
  */
-
-#nullable disable
 
 namespace SharpCompress.Compressors.BZip2;
 
@@ -293,11 +292,11 @@ internal sealed partial class CBZip2OutputStream : Stream
     private readonly char[] selector = new char[BZip2Constants.MAX_SELECTORS];
     private readonly char[] selectorMtf = new char[BZip2Constants.MAX_SELECTORS];
 
-    private char[] block;
-    private int[] quadrant;
-    private int[] zptr;
-    private short[] szptr;
-    private int[] ftab;
+    private char[] block = null!;
+    private int[] quadrant = null!;
+    private int[] zptr = null!;
+    private short[] szptr = null!;
+    private int[] ftab = null!;
 
     private int nMTF;
 
@@ -324,10 +323,10 @@ internal sealed partial class CBZip2OutputStream : Stream
     public CBZip2OutputStream(Stream inStream, int inBlockSize, bool leaveOpen = false)
     {
         this.leaveOpen = leaveOpen;
-        block = null;
-        quadrant = null;
-        zptr = null;
-        ftab = null;
+        block = null!;
+        quadrant = null!;
+        zptr = null!;
+        ftab = null!;
 
         BsSetStream(inStream);
 
@@ -472,7 +471,7 @@ internal sealed partial class CBZip2OutputStream : Stream
             {
                 bsStream?.Dispose();
             }
-            bsStream = null;
+            bsStream = null!;
         }
         base.Dispose(disposing);
     }
@@ -908,9 +907,9 @@ internal sealed partial class CBZip2OutputStream : Stream
             }
         }
 
-        rfreq = null;
-        fave = null;
-        cost = null;
+        rfreq = null!;
+        fave = null!;
+        cost = null!;
 
         if (!(nGroups < 8))
         {
@@ -1099,7 +1098,7 @@ internal sealed partial class CBZip2OutputStream : Stream
         SendMTFValues();
     }
 
-    private Stream bsStream;
+    private Stream bsStream = null!;
 
     private void SimpleSort(int lo, int hi, int d)
     {

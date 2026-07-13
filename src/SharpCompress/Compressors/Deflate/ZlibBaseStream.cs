@@ -1,5 +1,3 @@
-#nullable disable
-
 // ZlibBaseStream.cs
 // ------------------------------------------------------------------
 //
@@ -51,28 +49,28 @@ internal class ZlibBaseStream : Stream, IStreamStack
 {
     Stream IStreamStack.BaseStream() => _stream;
 
-    protected internal ZlibCodec _z; // deferred init... new ZlibCodec();
+    protected internal ZlibCodec _z = null!; // deferred init... new ZlibCodec();
 
     protected internal StreamMode _streamMode = StreamMode.Undefined;
     protected internal FlushType _flushMode;
     protected internal ZlibStreamFlavor _flavor;
     protected internal CompressionMode _compressionMode;
     protected internal CompressionLevel _level;
-    protected internal byte[] _workingBuffer;
+    protected internal byte[] _workingBuffer = null!;
     protected internal int _bufferSize = ZlibConstants.WorkingBufferSizeDefault;
     protected internal byte[] _buf1 = new byte[1];
 
-    protected internal Stream _stream;
+    protected internal Stream _stream = null!;
     protected internal CompressionStrategy Strategy = CompressionStrategy.Default;
 
     // workitem 7159
-    private readonly CRC32 crc;
-    protected internal string _GzipFileName;
-    protected internal string _GzipComment;
+    private readonly CRC32? crc;
+    protected internal string? _GzipFileName;
+    protected internal string? _GzipComment;
     protected internal DateTime _GzipMtime;
     protected internal int _gzipHeaderByteCount;
 
-    private readonly Encoding _encoding;
+    private readonly Encoding? _encoding;
     private readonly bool _leaveOpen;
 
     internal int Crc32 => crc?.Crc32Result ?? 0;
@@ -82,7 +80,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
         CompressionMode compressionMode,
         CompressionLevel level,
         ZlibStreamFlavor flavor,
-        Encoding encoding
+        Encoding? encoding
     )
         : this(stream, compressionMode, level, flavor, leaveOpen: false, encoding) { }
 
@@ -92,7 +90,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
         CompressionLevel level,
         ZlibStreamFlavor flavor,
         bool leaveOpen,
-        Encoding encoding
+        Encoding? encoding
     )
     {
         _flushMode = FlushType.None;
@@ -143,9 +141,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
     {
         // workitem 7159
         // calculate the CRC on the unccompressed data  (before writing)
-        if (crc != null)
+        if (crc is not null)
         {
-            crc.SlurpBlock(buffer, offset, count);
+            crc.NotNull().SlurpBlock(buffer, offset, count);
         }
 
         if (_streamMode == StreamMode.Undefined)
@@ -200,9 +198,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
     {
         // workitem 7159
         // calculate the CRC on the unccompressed data  (before writing)
-        if (crc != null)
+        if (crc is not null)
         {
-            crc.SlurpBlock(buffer, offset, count);
+            crc.NotNull().SlurpBlock(buffer, offset, count);
         }
 
         if (_streamMode == StreamMode.Undefined)
@@ -307,9 +305,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 {
                     // Emit the GZIP trailer: CRC32 and  size mod 2^32
                     Span<byte> intBuf = stackalloc byte[4];
-                    BinaryPrimitives.WriteInt32LittleEndian(intBuf, crc.Crc32Result);
+                    BinaryPrimitives.WriteInt32LittleEndian(intBuf, crc.NotNull().Crc32Result);
                     _stream.Write(intBuf);
-                    var c2 = (int)(crc.TotalBytesRead & 0x00000000FFFFFFFF);
+                    var c2 = (int)(crc.NotNull().TotalBytesRead & 0x00000000FFFFFFFF);
                     BinaryPrimitives.WriteInt32LittleEndian(intBuf, c2);
                     _stream.Write(intBuf);
                 }
@@ -361,7 +359,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
                     }
 
                     var crc32_expected = BinaryPrimitives.ReadInt32LittleEndian(trailer);
-                    var crc32_actual = crc.Crc32Result;
+                    var crc32_actual = crc.NotNull().Crc32Result;
                     var isize_expected = BinaryPrimitives.ReadInt32LittleEndian(trailer.Slice(4));
                     var isize_actual = (Int32)(_z.TotalBytesOut & 0x00000000FFFFFFFF);
 
@@ -457,9 +455,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 {
                     // Emit the GZIP trailer: CRC32 and  size mod 2^32
                     byte[] intBuf = new byte[4];
-                    BinaryPrimitives.WriteInt32LittleEndian(intBuf, crc.Crc32Result);
+                    BinaryPrimitives.WriteInt32LittleEndian(intBuf, crc.NotNull().Crc32Result);
                     await _stream.WriteAsync(intBuf, 0, 4, cancellationToken).ConfigureAwait(false);
-                    var c2 = (int)(crc.TotalBytesRead & 0x00000000FFFFFFFF);
+                    var c2 = (int)(crc.NotNull().TotalBytesRead & 0x00000000FFFFFFFF);
                     BinaryPrimitives.WriteInt32LittleEndian(intBuf, c2);
                     await _stream.WriteAsync(intBuf, 0, 4, cancellationToken).ConfigureAwait(false);
                 }
@@ -518,7 +516,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
         {
             _z.EndInflate();
         }
-        _z = null;
+        _z = null!;
     }
 
     protected override void Dispose(bool disposing)
@@ -547,7 +545,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 {
                     _stream?.Dispose();
                 }
-                _stream = null;
+                _stream = null!;
             }
         }
     }
@@ -585,7 +583,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
                         _stream.Dispose();
                     }
                 }
-                _stream = null;
+                _stream = null!;
             }
         }
     }
@@ -598,7 +596,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
         }
 
         ArrayPool<byte>.Shared.Return(_workingBuffer, clearArray: true);
-        _workingBuffer = null;
+        _workingBuffer = null!;
     }
 
     public override void Flush()
@@ -655,8 +653,8 @@ internal class ZlibBaseStream : Stream, IStreamStack
         if (Read(_buf1, 0, 1) == 0)
             return 0;
         // calculate CRC after reading
-        if (crc != null)
-            crc.SlurpBlock(_buf1, 0, 1);
+        if (crc is not null)
+            crc.NotNull().SlurpBlock(_buf1, 0, 1);
         return (_buf1[0] & 0xFF);
     }
 #endif
@@ -686,7 +684,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
             }
         } while (!done);
         var buffer = list.ToArray();
-        return _encoding.GetString(buffer, 0, buffer.Length);
+        return _encoding.NotNull().GetString(buffer, 0, buffer.Length);
     }
 
     private async ValueTask<string> ReadZeroTerminatedStringAsync(
@@ -713,7 +711,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
             }
         } while (!done);
         var buffer = list.ToArray();
-        return _encoding.GetString(buffer, 0, buffer.Length);
+        return _encoding.NotNull().GetString(buffer, 0, buffer.Length);
     }
 
     private int _ReadAndValidateGzipHeader()
@@ -908,9 +906,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
             rc = (count - _z.AvailableBytesOut);
 
             // calculate CRC after reading
-            if (crc != null)
+            if (crc is not null)
             {
-                crc.SlurpBlock(buffer, offset, rc);
+                crc.NotNull().SlurpBlock(buffer, offset, rc);
             }
 
             return rc;
@@ -1009,9 +1007,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
         rc = (count - _z.AvailableBytesOut);
 
         // calculate CRC after reading
-        if (crc != null)
+        if (crc is not null)
         {
-            crc.SlurpBlock(buffer, offset, rc);
+            crc.NotNull().SlurpBlock(buffer, offset, rc);
         }
 
         if (rc == ZlibConstants.Z_STREAM_END && z.AvailableBytesIn != 0 && !_wantCompress)
@@ -1100,9 +1098,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
             rc = (count - _z.AvailableBytesOut);
 
             // calculate CRC after reading
-            if (crc != null)
+            if (crc is not null)
             {
-                crc.SlurpBlock(buffer, offset, rc);
+                crc.NotNull().SlurpBlock(buffer, offset, rc);
             }
 
             return rc;
@@ -1203,9 +1201,9 @@ internal class ZlibBaseStream : Stream, IStreamStack
         rc = (count - _z.AvailableBytesOut);
 
         // calculate CRC after reading
-        if (crc != null)
+        if (crc is not null)
         {
-            crc.SlurpBlock(buffer, offset, rc);
+            crc.NotNull().SlurpBlock(buffer, offset, rc);
         }
 
         if (rc == ZlibConstants.Z_STREAM_END && z.AvailableBytesIn != 0 && !_wantCompress)

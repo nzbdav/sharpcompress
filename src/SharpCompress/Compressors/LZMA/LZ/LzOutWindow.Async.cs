@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -30,7 +28,7 @@ internal partial class OutWindow : IAsyncDisposable
             return;
         }
         ArrayPool<byte>.Shared.Return(_buffer);
-        _buffer = null;
+        _buffer = null!;
     }
 
     private async ValueTask FlushAsync(CancellationToken cancellationToken = default)

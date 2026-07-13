@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.Threading;
@@ -23,7 +21,7 @@ internal sealed partial class Unpack : BitInput
         _UnpackCtor();
 
         //UnpIO=DataIO;
-        Window = null;
+        Window = null!;
         Fragmented = false;
         Suspended = false;
         UnpAllBuf = false;
@@ -54,10 +52,10 @@ internal sealed partial class Unpack : BitInput
         }
 
         base.Dispose();
-        if (Window != null)
+        if (Window is not null)
         {
             ArrayPool<byte>.Shared.Return(Window);
-            Window = null;
+            Window = null!;
         }
 
         FragWindow.Reset();
@@ -114,7 +112,7 @@ internal sealed partial class Unpack : BitInput
         // or increasing the size of non-solid window. So we could safely reject
         // current window data without copying them to a new window, though being
         // extra cautious, we still handle the solid window grow case below.
-        var Grow = Solid && (Window != null || Fragmented);
+        var Grow = Solid && (Window is not null || Fragmented);
 
         // We do not handle growth for existing fragmented window.
         if (Grow && Fragmented)
@@ -123,12 +121,12 @@ internal sealed partial class Unpack : BitInput
             throw new InvalidFormatException("Grow && Fragmented");
         }
 
-        byte[] NewWindow = null;
+        byte[]? NewWindow = null;
         try
         {
             NewWindow = Fragmented ? null : ArrayPool<byte>.Shared.Rent((int)WinSize);
 
-            if (NewWindow == null)
+            if (NewWindow is null)
             {
                 if (Grow || WinSize < 0x1000000)
                 {
@@ -139,11 +137,11 @@ internal sealed partial class Unpack : BitInput
                 }
                 else
                 {
-                    if (Window != null) // If allocated by preceding files.
+                    if (Window is not null) // If allocated by preceding files.
                     {
                         //free(Window);
                         ArrayPool<byte>.Shared.Return(Window);
-                        Window = null;
+                        Window = null!;
                     }
 
                     FragWindow.Init(WinSize);
@@ -166,24 +164,24 @@ internal sealed partial class Unpack : BitInput
                 {
                     for (size_t I = 1; I <= MaxWinSize; I++)
                     {
-                        NewWindow[(UnpPtr - I) & (WinSize - 1)] = Window[
+                        NewWindow![(UnpPtr - I) & (WinSize - 1)] = Window![
                             (UnpPtr - I) & (MaxWinSize - 1)
                         ];
                     }
                 }
 
-                if (Window != null)
+                if (Window is not null)
                 {
                     ArrayPool<byte>.Shared.Return(Window);
                 }
 
-                Window = NewWindow;
+                Window = NewWindow!;
                 NewWindow = null;
             }
         }
         finally
         {
-            if (NewWindow != null)
+            if (NewWindow is not null)
             {
                 ArrayPool<byte>.Shared.Return(NewWindow);
             }

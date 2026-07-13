@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers.Binary;
 using System.Text;
@@ -77,19 +75,19 @@ internal class PpmContext : Pointer
 
     //UPGRADE_NOTE: Final was removed from the declaration of 'tempState5 '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
     private readonly State _tempState5 = new(null);
-    private PpmContext _tempPpmContext;
+    private PpmContext? _tempPpmContext;
 
     //UPGRADE_NOTE: Final was removed from the declaration of 'ps '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
     internal int[] _ps = new int[256];
 
-    public PpmContext(byte[] memory)
+    public PpmContext(byte[]? memory)
         : base(memory)
     {
         _oneState = new State(memory);
         _freqData = new FreqData(memory);
     }
 
-    internal PpmContext Initialize(byte[] mem)
+    internal PpmContext Initialize(byte[]? mem)
     {
         _oneState.Initialize(mem);
         _freqData.Initialize(mem);
@@ -131,7 +129,7 @@ internal class PpmContext : Pointer
         }
     }
 
-    private PpmContext GetTempPpmContext(byte[] memory)
+    private PpmContext GetTempPpmContext(byte[]? memory)
     {
         _tempPpmContext ??= new PpmContext(null);
         return _tempPpmContext.Initialize(memory);
@@ -141,14 +139,14 @@ internal class PpmContext : Pointer
     {
         var pc = GetTempPpmContext(model.SubAlloc.Heap);
         pc.Address = model.SubAlloc.AllocContext();
-        if (pc != null)
+        if (pc is not null)
         {
             pc.NumStats = 1;
             pc.SetOneState(firstState);
             pc.SetSuffix(this);
             pStats.SetSuccessor(pc);
         }
-        return pc.Address;
+        return pc.NotNull().Address;
     }
 
     internal void Rescale(ModelPpm model)

@@ -1,5 +1,3 @@
-#nullable disable
-
 // Deflate.cs
 // ------------------------------------------------------------------
 //
@@ -222,7 +220,7 @@ internal sealed partial class DeflateManager
         private static readonly Config[] Table;
     }
 
-    private CompressFunc DeflateFunction;
+    private CompressFunc DeflateFunction = null!;
 
     private static readonly string[] _ErrorMessage =
     {
@@ -268,9 +266,9 @@ internal sealed partial class DeflateManager
 
     private const int END_BLOCK = 256;
 
-    internal ZlibCodec _codec; // the zlib encoder/decoder
+    internal ZlibCodec _codec = null!; // the zlib encoder/decoder
     internal int status; // as the name implies
-    internal byte[] pending; // output still pending - waiting to be compressed
+    internal byte[] pending = null!; // output still pending - waiting to be compressed
     internal int nextPending; // index of next pending byte to output to the stream
     internal int pendingCount; // number of bytes in the pending buffer
 
@@ -282,7 +280,7 @@ internal sealed partial class DeflateManager
     internal int w_mask; // w_size - 1
 
     //internal byte[] dictionary;
-    internal byte[] window;
+    internal byte[] window = null!;
 
     // Sliding window. Input bytes are read into the second half of the window,
     // and move to the first half later to keep a dictionary of at least wSize
@@ -297,13 +295,13 @@ internal sealed partial class DeflateManager
     // Actual size of window: 2*wSize, except when the user input buffer
     // is directly used as sliding window.
 
-    internal short[] prev;
+    internal short[] prev = null!;
 
     // Link to older string with same hash index. To limit the size of this
     // array to 64K, this link is maintained only for the last 32K strings.
     // An index in this array is thus a window index modulo 32K.
 
-    private short[] head; // Heads of the hash chains or NIL.
+    private short[] head = null!; // Heads of the hash chains or NIL.
 
     private int ins_h; // hash index of string to be inserted
     private int hash_size; // number of elements in hash table
@@ -321,7 +319,7 @@ internal sealed partial class DeflateManager
 
     private int blockStart;
 
-    private Config config;
+    private Config config = null!;
     private int match_length; // length of best match
     private int prev_match; // previous match
     private int match_available; // set if previous match exists
@@ -1804,22 +1802,22 @@ internal sealed partial class DeflateManager
         if (pending is not null)
         {
             ArrayPool<byte>.Shared.Return(pending, clearArray: true);
-            pending = null;
+            pending = null!;
         }
         if (head is not null)
         {
             ArrayPool<short>.Shared.Return(head, clearArray: true);
-            head = null;
+            head = null!;
         }
         if (prev is not null)
         {
             ArrayPool<short>.Shared.Return(prev, clearArray: true);
-            prev = null;
+            prev = null!;
         }
         if (window is not null)
         {
             ArrayPool<byte>.Shared.Return(window, clearArray: true);
-            window = null;
+            window = null!;
         }
     }
 

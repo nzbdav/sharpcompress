@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using System.Threading;
@@ -122,6 +120,7 @@ public sealed partial class XZStream
                 var remaining = count - bytesRead;
                 var newOffset = offset + bytesRead;
                 var justRead = await _currentBlock
+                    .NotNull()
                     .ReadAsync(buffer, newOffset, remaining, cancellationToken)
                     .ConfigureAwait(false);
                 if (justRead < remaining)

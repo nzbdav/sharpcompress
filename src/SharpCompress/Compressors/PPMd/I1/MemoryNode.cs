@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace SharpCompress.Compressors.PPMd.I1;
 
 /// <summary>
@@ -26,17 +24,17 @@ namespace SharpCompress.Compressors.PPMd.I1;
 internal struct MemoryNode
 {
     public uint _address;
-    public byte[] _memory;
-    public static readonly MemoryNode ZERO = new(0, null);
+    public byte[] _memory = null!;
+    public static readonly MemoryNode ZERO = new(0, null!);
     public const int SIZE = 12;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemoryNode"/> structure.
     /// </summary>
-    public MemoryNode(uint address, byte[] memory)
+    public MemoryNode(uint address, byte[]? memory)
     {
         _address = address;
-        _memory = memory;
+        _memory = memory!;
     }
 
     /// <summary>
@@ -223,7 +221,7 @@ internal struct MemoryNode
     /// </summary>
     /// <returns>true if obj and this instance are the same type and represent the same value; otherwise, false.</returns>
     /// <param name="obj">Another object to compare to.</param>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is MemoryNode memoryNode)
         {

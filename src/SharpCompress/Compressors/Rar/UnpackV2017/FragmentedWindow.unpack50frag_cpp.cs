@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using SharpCompress.Common;
@@ -24,9 +22,9 @@ internal partial class FragmentedWindow
     {
         for (uint I = 0; I < Mem.Length; I++)
         {
-            if (Mem[I] != null)
+            if (Mem[I] is not null)
             {
-                ArrayPool<byte>.Shared.Return(Mem[I]);
+                ArrayPool<byte>.Shared.Return(Mem[I]!);
                 Mem[I] = null;
             }
             MemSize[I] = 0;
@@ -49,11 +47,11 @@ internal partial class FragmentedWindow
             // smaller than some arbitrary constant.
             var MinSize = Math.Max(Size / (size_t)(Mem.Length - BlockNum), 0x400000);
 
-            byte[] NewMem = null;
+            byte[]? NewMem = null;
             while (Size >= MinSize)
             {
                 NewMem = ArrayPool<byte>.Shared.Rent(checked((int)Size));
-                if (NewMem != null)
+                if (NewMem is not null)
                 {
                     break;
                 }
@@ -84,36 +82,36 @@ internal partial class FragmentedWindow
         {
             if (Item < MemSize[0])
             {
-                return Mem[0][Item];
+                return Mem[0]![Item];
             }
 
             for (uint I = 1; I < MemSize.Length; I++)
             {
                 if (Item < MemSize[I])
                 {
-                    return Mem[I][Item - MemSize[I - 1]];
+                    return Mem[I]![Item - MemSize[I - 1]];
                 }
             }
 
-            return Mem[0][0]; // Must never happen;
+            return Mem[0]![0]; // Must never happen;
         }
         set
         {
             if (Item < MemSize[0])
             {
-                Mem[0][Item] = value;
+                Mem[0]![Item] = value;
                 return;
             }
             for (uint I = 1; I < MemSize.Length; I++)
             {
                 if (Item < MemSize[I])
                 {
-                    Mem[I][Item - MemSize[I - 1]] = value;
+                    Mem[I]![Item - MemSize[I - 1]] = value;
                     return;
                 }
             }
 
-            Mem[0][0] = value; // Must never happen;
+            Mem[0]![0] = value; // Must never happen;
         }
     }
 
@@ -123,7 +121,7 @@ internal partial class FragmentedWindow
         if (Item < MemSize[0])
         {
             //return Mem[0][Item];
-            buf = Mem[0];
+            buf = Mem[0]!;
             offset = Item;
             return;
         }
@@ -132,13 +130,13 @@ internal partial class FragmentedWindow
             if (Item < MemSize[I])
             {
                 //return Mem[I][Item-MemSize[I-1]];
-                buf = Mem[I];
+                buf = Mem[I]!;
                 offset = Item - MemSize[I - 1];
                 return;
             }
         }
         //return Mem[0][0]; // Must never happen;
-        buf = Mem[0];
+        buf = Mem[0]!;
         offset = 0;
         return; // Must never happen;
     }

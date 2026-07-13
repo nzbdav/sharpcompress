@@ -275,7 +275,7 @@ public partial class LzmaStream : Stream, IStreamStack, IAsyncDisposable
             _outWindow.SetLimit(toProcess);
             if (_uncompressedChunk)
             {
-                _inputPosition += _outWindow.CopyStream(_inputStream, toProcess);
+                _inputPosition += _outWindow.CopyStream(_inputStream.NotNull(), toProcess);
             }
             else if (_decoder!.Code(_dictionarySize, _outWindow, _rangeDecoder))
             {
@@ -371,7 +371,7 @@ public partial class LzmaStream : Stream, IStreamStack, IAsyncDisposable
         _outWindow.SetLimit(1);
         if (_uncompressedChunk)
         {
-            _inputPosition += _outWindow.CopyStream(_inputStream, 1);
+            _inputPosition += _outWindow.CopyStream(_inputStream.NotNull(), 1);
         }
         else if (_decoder!.Code(_dictionarySize, _outWindow, _rangeDecoder))
         {
