@@ -21,11 +21,15 @@ internal class BitInput : IDisposable
         get => inBit;
         set => inBit = value;
     }
-    private readonly byte[] _privateBuffer = ArrayPool<byte>.Shared.Rent(MAX_SIZE);
+    private readonly byte[] _privateBuffer;
     private bool _disposed;
 
     /// <summary>  </summary>
-    internal BitInput() => InBuf = _privateBuffer;
+    internal BitInput()
+    {
+        _privateBuffer = ArrayPool<byte>.Shared.Rent(MAX_SIZE);
+        InBuf = _privateBuffer;
+    }
 
     internal byte[] InBuf { get; }
 

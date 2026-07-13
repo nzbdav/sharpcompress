@@ -17,7 +17,7 @@ internal sealed class RarVM : BitInput
     //}
     internal byte[] Mem => _memory.NotNull();
 
-    private byte[]? _memory = ArrayPool<byte>.Shared.Rent(VM_MEMSIZE + 4);
+    private byte[]? _memory;
 
     public const int VM_MEMSIZE = 0x40000;
 
@@ -52,7 +52,7 @@ internal sealed class RarVM : BitInput
 
     private int IP;
 
-    internal RarVM() { }
+    internal RarVM() => _memory = ArrayPool<byte>.Shared.Rent(VM_MEMSIZE + 4);
 
     public override void Dispose()
     {

@@ -933,7 +933,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
             {
                 // No data available, so try to Read data from the captive stream.
                 _z.NextIn = 0;
-                _z.AvailableBytesIn = _stream.Read(_workingBuffer, 0, _workingBuffer.Length);
+                _z.AvailableBytesIn = _stream.Read(_workingBuffer, 0, _bufferSize);
                 if (_z.AvailableBytesIn == 0)
                 {
                     nomoreinput = true;
@@ -1126,7 +1126,7 @@ internal class ZlibBaseStream : Stream, IStreamStack
                 // No data available, so try to Read data from the captive stream.
                 _z.NextIn = 0;
                 _z.AvailableBytesIn = await _stream
-                    .ReadAsync(_workingBuffer, 0, _workingBuffer.Length, cancellationToken)
+                    .ReadAsync(_workingBuffer, 0, _bufferSize, cancellationToken)
                     .ConfigureAwait(false);
                 if (_z.AvailableBytesIn == 0)
                 {
