@@ -1,57 +1,57 @@
-| Method                           | Mean       | Error    | StdDev   | Gen0    | Gen1    | Gen2    | Allocated |
-|--------------------------------- |-----------:|---------:|---------:|--------:|--------:|--------:|----------:|
-| &#39;GZip: Compress 100KB&#39;           | 2,075.6 μs | 22.66 μs | 33.22 μs | 33.3333 | 33.3333 | 33.3333 | 247.24 KB |
-| &#39;GZip: Compress 100KB (Async)&#39;   | 2,068.2 μs | 20.96 μs | 31.37 μs | 33.3333 | 33.3333 | 33.3333 | 247.42 KB |
-| &#39;GZip: Decompress 100KB&#39;         |   337.0 μs |  2.15 μs |  3.15 μs |       - |       - |       - |   1.05 KB |
-| &#39;GZip: Decompress 100KB (Async)&#39; |   339.2 μs |  2.07 μs |  3.10 μs |       - |       - |       - |   1.34 KB |
-| Method                                          | Mean     | Error    | StdDev   | Gen0     | Gen1     | Gen2     | Allocated  |
-|------------------------------------------------ |---------:|---------:|---------:|---------:|---------:|---------:|-----------:|
-| &#39;Rar: Extract all entries (Archive API)&#39;        | 705.1 μs | 18.71 μs | 26.83 μs |        - |        - |        - |   154.5 KB |
-| &#39;Rar: Extract all entries (Archive API, Async)&#39; | 440.4 μs | 47.82 μs | 70.10 μs |        - |        - |        - |  159.28 KB |
-| &#39;Rar: Extract all entries (Reader API)&#39;         | 717.1 μs | 11.02 μs | 15.81 μs |        - |        - |        - |  121.93 KB |
-| &#39;Rar: Extract all entries (Reader API, Async)&#39;  | 802.9 μs | 15.26 μs | 20.89 μs | 266.6667 | 266.6667 | 266.6667 | 4775.76 KB |
-| Method                                         | Mean     | Error    | StdDev   | Gen0     | Gen1     | Gen2    | Allocated |
-|----------------------------------------------- |---------:|---------:|---------:|---------:|---------:|--------:|----------:|
-| &#39;Rar5 encrypted: full entry read&#39;              | 26.47 ms | 0.119 ms | 0.174 ms | 700.0000 |  66.6667 |       - |   5.82 MB |
-| &#39;Rar5 encrypted: non-seekable full entry read&#39; | 26.55 ms | 0.177 ms | 0.260 ms | 700.0000 | 166.6667 | 33.3333 |    5.9 MB |
+| Method                           | Mean       | Error    | StdDev   | Median     | Gen0    | Gen1    | Gen2    | Allocated |
+|--------------------------------- |-----------:|---------:|---------:|-----------:|--------:|--------:|--------:|----------:|
+| &#39;GZip: Compress 100KB&#39;           | 3,392.7 μs | 36.43 μs | 52.24 μs | 3,372.9 μs | 33.3333 | 33.3333 | 33.3333 | 247.25 KB |
+| &#39;GZip: Compress 100KB (Async)&#39;   | 3,342.7 μs |  8.74 μs | 11.67 μs | 3,344.8 μs | 33.3333 | 33.3333 | 33.3333 | 247.41 KB |
+| &#39;GZip: Decompress 100KB&#39;         |   455.5 μs | 10.77 μs | 16.12 μs |   466.6 μs |       - |       - |       - |   1.06 KB |
+| &#39;GZip: Decompress 100KB (Async)&#39; |   450.5 μs |  9.85 μs | 14.74 μs |   442.7 μs |       - |       - |       - |   1.38 KB |
+| Method                                          | Mean       | Error    | StdDev   | Gen0     | Gen1     | Gen2     | Allocated  |
+|------------------------------------------------ |-----------:|---------:|---------:|---------:|---------:|---------:|-----------:|
+| &#39;Rar: Extract all entries (Archive API)&#39;        | 1,219.8 μs | 18.04 μs | 25.88 μs |        - |        - |        - |  154.47 KB |
+| &#39;Rar: Extract all entries (Archive API, Async)&#39; |   903.6 μs |  3.70 μs |  4.69 μs |        - |        - |        - |  159.35 KB |
+| &#39;Rar: Extract all entries (Reader API)&#39;         | 1,235.7 μs |  3.43 μs |  4.91 μs |        - |        - |        - |  121.95 KB |
+| &#39;Rar: Extract all entries (Reader API, Async)&#39;  | 1,455.0 μs |  7.65 μs | 10.97 μs | 500.0000 | 500.0000 | 500.0000 | 4778.95 KB |
+| Method                                         | Mean     | Error   | StdDev  | Gen0     | Gen1    | Gen2    | Allocated |
+|----------------------------------------------- |---------:|--------:|--------:|---------:|--------:|--------:|----------:|
+| &#39;Rar5 encrypted: full entry read&#39;              | 153.4 ms | 0.06 ms | 0.08 ms | 333.3333 |       - |       - |   5.82 MB |
+| &#39;Rar5 encrypted: non-seekable full entry read&#39; | 153.8 ms | 0.22 ms | 0.32 ms | 366.6667 | 66.6667 | 33.3333 |    5.9 MB |
 | Method                                    | Mean     | Error    | StdDev   | Allocated |
 |------------------------------------------ |---------:|---------:|---------:|----------:|
-| &#39;Rar: open→read 1MB at N offsets→dispose&#39; | 64.30 μs | 1.413 μs | 2.115 μs | 131.81 KB |
-| Method                                          | Mean     | Error   | StdDev   | Gen0    | Gen1    | Gen2    | Allocated |
-|------------------------------------------------ |---------:|--------:|---------:|--------:|--------:|--------:|----------:|
-| &#39;Rar stored (m0): full entry read&#39;              | 235.4 μs | 1.80 μs |  2.64 μs |       - |       - |       - |  149.1 KB |
-| &#39;Rar5 stored (m0): full entry read&#39;             | 231.1 μs | 2.06 μs |  3.08 μs |       - |       - |       - |  89.67 KB |
-| &#39;Rar stored multi-volume: full entry read&#39;      | 688.3 μs | 9.11 μs | 13.36 μs |       - |       - |       - | 169.69 KB |
-| &#39;Rar stored (m0): non-seekable full entry read&#39; | 254.8 μs | 2.47 μs |  3.69 μs | 33.3333 | 33.3333 | 33.3333 | 186.02 KB |
-| Method                                           | Mean      | Error     | StdDev    | Median    | Gen0     | Gen1     | Gen2     | Allocated |
-|------------------------------------------------- |----------:|----------:|----------:|----------:|---------:|---------:|---------:|----------:|
-| &#39;7Zip LZMA: Extract all entries&#39;                 |  5.720 ms | 0.0328 ms | 0.0490 ms |  5.713 ms |  33.3333 |  33.3333 |  33.3333 | 272.58 KB |
-| &#39;7Zip LZMA: Extract all entries (Async)&#39;         | 16.793 ms | 0.1222 ms | 0.1791 ms | 16.755 ms |  33.3333 |  33.3333 |  33.3333 | 317.65 KB |
-| &#39;7Zip LZMA2: Extract all entries&#39;                |  5.665 ms | 0.0607 ms | 0.0908 ms |  5.635 ms |  33.3333 |  33.3333 |  33.3333 | 272.35 KB |
-| &#39;7Zip LZMA2: Extract all entries (Async)&#39;        | 16.869 ms | 0.1610 ms | 0.2410 ms | 16.765 ms |  33.3333 |  33.3333 |  33.3333 | 317.62 KB |
-| &#39;7Zip LZMA2 Reader: Extract all entries&#39;         |  5.783 ms | 0.0634 ms | 0.0949 ms |  5.795 ms |  33.3333 |  33.3333 |  33.3333 | 272.97 KB |
-| &#39;7Zip LZMA2 Reader: Extract all entries (Async)&#39; | 10.398 ms | 0.0666 ms | 0.0997 ms | 10.335 ms | 100.0000 | 100.0000 | 100.0000 | 544.45 KB |
+| &#39;Rar: open→read 1MB at N offsets→dispose&#39; | 95.93 μs | 1.083 μs | 1.588 μs | 131.77 KB |
+| Method                                          | Mean       | Error   | StdDev  | Gen0    | Gen1    | Gen2    | Allocated |
+|------------------------------------------------ |-----------:|--------:|--------:|--------:|--------:|--------:|----------:|
+| &#39;Rar stored (m0): full entry read&#39;              |   304.6 μs | 1.64 μs | 2.40 μs |       - |       - |       - | 149.06 KB |
+| &#39;Rar5 stored (m0): full entry read&#39;             |   287.5 μs | 0.54 μs | 0.75 μs |       - |       - |       - |  89.64 KB |
+| &#39;Rar stored multi-volume: full entry read&#39;      | 1,206.9 μs | 1.80 μs | 2.52 μs |       - |       - |       - | 169.88 KB |
+| &#39;Rar stored (m0): non-seekable full entry read&#39; |   324.3 μs | 2.09 μs | 3.00 μs | 33.3333 | 33.3333 | 33.3333 | 186.27 KB |
+| Method                                           | Mean      | Error     | StdDev    | Gen0     | Gen1     | Gen2     | Allocated |
+|------------------------------------------------- |----------:|----------:|----------:|---------:|---------:|---------:|----------:|
+| &#39;7Zip LZMA: Extract all entries&#39;                 |  8.032 ms | 0.0070 ms | 0.0100 ms |  33.3333 |  33.3333 |  33.3333 | 272.58 KB |
+| &#39;7Zip LZMA: Extract all entries (Async)&#39;         | 38.383 ms | 0.0443 ms | 0.0607 ms |  33.3333 |  33.3333 |  33.3333 | 317.63 KB |
+| &#39;7Zip LZMA2: Extract all entries&#39;                |  8.041 ms | 0.0072 ms | 0.0103 ms |  33.3333 |  33.3333 |  33.3333 | 272.35 KB |
+| &#39;7Zip LZMA2: Extract all entries (Async)&#39;        | 38.262 ms | 0.0420 ms | 0.0575 ms |  33.3333 |  33.3333 |  33.3333 | 317.64 KB |
+| &#39;7Zip LZMA2 Reader: Extract all entries&#39;         |  8.030 ms | 0.0071 ms | 0.0102 ms |  33.3333 |  33.3333 |  33.3333 | 272.98 KB |
+| &#39;7Zip LZMA2 Reader: Extract all entries (Async)&#39; | 24.023 ms | 0.0873 ms | 0.1306 ms | 100.0000 | 100.0000 | 100.0000 | 544.58 KB |
 | Method                                      | Mean     | Error     | StdDev    | Gen0    | Gen1    | Gen2    | Allocated |
 |-------------------------------------------- |---------:|----------:|----------:|--------:|--------:|--------:|----------:|
-| &#39;7z solid: open each entry via Archive API&#39; | 5.571 ms | 0.0450 ms | 0.0660 ms | 33.3333 | 33.3333 | 33.3333 | 272.62 KB |
-| Method                                                | Mean      | Error    | StdDev   | Gen0     | Gen1     | Gen2     | Allocated  |
-|------------------------------------------------------ |----------:|---------:|---------:|---------:|---------:|---------:|-----------:|
-| &#39;Tar: Extract all entries (Archive API)&#39;              |  18.75 μs | 0.553 μs | 0.827 μs |        - |        - |        - |   19.45 KB |
-| &#39;Tar: Extract all entries (Archive API, Async)&#39;       |  20.53 μs | 0.620 μs | 0.869 μs |        - |        - |        - |   15.38 KB |
-| &#39;Tar: Extract all entries (Reader API)&#39;               | 101.77 μs | 2.954 μs | 4.422 μs |  66.6667 |  66.6667 |  66.6667 | 1108.14 KB |
-| &#39;Tar: Extract all entries (Archive API) - SystemGzip&#39; |        NA |       NA |       NA |       NA |       NA |       NA |         NA |
-| &#39;Tar: Extract all entries (Reader API) - SystemGzip&#39;  | 225.79 μs | 4.619 μs | 6.624 μs | 133.3333 | 133.3333 | 133.3333 | 1124.13 KB |
-| &#39;Tar.GZip: Extract all entries&#39;                       |        NA |       NA |       NA |       NA |       NA |       NA |         NA |
-| &#39;Tar.GZip: Extract all entries (Async)&#39;               |        NA |       NA |       NA |       NA |       NA |       NA |         NA |
-| &#39;Tar: Create archive with small files&#39;                |  23.21 μs | 0.656 μs | 0.920 μs |        - |        - |        - |   68.23 KB |
-| &#39;Tar: Create archive with small files (Async)&#39;        |  25.25 μs | 0.465 μs | 0.652 μs |        - |        - |        - |   69.25 KB |
-| Method                                                   | Mean      | Error     | StdDev    | Median    | Allocated |
-|--------------------------------------------------------- |----------:|----------:|----------:|----------:|----------:|
-| &#39;Zip: Extract all entries (Archive API) - SystemDeflate&#39; | 107.09 μs |  1.335 μs |  1.872 μs | 107.45 μs |  71.63 KB |
-| &#39;Zip: Extract all entries (Archive API)&#39;                 | 376.30 μs | 58.807 μs | 86.198 μs | 438.63 μs |  81.32 KB |
-| &#39;Zip: Extract all entries (Archive API, Async)&#39;          | 277.63 μs |  8.371 μs | 12.530 μs | 277.11 μs |  24.44 KB |
-| &#39;Zip: Extract all entries (Reader API) - SystemDeflate&#39;  |  99.37 μs |  1.030 μs |  1.444 μs |  99.31 μs |  12.06 KB |
-| &#39;Zip: Extract all entries (Reader API)&#39;                  | 262.06 μs |  4.807 μs |  7.194 μs | 262.16 μs |  22.36 KB |
-| &#39;Zip: Extract all entries (Reader API, Async)&#39;           | 272.44 μs |  5.004 μs |  7.490 μs | 271.59 μs |  23.96 KB |
-| &#39;Zip: Create archive with small files&#39;                   | 109.66 μs |  2.469 μs |  3.541 μs | 108.97 μs |  85.37 KB |
-| &#39;Zip: Create archive with small files (Async)&#39;           | 119.84 μs |  2.838 μs |  4.160 μs | 119.26 μs |  89.03 KB |
+| &#39;7z solid: open each entry via Archive API&#39; | 7.992 ms | 0.0136 ms | 0.0196 ms | 33.3333 | 33.3333 | 33.3333 | 272.36 KB |
+| Method                                                | Mean      | Error     | StdDev    | Median    | Gen0     | Gen1     | Gen2     | Allocated  |
+|------------------------------------------------------ |----------:|----------:|----------:|----------:|---------:|---------:|---------:|-----------:|
+| &#39;Tar: Extract all entries (Archive API)&#39;              |  46.48 μs |  0.546 μs |  0.783 μs |  46.38 μs |        - |        - |        - |   19.48 KB |
+| &#39;Tar: Extract all entries (Archive API, Async)&#39;       |  54.07 μs |  0.436 μs |  0.597 μs |  54.15 μs |        - |        - |        - |   15.41 KB |
+| &#39;Tar: Extract all entries (Reader API)&#39;               | 383.74 μs | 12.630 μs | 18.513 μs | 377.52 μs | 300.0000 | 300.0000 | 300.0000 | 1109.53 KB |
+| &#39;Tar: Extract all entries (Archive API) - SystemGzip&#39; |        NA |        NA |        NA |        NA |       NA |       NA |       NA |         NA |
+| &#39;Tar: Extract all entries (Reader API) - SystemGzip&#39;  | 612.74 μs |  1.714 μs |  2.346 μs | 612.38 μs | 300.0000 | 300.0000 | 300.0000 |  1124.5 KB |
+| &#39;Tar.GZip: Extract all entries&#39;                       |        NA |        NA |        NA |        NA |       NA |       NA |       NA |         NA |
+| &#39;Tar.GZip: Extract all entries (Async)&#39;               |        NA |        NA |        NA |        NA |       NA |       NA |       NA |         NA |
+| &#39;Tar: Create archive with small files&#39;                |  49.37 μs |  0.867 μs |  1.215 μs |  49.23 μs |        - |        - |        - |   68.25 KB |
+| &#39;Tar: Create archive with small files (Async)&#39;        |  35.41 μs | 12.976 μs | 19.422 μs |  20.34 μs |        - |        - |        - |   69.28 KB |
+| Method                                                   | Mean     | Error    | StdDev   | Median   | Allocated |
+|--------------------------------------------------------- |---------:|---------:|---------:|---------:|----------:|
+| &#39;Zip: Extract all entries (Archive API) - SystemDeflate&#39; | 290.7 μs | 39.24 μs | 58.74 μs | 304.2 μs |  71.71 KB |
+| &#39;Zip: Extract all entries (Archive API)&#39;                 | 561.3 μs |  1.03 μs |  1.44 μs | 561.2 μs |  81.35 KB |
+| &#39;Zip: Extract all entries (Archive API, Async)&#39;          | 583.1 μs |  4.59 μs |  6.28 μs | 580.8 μs |  24.48 KB |
+| &#39;Zip: Extract all entries (Reader API) - SystemDeflate&#39;  | 206.6 μs |  0.96 μs |  1.37 μs | 206.2 μs |  12.03 KB |
+| &#39;Zip: Extract all entries (Reader API)&#39;                  | 549.9 μs |  1.77 μs |  2.42 μs | 549.7 μs |  22.41 KB |
+| &#39;Zip: Extract all entries (Reader API, Async)&#39;           | 570.9 μs |  2.99 μs |  4.19 μs | 569.3 μs |     24 KB |
+| &#39;Zip: Create archive with small files&#39;                   | 227.3 μs |  7.42 μs | 10.88 μs | 220.9 μs |  85.34 KB |
+| &#39;Zip: Create archive with small files (Async)&#39;           | 240.5 μs |  8.91 μs | 11.89 μs | 233.1 μs |  88.77 KB |
