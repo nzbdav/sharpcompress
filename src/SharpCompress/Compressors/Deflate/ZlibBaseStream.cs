@@ -599,6 +599,26 @@ internal class ZlibBaseStream : Stream, IStreamStack
         _workingBuffer = null!;
     }
 
+    /// <summary>
+    /// Pushes any bytes the inflater read past the end of the compressed data back into the
+    /// buffered underlying stream so outer readers observe the correct position. The rewind is
+    /// an in-memory buffer adjustment, so no async variant is required.
+    /// </summary>
+    internal void ReturnOverread()
+    {
+        // Only meaningful in read mode; there is no over-read to return while writing.
+        if (_streamMode != StreamMode.Writer && z.AvailableBytesIn > 0)
+        {
+            // Rewind the underlying stream by the number of unconsumed bytes in the buffer
+            // This handles the case where the decompressor over-read past the end of the entry
+            if (_stream is IStreamStack stack)
+            {
+                stack.RewindOrThrow(z.AvailableBytesIn);
+            }
+            z.AvailableBytesIn = 0;
+        }
+    }
+
     public override void Flush()
     {
         // Only flush the underlying stream when in write mode
@@ -608,15 +628,10 @@ internal class ZlibBaseStream : Stream, IStreamStack
         {
             _stream.Flush();
         }
-        else if (z.AvailableBytesIn > 0)
+        else
         {
-            // Rewind the underlying stream by the number of unconsumed bytes in the buffer
-            // This handles the case where the decompressor over-read past the end of the entry
-            if (_stream is IStreamStack stack)
-            {
-                stack.RewindOrThrow(z.AvailableBytesIn);
-            }
-            z.AvailableBytesIn = 0;
+            // Preserve backward compatibility: read-mode Flush returns any over-read bytes.
+            ReturnOverread();
         }
     }
 
@@ -629,15 +644,10 @@ internal class ZlibBaseStream : Stream, IStreamStack
         {
             await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
-        else if (z.AvailableBytesIn > 0)
+        else
         {
-            // Rewind the underlying stream by the number of unconsumed bytes in the buffer
-            // This handles the case where the decompressor over-read past the end of the entry
-            if (_stream is IStreamStack stack)
-            {
-                stack.RewindOrThrow(z.AvailableBytesIn);
-            }
-            z.AvailableBytesIn = 0;
+            // Rewind is in-memory, so the sync path is sufficient on the async flush too.
+            ReturnOverread();
         }
     }
 

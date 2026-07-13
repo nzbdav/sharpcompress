@@ -34,7 +34,7 @@ using SharpCompress.IO;
 
 namespace SharpCompress.Compressors.Deflate;
 
-public partial class DeflateStream : Stream, IStreamStack
+public partial class DeflateStream : Stream, IStreamStack, IOverreadingStream
 {
     private readonly ZlibBaseStream _baseStream;
     private bool _disposed;
@@ -266,6 +266,19 @@ public partial class DeflateStream : Stream, IStreamStack
     }
 
     Stream IStreamStack.BaseStream() => _baseStream;
+
+    /// <summary>
+    /// Returns bytes the inflater read past the end of the compressed data to the underlying
+    /// buffered stream. Implemented explicitly so it stays off the public API surface.
+    /// </summary>
+    void IOverreadingStream.ReturnOverread()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException("DeflateStream");
+        }
+        _baseStream.ReturnOverread();
+    }
 
     /// <summary>
     /// Flush the stream.

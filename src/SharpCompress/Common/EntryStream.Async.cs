@@ -52,17 +52,12 @@ public partial class EntryStream
             }
         }
 
-        //Need a safe standard approach to this - it's okay for compression to overreads. Handling needs to be standardised
+        // Some decompressors read more of the underlying stream than the entry required.
+        // ReturnOverread only rewinds an in-memory buffer, so the sync call is used here and
+        // it walks the whole stack (the previous code only inspected one level via BaseStream()).
         if (!_reader.Cancelled && _stream is IStreamStack ss)
         {
-            if (ss.BaseStream() is SharpCompress.Compressors.Deflate.DeflateStream deflateStream)
-            {
-                await deflateStream.FlushAsync().ConfigureAwait(false);
-            }
-            else if (ss.BaseStream() is SharpCompress.Compressors.LZMA.LzmaStream lzmaStream)
-            {
-                await lzmaStream.FlushAsync().ConfigureAwait(false);
-            }
+            ss.FindImplementing<IOverreadingStream>()?.ReturnOverread();
         }
         await base.DisposeAsync().ConfigureAwait(false);
         await _stream.DisposeAsync().ConfigureAwait(false);

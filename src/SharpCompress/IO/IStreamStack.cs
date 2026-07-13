@@ -37,6 +37,30 @@ public static class StreamStackExtensions
     }
 
     /// <summary>
+    /// Walks the stream stack and returns the first stream implementing <typeparamref name="T"/>.
+    /// Mirrors <see cref="GetStream{T}"/> but matches an interface rather than a concrete
+    /// <see cref="Stream"/> type (which is why a separate helper is needed: <see cref="GetStream{T}"/>
+    /// constrains <c>T : Stream</c>).
+    /// </summary>
+    internal static T? FindImplementing<T>(this IStreamStack stack)
+        where T : class
+    {
+        var baseStream = stack.BaseStream();
+        if (baseStream is T match)
+        {
+            return match;
+        }
+        else if (baseStream is IStreamStack innerStack)
+        {
+            return innerStack.FindImplementing<T>();
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Gets the root underlying stream at the bottom of the stack.
     /// This is useful for seeking when the intermediate streams don't support it.
     /// </summary>

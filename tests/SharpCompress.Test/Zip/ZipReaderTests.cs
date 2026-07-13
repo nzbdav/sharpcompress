@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using SharpCompress.Archives;
+using SharpCompress.Archives.Zip;
 using SharpCompress.Common;
 using SharpCompress.IO;
 using SharpCompress.Readers;
@@ -401,6 +402,58 @@ public class ZipReaderTests : ReaderTests
             reader.OpenEntryStream().Dispose(); // Uncomment for workaround
         }
         Assert.Equal(4, count);
+    }
+
+    [Fact]
+    public void ZipReader_PartialReadFirstEntry_ReturnsOverread_ForNextEntry()
+    {
+        // Regression for #42: partially reading a Deflate entry and then disposing its
+        // EntryStream must return the decompressor's over-read (rewind the buffered
+        // underlying stream) so the following entry starts at the correct position.
+        var path = Path.Combine(TEST_ARCHIVES_PATH, "Zip.deflate.zip");
+
+        var expected = new Dictionary<string, byte[]>();
+        using (var archive = ZipArchive.OpenArchive(File.OpenRead(path)))
+        {
+            foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+            {
+                using var groundTruth = entry.OpenEntryStream();
+                using var ms = new MemoryStream();
+                groundTruth.CopyTo(ms);
+                expected[entry.Key!] = ms.ToArray();
+            }
+        }
+
+        using var stream = File.OpenRead(path);
+        using var reader = ZipReader.OpenReader(stream);
+        var firstFileSeen = false;
+        var verified = 0;
+        while (reader.MoveToNextEntry())
+        {
+            if (reader.Entry.IsDirectory)
+            {
+                continue;
+            }
+
+            if (!firstFileSeen)
+            {
+                firstFileSeen = true;
+                // Only read a few bytes of the first entry, then dispose without finishing it.
+                using var partial = reader.OpenEntryStream();
+                var scratch = new byte[16];
+                partial.Read(scratch, 0, scratch.Length);
+            }
+            else
+            {
+                using var entryStream = reader.OpenEntryStream();
+                using var ms = new MemoryStream();
+                entryStream.CopyTo(ms);
+                Assert.Equal(expected[reader.Entry.Key!], ms.ToArray());
+                verified++;
+            }
+        }
+
+        Assert.True(verified > 0);
     }
 
     [Fact]

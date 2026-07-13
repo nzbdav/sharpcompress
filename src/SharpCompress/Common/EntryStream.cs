@@ -67,23 +67,12 @@ public partial class EntryStream : Stream
             }
         }
 
-        //Need a safe standard approach to this - it's okay for compression to overreads. Handling needs to be standardised
+        // Some decompressors read more of the underlying stream than the entry required.
+        // Let any such stream in the stack rewind the buffered underlying stream so the
+        // next entry starts at the correct position.
         if (!_reader.Cancelled && _stream is IStreamStack ss)
         {
-            if (
-                ss.GetStream<SharpCompress.Compressors.Deflate.DeflateStream>()
-                is SharpCompress.Compressors.Deflate.DeflateStream deflateStream
-            )
-            {
-                deflateStream.Flush(); //Deflate over reads. Knock it back
-            }
-            else if (
-                ss.GetStream<SharpCompress.Compressors.LZMA.LzmaStream>()
-                is SharpCompress.Compressors.LZMA.LzmaStream lzmaStream
-            )
-            {
-                lzmaStream.Flush(); //Lzma over reads. Knock it back
-            }
+            ss.FindImplementing<IOverreadingStream>()?.ReturnOverread();
         }
         base.Dispose(disposing);
         _stream.Dispose();
