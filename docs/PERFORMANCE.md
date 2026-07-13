@@ -575,5 +575,8 @@ Console.WriteLine($"Memory used: {(afterMem - beforeMem) / 1024 / 1024}MB");
 
 ## Related Documentation
 
+- `ReaderOptions.RewindableBufferSize` and `Constants.BufferSize` — see [Buffer Sizing](#buffer-sizing) above.
+
+
 - [USAGE.md](USAGE.md) - Usage examples with performance considerations
 - [FORMATS.md](FORMATS.md) - Format-specific performance notes
