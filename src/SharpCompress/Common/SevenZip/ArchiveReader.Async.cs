@@ -27,18 +27,17 @@ internal sealed partial class ArchiveReader
         var canScan = lookForHeader ? 0x80000 - 20 : 0;
         while (true)
         {
-            // TODO: Check Signature!
             _header = new byte[0x20];
             await stream.ReadExactAsync(_header, 0, 0x20, cancellationToken).ConfigureAwait(false);
 
-            if (
-                !lookForHeader
-                || _header
-                    .AsSpan(0, length: 6)
-                    .SequenceEqual<byte>([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])
-            )
+            if (HasSevenZipSignature(_header))
             {
                 break;
+            }
+
+            if (!lookForHeader)
+            {
+                throw new InvalidFormatException("Invalid 7z signature");
             }
 
             if (canScan == 0)
@@ -50,6 +49,7 @@ internal sealed partial class ArchiveReader
             stream.Position = ++_streamOrigin;
         }
 
+        ValidateStartHeaderCrc(_header);
         _stream = stream;
     }
 
@@ -69,21 +69,10 @@ internal sealed partial class ArchiveReader
             throw new ArchiveOperationException();
         }
 
-        var crcFromArchive = DataReader.Get32(_header, 8);
+        // StartHeaderCRC was already verified in Open/OpenAsync.
         var nextHeaderOffset = (long)DataReader.Get64(_header, 0xC);
         var nextHeaderSize = (long)DataReader.Get64(_header, 0x14);
         var nextHeaderCrc = DataReader.Get32(_header, 0x1C);
-
-        var crc = Crc.INIT_CRC;
-        crc = Crc.Update(crc, nextHeaderOffset);
-        crc = Crc.Update(crc, nextHeaderSize);
-        crc = Crc.Update(crc, nextHeaderCrc);
-        crc = Crc.Finish(crc);
-
-        if (crc != crcFromArchive)
-        {
-            throw new ArchiveOperationException();
-        }
 
         db._startPositionAfterHeader = _streamOrigin + 0x20;
 
@@ -113,7 +102,7 @@ internal sealed partial class ArchiveReader
 
         if (Crc.Finish(Crc.Update(Crc.INIT_CRC, header, 0, header.Length)) != nextHeaderCrc)
         {
-            throw new ArchiveOperationException();
+            throw new InvalidFormatException("7z next header CRC mismatch");
         }
 
         using (var streamSwitch = new CStreamSwitch())
@@ -328,7 +317,7 @@ internal sealed partial class ArchiveReader
                     break;
                 }
 
-                var size = checked((long)ReadNumber());
+                var size = ReadPropertySize();
                 var oldPos = _currentReader.Offset;
                 switch (type)
                 {
