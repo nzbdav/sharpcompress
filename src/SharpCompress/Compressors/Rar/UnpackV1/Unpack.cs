@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -40,7 +38,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
         if (window is not null)
         {
             ArrayPool<byte>.Shared.Return(window);
-            window = null;
+            window = null!;
         }
     }
 
@@ -82,7 +80,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
     private readonly List<UnpackFilter> filters = new();
 
     // Filters stack, several entrances of same filter are possible
-    private readonly List<UnpackFilter> prgStack = new();
+    private readonly List<UnpackFilter?> prgStack = new();
 
     // lengths of preceding blocks, one length per filter. Used to reduce size
     // required to write block length if lengths are repeating
@@ -127,7 +125,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
         12,
     };
 
-    private FileHeader fileHeader;
+    private FileHeader fileHeader = null!;
 
     private void Init()
     {
@@ -734,7 +732,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
                     for (var J = I; J < prgStack.Count; J++)
                     {
                         var filt = prgStack[J];
-                        if (filt != null && filt.NextWindow)
+                        if (filt is not null && filt.NextWindow)
                         {
                             filt.NextWindow = false;
                         }

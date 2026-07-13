@@ -14,7 +14,7 @@ internal class FreqData : Pointer
     //        STATE _PACK_ATTR * Stats;
     //    };
 
-    internal FreqData(byte[] memory)
+    internal FreqData(byte[]? memory)
         : base(memory) { }
 
     internal int SummFreq
@@ -23,7 +23,7 @@ internal class FreqData : Pointer
         set => BinaryPrimitives.WriteInt16LittleEndian(Memory.AsSpan(Address), (short)value);
     }
 
-    internal FreqData Initialize(byte[] mem) => Initialize<FreqData>(mem);
+    internal FreqData Initialize(byte[]? mem) => Initialize<FreqData>(mem);
 
     internal void IncrementSummFreq(int dSummFreq) => SummFreq += (short)dSummFreq;
 

@@ -602,7 +602,7 @@ internal sealed partial class Unpack
                     for (var J = I; J < prgStack.Count; J++)
                     {
                         var filt = prgStack[J];
-                        if (filt != null && filt.NextWindow)
+                        if (filt is not null && filt.NextWindow)
                         {
                             filt.NextWindow = false;
                         }

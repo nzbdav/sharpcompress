@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.Text;
@@ -28,7 +26,7 @@ internal class SubAllocator : IDisposable
         set => _unitsStart = value;
     }
 
-    public virtual byte[] Heap => _heap;
+    public virtual byte[]? Heap => _heap;
 
     //UPGRADE_NOTE: Final was removed from the declaration of 'N4 '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
     public const int N1 = 4;
@@ -58,7 +56,7 @@ internal class SubAllocator : IDisposable
         _hiUnit;
 
     //UPGRADE_NOTE: Final was removed from the declaration of 'freeList '. "ms-help://MS.VSCC.v80/dv_commoner/local/redirect.htm?index='!DefaultContextWindowIndex'&keyword='jlca1003'"
-    private readonly RarNode[] _freeList = new RarNode[N_INDEXES];
+    private readonly RarNode?[] _freeList = new RarNode[N_INDEXES];
 
     // byte *pText, *UnitsStart,*HeapEnd,*FakeUnitsStart;
     private int _pText,
@@ -66,17 +64,17 @@ internal class SubAllocator : IDisposable
         _heapEnd,
         _fakeUnitsStart;
 
-    private byte[] _heap;
+    private byte[]? _heap;
 
     private int _freeListPos;
 
     private int _tempMemBlockPos;
 
     // Temp fields
-    private RarNode _tempRarNode;
-    private RarMemBlock _tempRarMemBlock1;
-    private RarMemBlock _tempRarMemBlock2;
-    private RarMemBlock _tempRarMemBlock3;
+    private RarNode _tempRarNode = null!;
+    private RarMemBlock _tempRarMemBlock1 = null!;
+    private RarMemBlock _tempRarMemBlock2 = null!;
+    private RarMemBlock _tempRarMemBlock3 = null!;
 
     public SubAllocator() => Clean();
 
@@ -86,18 +84,18 @@ internal class SubAllocator : IDisposable
     {
         var temp = _tempRarNode;
         temp.Address = p;
-        temp.SetNext(_freeList[indx].GetNext());
-        _freeList[indx].SetNext(temp);
+        temp.SetNext(_freeList[indx].NotNull().GetNext());
+        _freeList[indx].NotNull().SetNext(temp);
     }
 
     public virtual void IncPText() => _pText++;
 
     private int RemoveNode(int indx)
     {
-        var retVal = _freeList[indx].GetNext();
+        var retVal = _freeList[indx].NotNull().GetNext();
         var temp = _tempRarNode;
         temp.Address = retVal;
-        _freeList[indx].SetNext(temp.GetNext());
+        _freeList[indx].NotNull().SetNext(temp.GetNext());
         return retVal;
     }
 
@@ -137,10 +135,10 @@ internal class SubAllocator : IDisposable
             }
 
             // Free temp fields
-            _tempRarNode = null;
-            _tempRarMemBlock1 = null;
-            _tempRarMemBlock2 = null;
-            _tempRarMemBlock3 = null;
+            _tempRarNode = null!;
+            _tempRarMemBlock1 = null!;
+            _tempRarMemBlock2 = null!;
+            _tempRarMemBlock3 = null!;
 
             if (heap is not null)
             {
@@ -187,8 +185,9 @@ internal class SubAllocator : IDisposable
         // Init freeList
         for (int i = 0, pos = _freeListPos; i < _freeList.Length; i++, pos += RarNode.SIZE)
         {
-            _freeList[i] = new RarNode(_heap);
-            _freeList[i].Address = pos;
+            var node = new RarNode(_heap);
+            node.Address = pos;
+            _freeList[i] = node;
         }
 
         // Init temp fields
@@ -211,11 +210,11 @@ internal class SubAllocator : IDisposable
             sz;
         if (_loUnit != _hiUnit)
         {
-            _heap[_loUnit] = 0;
+            _heap.NotNull()[_loUnit] = 0;
         }
         for (i = 0, s0.SetPrev(s0), s0.SetNext(s0); i < N_INDEXES; i++)
         {
-            while (_freeList[i].GetNext() != 0)
+            while (_freeList[i].NotNull().GetNext() != 0)
             {
                 p.Address = RemoveNode(i); // =(RAR_MEM_BLK*)RemoveNode(i);
                 p.InsertAt(s0); // p->insertAt(&s0);
@@ -262,7 +261,7 @@ internal class SubAllocator : IDisposable
         {
             _glueCount = 255;
             GlueFreeBlocks();
-            if (_freeList[indx].GetNext() != 0)
+            if (_freeList[indx].NotNull().GetNext() != 0)
             {
                 return RemoveNode(indx);
             }
@@ -283,7 +282,7 @@ internal class SubAllocator : IDisposable
                 }
                 return (0);
             }
-        } while (_freeList[i].GetNext() == 0);
+        } while (_freeList[i].NotNull().GetNext() == 0);
         var retVal = RemoveNode(i);
         SplitBlock(retVal, i, indx);
         return retVal;
@@ -292,7 +291,7 @@ internal class SubAllocator : IDisposable
     public virtual int AllocUnits(int nu)
     {
         var indx = _units2Indx[nu - 1];
-        if (_freeList[indx].GetNext() != 0)
+        if (_freeList[indx].NotNull().GetNext() != 0)
         {
             return RemoveNode(indx);
         }
@@ -312,7 +311,7 @@ internal class SubAllocator : IDisposable
         {
             return (_hiUnit -= UNIT_SIZE);
         }
-        if (_freeList[0].GetNext() != 0)
+        if (_freeList[0].NotNull().GetNext() != 0)
         {
             return RemoveNode(0);
         }
@@ -331,7 +330,7 @@ internal class SubAllocator : IDisposable
         if (ptr != 0)
         {
             // memcpy(ptr,OldPtr,U2B(OldNU));
-            Array.Copy(_heap, oldPtr, _heap, ptr, U2B(oldNu));
+            Array.Copy(_heap.NotNull(), oldPtr, _heap, ptr, U2B(oldNu));
             InsertNode(oldPtr, i0);
         }
         return ptr;
@@ -347,7 +346,7 @@ internal class SubAllocator : IDisposable
         {
             return oldPtr;
         }
-        if (_freeList[i1].GetNext() != 0)
+        if (_freeList[i1].NotNull().GetNext() != 0)
         {
             var ptr = RemoveNode(i1);
 
@@ -355,7 +354,7 @@ internal class SubAllocator : IDisposable
             // for (int i = 0; i < U2B(NewNU); i++) {
             // heap[ptr + i] = heap[OldPtr + i];
             // }
-            Array.Copy(_heap, oldPtr, _heap, ptr, U2B(newNu));
+            Array.Copy(_heap.NotNull(), oldPtr, _heap, ptr, U2B(newNu));
             InsertNode(oldPtr, i0);
             return ptr;
         }
@@ -371,7 +370,7 @@ internal class SubAllocator : IDisposable
     {
         int i,
             k;
-        new Span<byte>(_heap, _freeListPos, SizeOfFreeList()).Clear();
+        new Span<byte>(_heap.NotNull(), _freeListPos, SizeOfFreeList()).Clear();
 
         _pText = _heapStart;
 

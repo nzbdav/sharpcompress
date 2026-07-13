@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using System.Threading;
@@ -138,7 +136,7 @@ public partial class Decoder : IAsyncDisposable
         Stream outStream,
         long inSize,
         long outSize,
-        ICodeProgress progress,
+        ICodeProgress? progress,
         CancellationToken cancellationToken = default
     )
     {

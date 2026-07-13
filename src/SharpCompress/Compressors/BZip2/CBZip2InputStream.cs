@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -118,8 +116,8 @@ internal partial class CBZip2InputStream : Stream
     private readonly char[] selector = new char[BZip2Constants.MAX_SELECTORS];
     private readonly char[] selectorMtf = new char[BZip2Constants.MAX_SELECTORS];
 
-    private int[] tt;
-    private char[] ll8;
+    private int[] tt = null!;
+    private char[] ll8 = null!;
 
     /*
     freq table collected to save a pass over the data
@@ -141,7 +139,7 @@ internal partial class CBZip2InputStream : Stream
     );
     private readonly int[] minLens = new int[BZip2Constants.N_GROUPS];
 
-    private Stream bsStream;
+    private Stream bsStream = null!;
 
     private bool streamEnd;
 
@@ -211,8 +209,8 @@ internal partial class CBZip2InputStream : Stream
             leaveOpen,
             tolerateTruncatedStream
         );
-        cbZip2InputStream.ll8 = null;
-        cbZip2InputStream.tt = null;
+        cbZip2InputStream.ll8 = null!;
+        cbZip2InputStream.tt = null!;
         cbZip2InputStream.BsSetStream(zStream);
         if (!cbZip2InputStream.Initialize(true))
         {
@@ -443,7 +441,7 @@ internal partial class CBZip2InputStream : Stream
         {
             bsStream?.Dispose();
         }
-        bsStream = null;
+        bsStream = null!;
     }
 
     private void BsSetStream(Stream f)
@@ -470,7 +468,7 @@ internal partial class CBZip2InputStream : Stream
             int thech = '\0';
             try
             {
-                thech = (char)bsStream.ReadByte();
+                thech = (char)bsStream.NotNull().ReadByte();
             }
             catch (IOException)
             {

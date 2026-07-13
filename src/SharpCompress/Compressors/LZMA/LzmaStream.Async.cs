@@ -145,7 +145,9 @@ public partial class LzmaStream
                 _decoder.SetDecoderProperties(Properties);
             }
 
-            await _rangeDecoder.InitAsync(_inputStream, cancellationToken).ConfigureAwait(false);
+            await _rangeDecoder
+                .InitAsync(_inputStream.NotNull(), cancellationToken)
+                .ConfigureAwait(false);
         }
         else if (control > 0x02)
         {
@@ -221,7 +223,7 @@ public partial class LzmaStream
             if (_uncompressedChunk)
             {
                 _inputPosition += await _outWindow
-                    .CopyStreamAsync(_inputStream, toProcess, cancellationToken)
+                    .CopyStreamAsync(_inputStream.NotNull(), toProcess, cancellationToken)
                     .ConfigureAwait(false);
             }
             else if (
@@ -336,7 +338,7 @@ public partial class LzmaStream
             if (_uncompressedChunk)
             {
                 _inputPosition += await _outWindow
-                    .CopyStreamAsync(_inputStream, toProcess, cancellationToken)
+                    .CopyStreamAsync(_inputStream.NotNull(), toProcess, cancellationToken)
                     .ConfigureAwait(false);
             }
             else if (

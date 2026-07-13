@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using System.Threading;
@@ -16,9 +14,9 @@ public class PpmdStream : Stream, IAsyncDisposable
     private readonly PpmdProperties _properties;
     private readonly Stream _stream;
     private readonly bool _compress;
-    private Model _model;
-    private ModelPpm _modelH;
-    private Decoder _decoder;
+    private Model? _model;
+    private ModelPpm? _modelH;
+    private Decoder? _decoder;
     private long _position;
     private bool _isDisposed;
 
@@ -176,7 +174,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         {
             if (_compress)
             {
-                _model.EncodeBlock(_stream, Stream.Null, true);
+                _model.NotNull().EncodeBlock(_stream, Stream.Null, true);
             }
             _modelH?.Dispose();
             _modelH = null;
@@ -194,7 +192,10 @@ public class PpmdStream : Stream, IAsyncDisposable
         _isDisposed = true;
         if (_compress)
         {
-            await _model.EncodeBlockAsync(_stream, new MemoryStream(), true).ConfigureAwait(false);
+            await _model
+                .NotNull()
+                .EncodeBlockAsync(_stream, new MemoryStream(), true)
+                .ConfigureAwait(false);
         }
         _modelH?.Dispose();
         _modelH = null;
@@ -219,12 +220,12 @@ public class PpmdStream : Stream, IAsyncDisposable
         var size = 0;
         if (_properties.Version == PpmdVersion.I1)
         {
-            size = _model.DecodeBlock(_stream, buffer, offset, count);
+            size = _model.NotNull().DecodeBlock(_stream, buffer, offset, count);
         }
         if (_properties.Version == PpmdVersion.H)
         {
             int c;
-            while (size < count && (c = _modelH.DecodeChar()) >= 0)
+            while (size < count && (c = _modelH.NotNull().DecodeChar()) >= 0)
             {
                 buffer[offset++] = (byte)c;
                 size++;
@@ -233,7 +234,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         if (_properties.Version == PpmdVersion.H7Z)
         {
             int c;
-            while (size < count && (c = _modelH.DecodeChar(_decoder)) >= 0)
+            while (size < count && (c = _modelH.NotNull().DecodeChar(_decoder.NotNull())) >= 0)
             {
                 buffer[offset++] = (byte)c;
                 size++;
@@ -265,6 +266,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         if (_properties.Version == PpmdVersion.I1)
         {
             size = await _model
+                .NotNull()
                 .DecodeBlockAsync(_stream, buffer, offset, count, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -273,7 +275,12 @@ public class PpmdStream : Stream, IAsyncDisposable
             int c;
             while (
                 size < count
-                && (c = await _modelH.DecodeCharAsync(cancellationToken).ConfigureAwait(false)) >= 0
+                && (
+                    c = await _modelH
+                        .NotNull()
+                        .DecodeCharAsync(cancellationToken)
+                        .ConfigureAwait(false)
+                ) >= 0
             )
             {
                 buffer[offset++] = (byte)c;
@@ -287,7 +294,8 @@ public class PpmdStream : Stream, IAsyncDisposable
                 size < count
                 && (
                     c = await _modelH
-                        .DecodeCharAsync(_decoder, cancellationToken)
+                        .NotNull()
+                        .DecodeCharAsync(_decoder.NotNull(), cancellationToken)
                         .ConfigureAwait(false)
                 ) >= 0
             )
@@ -321,6 +329,7 @@ public class PpmdStream : Stream, IAsyncDisposable
             // Need to use a temporary buffer since DecodeBlockAsync works with byte[]
             var tempBuffer = new byte[count];
             size = await _model
+                .NotNull()
                 .DecodeBlockAsync(_stream, tempBuffer, 0, count, cancellationToken)
                 .ConfigureAwait(false);
             tempBuffer.AsMemory(0, size).CopyTo(buffer);
@@ -330,7 +339,12 @@ public class PpmdStream : Stream, IAsyncDisposable
             int c;
             while (
                 size < count
-                && (c = await _modelH.DecodeCharAsync(cancellationToken).ConfigureAwait(false)) >= 0
+                && (
+                    c = await _modelH
+                        .NotNull()
+                        .DecodeCharAsync(cancellationToken)
+                        .ConfigureAwait(false)
+                ) >= 0
             )
             {
                 buffer.Span[offset++] = (byte)c;
@@ -344,7 +358,8 @@ public class PpmdStream : Stream, IAsyncDisposable
                 size < count
                 && (
                     c = await _modelH
-                        .DecodeCharAsync(_decoder, cancellationToken)
+                        .NotNull()
+                        .DecodeCharAsync(_decoder.NotNull(), cancellationToken)
                         .ConfigureAwait(false)
                 ) >= 0
             )
@@ -361,7 +376,7 @@ public class PpmdStream : Stream, IAsyncDisposable
     {
         if (_compress)
         {
-            _model.EncodeBlock(_stream, new MemoryStream(buffer, offset, count), false);
+            _model.NotNull().EncodeBlock(_stream, new MemoryStream(buffer, offset, count), false);
         }
     }
 
@@ -376,6 +391,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         if (_compress)
         {
             await _model
+                .NotNull()
                 .EncodeBlockAsync(
                     _stream,
                     new MemoryStream(buffer, offset, count),
@@ -395,6 +411,7 @@ public class PpmdStream : Stream, IAsyncDisposable
         if (_compress)
         {
             await _model
+                .NotNull()
                 .EncodeBlockAsync(
                     _stream,
                     new MemoryStream(buffer.ToArray()),

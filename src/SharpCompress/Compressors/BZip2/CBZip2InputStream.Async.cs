@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -906,6 +904,7 @@ internal partial class CBZip2InputStream
                 try
                 {
                     await bsStream
+                        .NotNull()
                         .ReadExactlyAsync(b.AsMemory(0, 1), cancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -969,8 +968,8 @@ internal partial class CBZip2InputStream
             leaveOpen,
             tolerateTruncatedStream
         );
-        cbZip2InputStream.ll8 = null;
-        cbZip2InputStream.tt = null;
+        cbZip2InputStream.ll8 = null!;
+        cbZip2InputStream.tt = null!;
         cbZip2InputStream.BsSetStream(zStream);
         if (!await cbZip2InputStream.InitializeAsync(true, cancellationToken).ConfigureAwait(false))
         {

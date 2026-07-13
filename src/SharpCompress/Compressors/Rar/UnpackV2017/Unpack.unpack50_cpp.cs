@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using static SharpCompress.Compressors.Rar.UnpackV2017.PackDef;
 using static SharpCompress.Compressors.Rar.UnpackV2017.UnpackGlobal;
@@ -437,7 +435,7 @@ internal partial class Unpack
 
                         Filters[I].Type = FILTER_NONE;
 
-                        if (OutMem != null)
+                        if (OutMem is not null)
                         {
                             UnpIO_UnpWrite(OutMem, 0, BlockLength);
                         }
@@ -522,7 +520,7 @@ internal partial class Unpack
         }
     }
 
-    private byte[] ApplyFilter(byte[] __d, uint DataSize, UnpackFilter Flt)
+    private byte[]? ApplyFilter(byte[] __d, uint DataSize, UnpackFilter Flt)
     {
         var Data = 0;
         var SrcData = __d;

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -74,11 +72,11 @@ internal class ModelPpm : IDisposable
         set => _hiBitsFlag = value & 0xff;
     }
 
-    internal RangeCoder Coder { get; private set; }
+    internal RangeCoder Coder { get; private set; } = null!;
 
-    internal State FoundState { get; private set; }
+    internal State FoundState { get; private set; } = null!;
 
-    public virtual byte[] Heap => SubAlloc.Heap;
+    public virtual byte[]? Heap => SubAlloc.Heap;
 
     public virtual int OrderFall => _orderFall;
 
@@ -103,9 +101,9 @@ internal class ModelPpm : IDisposable
 
     private readonly See2Context _dummySee2Cont = new();
 
-    private PpmContext _minContext; //medContext
+    private PpmContext _minContext = null!; //medContext
 
-    private PpmContext _maxContext;
+    private PpmContext _maxContext = null!;
 
     private int _numMasked,
         _initEsc,
@@ -121,7 +119,7 @@ internal class ModelPpm : IDisposable
         _prevSuccess,
         _hiBitsFlag;
 
-    private int[] _binSumm; // binary SEE-contexts
+    private int[] _binSumm = null!; // binary SEE-contexts
 
     private static readonly int[] INIT_BIN_ESC =
     {
@@ -229,8 +227,8 @@ internal class ModelPpm : IDisposable
     public ModelPpm()
     {
         InitBlock();
-        _minContext = null;
-        _maxContext = null;
+        _minContext = null!;
+        _maxContext = null!;
 
         //medContext = null;
     }
@@ -247,7 +245,7 @@ internal class ModelPpm : IDisposable
         var binSumm = _binSumm;
         if (binSumm is not null)
         {
-            _binSumm = null;
+            _binSumm = null!;
             ArrayPool<int>.Shared.Return(binSumm, clearArray: true);
         }
     }
@@ -637,7 +635,7 @@ internal class ModelPpm : IDisposable
         {
             return pc.Address;
         }
-        upState.Symbol = Heap[upBranch.Address]; // UpState.Symbol=*(byte*)
+        upState.Symbol = Heap.NotNull()[upBranch.Address]; // UpState.Symbol=*(byte*)
 
         // UpBranch;
         // UpState.Successor=(PPM_CONTEXT*) (((byte*) UpBranch)+1);
@@ -750,7 +748,7 @@ internal class ModelPpm : IDisposable
             }
             return;
         }
-        SubAlloc.Heap[SubAlloc.PText] = (byte)fs.Symbol;
+        SubAlloc.Heap.NotNull()[SubAlloc.PText] = (byte)fs.Symbol;
         SubAlloc.IncPText();
         successor.Address = SubAlloc.PText;
         if (SubAlloc.PText >= SubAlloc.FakeUnitsStart)
@@ -902,7 +900,7 @@ internal class ModelPpm : IDisposable
     //        subAlloc.dumpHeap();
     //    }
 
-    internal bool DecodeInit(Stream stream, int maxOrder, int maxMemory)
+    internal bool DecodeInit(Stream? stream, int maxOrder, int maxMemory)
     {
         if (stream != null)
         {
@@ -926,7 +924,7 @@ internal class ModelPpm : IDisposable
     }
 
     internal async ValueTask<bool> DecodeInitAsync(
-        Stream stream,
+        Stream? stream,
         int maxOrder,
         int maxMemory,
         CancellationToken cancellationToken = default

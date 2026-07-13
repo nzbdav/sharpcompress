@@ -13,7 +13,7 @@ internal class RarMemBlock : Pointer
     private int _next,
         _prev; // Pointer RarMemBlock
 
-    public RarMemBlock(byte[] memory)
+    public RarMemBlock(byte[]? memory)
         : base(memory) { }
 
     internal int Stamp

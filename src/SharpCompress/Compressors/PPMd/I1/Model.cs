@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using System.Threading;
@@ -47,8 +45,8 @@ internal partial class Model
     private ModelRestorationMethod _method;
     private PpmState _foundState; // found next state transition
 
-    private Allocator _allocator;
-    private Coder _coder;
+    private Allocator _allocator = null!;
+    private Coder _coder = null!;
     private PpmContext _minimumContext;
     private byte _numberStatistics;
     private readonly PpmState[] _decodeStates = new PpmState[256];
@@ -162,7 +160,7 @@ internal partial class Model
 
     internal Coder EncodeStart(PpmdProperties properties)
     {
-        _allocator = properties._allocator;
+        _allocator = properties._allocator.NotNull();
         _coder = new Coder();
         _coder.RangeEncoderInitialize();
         StartModel(properties.ModelOrder, properties.RestorationMethod);
@@ -319,7 +317,7 @@ internal partial class Model
 
     internal Coder DecodeStart(Stream source, PpmdProperties properties)
     {
-        _allocator = properties._allocator;
+        _allocator = properties._allocator.NotNull();
         _coder = new Coder();
         _coder.RangeDecoderInitialize(source);
         StartModel(properties.ModelOrder, properties.RestorationMethod);
@@ -338,7 +336,7 @@ internal partial class Model
         CancellationToken cancellationToken = default
     )
     {
-        _allocator = properties._allocator;
+        _allocator = properties._allocator.NotNull();
         _coder = new Coder();
         await _coder.RangeDecoderInitializeAsync(source, cancellationToken).ConfigureAwait(false);
         StartModel(properties.ModelOrder, properties.RestorationMethod);

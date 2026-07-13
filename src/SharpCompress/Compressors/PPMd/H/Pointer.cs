@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace SharpCompress.Compressors.PPMd.H;
 
 internal abstract class Pointer
@@ -7,17 +5,17 @@ internal abstract class Pointer
     /// <summary> Initialize the object with the array (may be null)</summary>
     /// <param name="mem">the byte array
     /// </param>
-    internal Pointer(byte[] mem) => Memory = mem;
+    internal Pointer(byte[]? mem) => Memory = mem!;
 
     internal byte[] Memory { get; private set; }
 
     internal virtual int Address { get; set; }
 
-    protected T Initialize<T>(byte[] mem)
+    protected T Initialize<T>(byte[]? mem)
         where T : Pointer
     {
-        Memory = mem;
+        Memory = mem!;
         Address = 0;
-        return this as T;
+        return (T)this;
     }
 }

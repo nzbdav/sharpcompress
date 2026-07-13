@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 using System.Text;
@@ -20,8 +18,8 @@ internal class RangeCoder
     private long _low,
         _code,
         _range;
-    private IRarUnpack _unpackRead;
-    private readonly Stream _stream;
+    private IRarUnpack? _unpackRead;
+    private readonly Stream? _stream;
 
     internal RangeCoder(IRarUnpack unpackRead)
     {
@@ -112,7 +110,7 @@ internal class RangeCoder
         return -1;
     }
 
-    internal SubRange SubRange { get; private set; }
+    internal SubRange SubRange { get; private set; } = null!;
 
     internal long GetCurrentShiftCount(int shift)
     {

@@ -1,5 +1,3 @@
-#nullable disable
-
 // ZlibCodec.cs
 // ------------------------------------------------------------------
 //
@@ -85,7 +83,7 @@ internal sealed class ZlibCodec
     /// <summary>
     /// The buffer from which data is taken.
     /// </summary>
-    public byte[] InputBuffer;
+    public byte[] InputBuffer = null!;
 
     /// <summary>
     /// An index into the InputBuffer array, indicating where to start reading.
@@ -109,7 +107,7 @@ internal sealed class ZlibCodec
     /// <summary>
     /// Buffer to store output data.
     /// </summary>
-    public byte[] OutputBuffer;
+    public byte[] OutputBuffer = null!;
 
     /// <summary>
     /// An index into the OutputBuffer array, indicating where to start writing.
@@ -133,10 +131,10 @@ internal sealed class ZlibCodec
     /// <summary>
     /// used for diagnostics, when something goes wrong!
     /// </summary>
-    public string Message;
+    public string? Message;
 
-    internal DeflateManager dstate;
-    internal InflateManager istate;
+    internal DeflateManager dstate = null!;
+    internal InflateManager istate = null!;
 
     internal uint _adler32;
 
@@ -379,7 +377,7 @@ internal sealed class ZlibCodec
             throw new ZlibException("No Inflate State!");
         }
         var ret = istate.End();
-        istate = null;
+        istate = null!;
         return ret;
     }
 
@@ -613,7 +611,7 @@ internal sealed class ZlibCodec
         }
 
         _ = dstate.End();
-        dstate = null;
+        dstate = null!;
         return ZlibConstants.Z_OK;
     }
 

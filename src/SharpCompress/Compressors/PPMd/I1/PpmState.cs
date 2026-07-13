@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace SharpCompress.Compressors.PPMd.I1;
 
 /// <summary>
@@ -18,17 +16,17 @@ namespace SharpCompress.Compressors.PPMd.I1;
 internal struct PpmState
 {
     public uint _address;
-    public byte[] _memory;
-    public static readonly PpmState ZERO = new(0, null);
+    public byte[] _memory = null!;
+    public static readonly PpmState ZERO = new(0, null!);
     public const int SIZE = 6;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PpmState"/> structure.
     /// </summary>
-    public PpmState(uint address, byte[] memory)
+    public PpmState(uint address, byte[]? memory)
     {
         _address = address;
-        _memory = memory;
+        _memory = memory!;
     }
 
     /// <summary>
@@ -174,7 +172,7 @@ internal struct PpmState
     /// </summary>
     /// <returns>true if obj and this instance are the same type and represent the same value; otherwise, false.</returns>
     /// <param name="obj">Another object to compare to.</param>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is PpmState state)
         {

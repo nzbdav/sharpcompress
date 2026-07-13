@@ -2,8 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-#nullable disable
-
 namespace SharpCompress.Compressors.BZip2;
 
 internal sealed partial class CBZip2OutputStream : IAsyncDisposable
@@ -431,9 +429,9 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
             }
         }
 
-        rfreq = null;
-        fave = null;
-        cost = null;
+        rfreq = null!;
+        fave = null!;
+        cost = null!;
 
         if (!(nGroups < 8))
         {
@@ -688,7 +686,7 @@ internal sealed partial class CBZip2OutputStream : IAsyncDisposable
                 bsStream.Dispose();
             }
         }
-        bsStream = null;
+        bsStream = null!;
 
         await base.DisposeAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);

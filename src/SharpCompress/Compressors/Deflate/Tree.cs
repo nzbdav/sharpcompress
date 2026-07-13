@@ -1,5 +1,3 @@
-#nullable disable
-
 // Tree.cs
 // ------------------------------------------------------------------
 //
@@ -948,9 +946,9 @@ internal sealed partial class DeflateManager
             24576,
         };
 
-        internal short[] dyn_tree; // the dynamic tree
+        internal short[] dyn_tree = null!; // the dynamic tree
         internal int max_code; // largest code with non zero frequency
-        internal StaticTree staticTree; // the corresponding static tree
+        internal StaticTree staticTree = null!; // the corresponding static tree
 
         /// <summary>
         /// Map from a distance to a distance code.
@@ -1015,7 +1013,7 @@ internal sealed partial class DeflateManager
                 xbits = 0;
                 if (n >= base_Renamed)
                 {
-                    xbits = extra[n - base_Renamed];
+                    xbits = extra.NotNull()[n - base_Renamed];
                 }
                 f = tree[n * 2];
                 s.opt_len += f * (bits + xbits);

@@ -26,8 +26,6 @@
 //
 //
 
-#nullable disable
-
 using System;
 using System.Diagnostics;
 using SharpCompress.Compressors.Deflate;
@@ -189,8 +187,8 @@ internal sealed class InflaterManaged
 
     private readonly OutputWindow _output;
     private readonly InputBuffer _input;
-    private HuffmanTree _literalLengthTree;
-    private HuffmanTree _distanceTree;
+    private HuffmanTree _literalLengthTree = null!;
+    private HuffmanTree _distanceTree = null!;
 
     private InflaterState _state;
 
@@ -217,7 +215,7 @@ internal sealed class InflaterManaged
     private readonly byte[] _codeList; // temporary array to store the code length for literal/Length and distance
     private readonly byte[] _codeLengthTreeCodeLength;
     private readonly bool _deflate64;
-    private HuffmanTree _codeLengthTree;
+    private HuffmanTree _codeLengthTree = null!;
 
     //private IFileFormatReader _formatReader; // class to decode header and footer (e.g. gzip)
 

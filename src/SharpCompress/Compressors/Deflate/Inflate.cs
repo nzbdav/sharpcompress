@@ -1,5 +1,3 @@
-#nullable disable
-
 // Inflate.cs
 // ------------------------------------------------------------------
 //
@@ -104,12 +102,12 @@ internal sealed class InflateBlocks
     // mode independent information
     internal int bitb; // bit buffer
     internal int bitk; // bits in bit buffer
-    internal int[] blens; // bit lengths of codes
+    internal int[] blens = null!; // bit lengths of codes
     internal uint check; // check on output
-    internal object checkfn; // check function
+    internal object? checkfn; // check function
     internal InflateCodes codes = new(); // if CODES, current state
     internal int end; // one byte after sliding window
-    internal int[] hufts; // single malloc for tree space
+    internal int[] hufts = null!; // single malloc for tree space
     internal int index; // index into blens (or border)
     internal InfTree inftree = new();
     internal int last; // true if this block is the last block
@@ -118,10 +116,10 @@ internal sealed class InflateBlocks
     internal int readAt; // window read pointer
     internal int table; // table lengths (14 bits)
     internal int[] tb = new int[1]; // bit length decoding tree
-    internal IMemoryOwner<byte> window; // sliding window
+    internal IMemoryOwner<byte> window = null!; // sliding window
     internal int writeAt; // window write pointer
 
-    internal InflateBlocks(ZlibCodec codec, object checkfn, int w)
+    internal InflateBlocks(ZlibCodec codec, object? checkfn, int w)
     {
         _codec = codec;
         hufts = ArrayPool<int>.Shared.Rent(MANY * 3);
@@ -141,7 +139,7 @@ internal sealed class InflateBlocks
         bitb = 0;
         readAt = writeAt = 0;
 
-        if (checkfn != null)
+        if (checkfn is not null)
         {
             _codec._adler32 = check = 1;
         }
@@ -459,7 +457,7 @@ internal sealed class InflateBlocks
                         r = t;
                         if (r == ZlibConstants.Z_DATA_ERROR)
                         {
-                            blens = null;
+                            blens = null!;
                             mode = InflateBlockMode.BAD;
                         }
 
@@ -566,7 +564,7 @@ internal sealed class InflateBlocks
                             t = table;
                             if (i + j > 258 + (t & 0x1f) + ((t >> 5) & 0x1f) || (c == 16 && i < 1))
                             {
-                                blens = null;
+                                blens = null!;
                                 mode = InflateBlockMode.BAD;
                                 _codec.Message = "invalid bit length repeat";
                                 r = ZlibConstants.Z_DATA_ERROR;
@@ -614,7 +612,7 @@ internal sealed class InflateBlocks
                         {
                             if (t == ZlibConstants.Z_DATA_ERROR)
                             {
-                                blens = null;
+                                blens = null!;
                                 mode = InflateBlockMode.BAD;
                             }
                             r = t;
@@ -719,11 +717,11 @@ internal sealed class InflateBlocks
     {
         Reset();
         window?.Dispose();
-        window = null;
+        window = null!;
         if (hufts is not null)
         {
             ArrayPool<int>.Shared.Return(hufts, clearArray: true);
-            hufts = null;
+            hufts = null!;
         }
     }
 
@@ -780,7 +778,7 @@ internal sealed class InflateBlocks
             _codec.TotalBytesOut += nBytes;
 
             // update check information
-            if (checkfn != null)
+            if (checkfn is not null)
             {
                 _codec._adler32 = check = Adler32.Calculate(
                     check,
@@ -879,17 +877,17 @@ internal sealed class InflateCodes
     internal int bitsToGet; // bits to get for extra
     internal byte dbits; // dtree bits decoder per branch
     internal int dist; // distance back to copy from
-    internal int[] dtree; // distance tree
+    internal int[] dtree = null!; // distance tree
     internal int dtree_index; // distance tree
 
     internal byte lbits; // ltree bits decoded per branch
     internal int len;
     internal int lit;
-    internal int[] ltree; // literal/length/eob tree
+    internal int[] ltree = null!; // literal/length/eob tree
     internal int ltree_index; // literal/length/eob tree
     internal int mode; // current inflate_codes mode
     internal int need; // bits needed
-    internal int[] tree; // pointer into tree
+    internal int[] tree = null!; // pointer into tree
     internal int tree_index;
 
     internal void Init(int bl, int bd, int[] tl, int tl_index, int[] td, int td_index)
@@ -901,7 +899,7 @@ internal sealed class InflateCodes
         ltree_index = tl_index;
         dtree = td;
         dtree_index = td_index;
-        tree = null;
+        tree = null!;
     }
 
     internal int Process(InflateBlocks blocks, int r)
@@ -1646,8 +1644,8 @@ internal sealed class InflateManager
     private const int Z_DEFLATED = 8;
     private static readonly byte[] mark = { 0, 0, 0xff, 0xff };
 
-    internal ZlibCodec _codec; // pointer back to this zlib stream
-    internal InflateBlocks blocks; // current inflate_blocks state
+    internal ZlibCodec _codec = null!; // pointer back to this zlib stream
+    internal InflateBlocks blocks = null!; // current inflate_blocks state
 
     // mode dependent information
 
@@ -1684,7 +1682,7 @@ internal sealed class InflateManager
     internal int End()
     {
         blocks?.Free();
-        blocks = null;
+        blocks = null!;
         return ZlibConstants.Z_OK;
     }
 
@@ -1692,7 +1690,7 @@ internal sealed class InflateManager
     {
         _codec = codec;
         _codec.Message = null;
-        blocks = null;
+        blocks = null!;
 
         // handle undocumented nowrap option (no zlib header or check)
         //nowrap = 0;

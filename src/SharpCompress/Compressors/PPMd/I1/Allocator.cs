@@ -1,5 +1,3 @@
-#nullable disable
-
 namespace SharpCompress.Compressors.PPMd.I1;
 
 /// Allocate a single, large array and then provide sections of this array to callers.  Callers are provided with
@@ -34,7 +32,7 @@ internal class Allocator
     public Pointer _heap;
     public MemoryNode[] _memoryNodes;
 
-    public byte[] _memory;
+    public byte[]? _memory;
 
     /// <summary>
     /// Initializes static read-only arrays used by the <see cref="Allocator"/>.

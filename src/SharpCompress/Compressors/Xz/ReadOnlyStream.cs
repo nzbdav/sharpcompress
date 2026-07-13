@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.IO;
 
@@ -7,7 +5,7 @@ namespace SharpCompress.Compressors.Xz;
 
 public abstract class ReadOnlyStream : Stream
 {
-    public Stream BaseStream { get; protected set; }
+    public Stream BaseStream { get; protected set; } = null!;
 
     public override bool CanRead => BaseStream.CanRead;
 

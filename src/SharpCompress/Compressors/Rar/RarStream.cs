@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -14,7 +12,7 @@ internal partial class RarStream : Stream
     private readonly FileHeader fileHeader;
     private readonly Stream readStream;
     private readonly bool ownsUnpack;
-    private readonly Action onDispose;
+    private readonly Action? onDispose;
 
     private bool fetch;
 
@@ -22,7 +20,7 @@ internal partial class RarStream : Stream
     private int tmpOffset;
     private int tmpCount;
 
-    private byte[] outBuffer;
+    private byte[] outBuffer = null!;
     private int outOffset;
     private int outCount;
     private int outTotal;
@@ -35,7 +33,7 @@ internal partial class RarStream : Stream
         FileHeader fileHeader,
         Stream readStream,
         bool ownsUnpack = false,
-        Action onDispose = null
+        Action? onDispose = null
     )
     {
         this.unpack = unpack;
@@ -66,7 +64,7 @@ internal partial class RarStream : Stream
             if (disposing)
             {
                 ArrayPool<byte>.Shared.Return(this.tmpBuffer);
-                this.tmpBuffer = null;
+                this.tmpBuffer = null!;
                 readStream.Dispose();
                 if (ownsUnpack && unpack is IDisposable disposableUnpack)
                 {

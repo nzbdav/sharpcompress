@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -390,7 +388,7 @@ internal partial class Unpack
 
                         Filters[I].Type = FILTER_NONE;
 
-                        if (OutMem != null)
+                        if (OutMem is not null)
                         {
                             await UnpIO_UnpWriteAsync(OutMem, 0, BlockLength, cancellationToken)
                                 .ConfigureAwait(false);

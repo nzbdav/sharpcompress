@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -46,11 +44,11 @@ public sealed partial class XZStream : XZReadOnlyStream
         }
     }
 
-    public XZHeader Header { get; private set; }
-    public XZIndex Index { get; private set; }
-    public XZFooter Footer { get; private set; }
+    public XZHeader Header { get; private set; } = null!;
+    public XZIndex Index { get; private set; } = null!;
+    public XZFooter Footer { get; private set; } = null!;
     public bool HeaderIsRead { get; private set; }
-    private XZBlock _currentBlock;
+    private XZBlock? _currentBlock;
     private readonly List<(ulong UnpaddedSize, ulong UncompressedSize)> _blockSizes = new();
 
     private bool _endOfStream;
@@ -156,7 +154,7 @@ public sealed partial class XZStream : XZReadOnlyStream
 
                 var remaining = count - bytesRead;
                 var newOffset = offset + bytesRead;
-                var justRead = _currentBlock.Read(buffer, newOffset, remaining);
+                var justRead = _currentBlock.NotNull().Read(buffer, newOffset, remaining);
                 if (justRead < remaining)
                 {
                     NextBlock();

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Buffers;
 using System.IO;
@@ -11,13 +9,13 @@ namespace SharpCompress.Compressors.LZMA.LZ;
 
 internal partial class OutWindow : IDisposable
 {
-    private byte[] _buffer;
+    private byte[] _buffer = null!;
     private int _windowSize;
     private int _pos;
     private int _streamPos;
     private int _pendingLen;
     private int _pendingDist;
-    private Stream _stream;
+    private Stream? _stream;
 
     private long _total;
     private long _limit;
@@ -55,7 +53,7 @@ internal partial class OutWindow : IDisposable
             return;
         }
         ArrayPool<byte>.Shared.Return(_buffer);
-        _buffer = null;
+        _buffer = null!;
     }
 
     public void Reset()

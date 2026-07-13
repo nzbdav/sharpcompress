@@ -56,7 +56,13 @@ internal interface ICoder
     /// <param name="progress">
     /// callback progress reference.
     /// </param>
-    void Code(Stream inStream, Stream outStream, long inSize, long outSize, ICodeProgress progress);
+    void Code(
+        Stream inStream,
+        Stream outStream,
+        long inSize,
+        long outSize,
+        ICodeProgress? progress
+    );
 }
 
 /*

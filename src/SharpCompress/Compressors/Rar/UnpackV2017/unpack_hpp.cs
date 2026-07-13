@@ -190,7 +190,7 @@ internal partial class FragmentedWindow
     private const int MAX_MEM_BLOCKS = 32;
 
     //void Reset();
-    private readonly byte[][] Mem = new byte[MAX_MEM_BLOCKS][];
+    private readonly byte[]?[] Mem = new byte[MAX_MEM_BLOCKS][];
     private readonly size_t[] MemSize = new size_t[MAX_MEM_BLOCKS];
 
     //FragmentedWindow();
@@ -273,7 +273,7 @@ internal partial class Unpack
 
     private size_t WriteBorder;
 
-    private byte[] Window;
+    private byte[] Window = null!;
 
     private readonly FragmentedWindow FragWindow = new();
     private bool Fragmented;
