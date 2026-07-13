@@ -73,20 +73,26 @@ public sealed partial class XZStream
     }
 
     /// <summary>
-    /// Asynchronously reads the XZ index.
+    /// Asynchronously reads the XZ index and verifies it against decoded block sizes.
     /// </summary>
-    private async ValueTask ReadIndexAsync(CancellationToken cancellationToken = default) =>
+    private async ValueTask ReadIndexAsync(CancellationToken cancellationToken = default)
+    {
         Index = await XZIndex
             .FromStreamAsync(BaseStream, true, cancellationToken)
             .ConfigureAwait(false);
+        VerifyIndexRecords();
+    }
 
     /// <summary>
-    /// Asynchronously reads the XZ footer.
+    /// Asynchronously reads the XZ footer and verifies Backward Size / Stream Flags.
     /// </summary>
-    private async ValueTask ReadFooterAsync(CancellationToken cancellationToken = default) =>
+    private async ValueTask ReadFooterAsync(CancellationToken cancellationToken = default)
+    {
         Footer = await XZFooter
             .FromStreamAsync(BaseStream, cancellationToken)
             .ConfigureAwait(false);
+        VerifyFooter();
+    }
 
     /// <summary>
     /// Asynchronously reads blocks of data from the stream.

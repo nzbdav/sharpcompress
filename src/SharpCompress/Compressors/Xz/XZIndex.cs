@@ -14,9 +14,16 @@ namespace SharpCompress.Compressors.Xz;
 public partial class XZIndex
 {
     private readonly BinaryReader _reader;
+
     public long StreamStartPosition { get; private set; }
     public ulong NumberOfRecords { get; private set; }
     public List<XZIndexRecord> Records { get; } = new();
+
+    /// <summary>
+    /// Total size of the Index including the CRC32 field.
+    /// Used to verify the Stream Footer Backward Size field.
+    /// </summary>
+    internal long IndexSize { get; private set; }
 
     private readonly bool _indexMarkerAlreadyVerified;
 
@@ -43,35 +50,46 @@ public partial class XZIndex
 
     public void Process()
     {
+        using var crcStream = new Crc32TrackingStream(_reader.BaseStream);
+        if (_indexMarkerAlreadyVerified)
+        {
+            // Index indicator byte was already consumed; include it in the CRC.
+            Span<byte> indicator = stackalloc byte[1];
+            indicator[0] = 0;
+            crcStream.Update(indicator);
+        }
+
+        using var reader = new BinaryReader(crcStream, Encoding.UTF8, leaveOpen: true);
+
         if (!_indexMarkerAlreadyVerified)
         {
-            VerifyIndexMarker();
+            VerifyIndexMarker(reader);
         }
 
-        NumberOfRecords = _reader.ReadXZInteger();
+        NumberOfRecords = reader.ReadXZInteger();
         for (ulong i = 0; i < NumberOfRecords; i++)
         {
-            Records.Add(XZIndexRecord.FromBinaryReader(_reader));
+            Records.Add(XZIndexRecord.FromBinaryReader(reader));
         }
-        SkipPadding();
-        VerifyCrc32();
+        SkipPadding(reader);
+        VerifyCrc32(crcStream);
     }
 
-    private void VerifyIndexMarker()
+    private static void VerifyIndexMarker(BinaryReader reader)
     {
-        var marker = _reader.ReadByte();
+        var marker = reader.ReadByte();
         if (marker != 0)
         {
             throw new InvalidFormatException("Not an index block");
         }
     }
 
-    private void SkipPadding()
+    private void SkipPadding(BinaryReader reader)
     {
-        var bytes = (int)(_reader.BaseStream.Position - StreamStartPosition) % 4;
+        var bytes = (int)(reader.BaseStream.Position - StreamStartPosition) % 4;
         if (bytes > 0)
         {
-            var paddingBytes = _reader.ReadBytes(4 - bytes);
+            var paddingBytes = reader.ReadBytes(4 - bytes);
             if (paddingBytes.Any(b => b != 0))
             {
                 throw new InvalidFormatException("Padding bytes were non-null");
@@ -79,9 +97,16 @@ public partial class XZIndex
         }
     }
 
-    private void VerifyCrc32()
+    private void VerifyCrc32(Crc32TrackingStream crcStream)
     {
-        var crc = _reader.ReadLittleEndianUInt32();
-        // TODO verify this matches
+        var expected = crcStream.FinalCrc;
+        // Read the stored CRC from the underlying stream so it is not included in the hash.
+        var crc = crcStream.WrappedStream.ReadLittleEndianUInt32();
+        if (crc != expected)
+        {
+            throw new InvalidFormatException("Index corrupt");
+        }
+
+        IndexSize = crcStream.WrappedStream.Position - StreamStartPosition;
     }
 }

@@ -31,6 +31,18 @@ public sealed partial class XZBlock : XZReadOnlyStream
     private bool _paddingSkipped;
     private bool _crcChecked;
     private readonly long _startPosition;
+    private int _paddingLength;
+    private ulong _observedUncompressedSize;
+
+    /// <summary>
+    /// Unpadded block size (header + compressed data + check), valid after the block completes.
+    /// </summary>
+    internal ulong ObservedUnpaddedSize { get; private set; }
+
+    /// <summary>
+    /// Total uncompressed bytes produced by this block, valid after the block completes.
+    /// </summary>
+    internal ulong ObservedUncompressedSize => _observedUncompressedSize;
 
     public XZBlock(Stream stream, CheckType checkType, int checkSize)
         : base(stream)
@@ -61,6 +73,7 @@ public sealed partial class XZBlock : XZReadOnlyStream
         {
             bytesRead = _decomStream.NotNull().Read(buffer, offset, count);
             UpdateCheck(buffer, offset, bytesRead);
+            _observedUncompressedSize += (ulong)bytesRead;
         }
 
         if (bytesRead != count)
@@ -92,6 +105,7 @@ public sealed partial class XZBlock : XZReadOnlyStream
             {
                 throw new InvalidFormatException("Padding bytes were non-null");
             }
+            _paddingLength = paddingBytes.Length;
         }
         _paddingSkipped = true;
     }
@@ -111,12 +125,19 @@ public sealed partial class XZBlock : XZReadOnlyStream
             }
             VerifyCheck(crc.AsSpan().Slice(0, _checkSize));
             _crcChecked = true;
+            // Unpadded Size excludes block padding but includes header, compressed data, and check.
+            ObservedUnpaddedSize = (ulong)(BaseStream.Position - _startPosition - _paddingLength);
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(crc);
         }
     }
+
+    /// <summary>
+    /// True once the block check has been read and validated.
+    /// </summary>
+    internal bool IsComplete => _crcChecked;
 
     private void UpdateCheck(byte[] buffer, int offset, int count)
     {
