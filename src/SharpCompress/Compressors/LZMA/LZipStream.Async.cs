@@ -187,11 +187,22 @@ public sealed partial class LZipStream
         CancellationToken cancellationToken
     )
     {
-        var read = await _stream
-            .ReadAsync(buffer, offset, count, cancellationToken)
-            .ConfigureAwait(false);
-        UpdateAndValidateAtEof(buffer.AsSpan(offset, read), read);
-        return read;
+        while (count > 0)
+        {
+            var read = await _stream
+                .ReadAsync(buffer, offset, count, cancellationToken)
+                .ConfigureAwait(false);
+            if (read > 0)
+            {
+                UpdateChecksum(buffer.AsSpan(offset, read));
+                return read;
+            }
+            if (!await AdvanceToNextMemberAsync(cancellationToken).ConfigureAwait(false))
+            {
+                break;
+            }
+        }
+        return 0;
     }
 
     private async ValueTask<int> ReadAndValidateAsync(
@@ -199,9 +210,113 @@ public sealed partial class LZipStream
         CancellationToken cancellationToken
     )
     {
-        var read = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-        UpdateAndValidateAtEof(buffer.Span[..read], read);
-        return read;
+        while (!buffer.IsEmpty)
+        {
+            var read = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (read > 0)
+            {
+                UpdateChecksum(buffer.Span[..read]);
+                return read;
+            }
+            if (!await AdvanceToNextMemberAsync(cancellationToken).ConfigureAwait(false))
+            {
+                break;
+            }
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Async counterpart of <see cref="AdvanceToNextMember"/>: validates and consumes the
+    /// current member trailer, then advances into the next concatenated member if present.
+    /// </summary>
+    private async ValueTask<bool> AdvanceToNextMemberAsync(CancellationToken cancellationToken)
+    {
+        if (Mode != CompressionMode.Decompress)
+        {
+            return false;
+        }
+
+        await ValidateTrailerAsync(cancellationToken).ConfigureAwait(false);
+        return await TryStartNextMemberAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask ValidateTrailerAsync(CancellationToken cancellationToken)
+    {
+        if (_trailerValidated || Mode != CompressionMode.Decompress)
+        {
+            return;
+        }
+
+        _trailerValidated = true;
+
+        var compressedDataSize = PrepareTrailerPosition();
+        var buffer = ArrayPool<byte>.Shared.Rent(20);
+        try
+        {
+            var trailerRead = await _countingReadableSubStream
+                .NotNull()
+                .ReadAtLeastAsync(
+                    buffer.AsMemory(0, 20),
+                    20,
+                    throwOnEndOfStream: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            ValidateTrailerData(buffer.AsSpan(0, 20), trailerRead, compressedDataSize);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private async ValueTask<bool> TryStartNextMemberAsync(CancellationToken cancellationToken)
+    {
+        var countingStream = _countingReadableSubStream.NotNull();
+        var buffer = ArrayPool<byte>.Shared.Rent(6);
+        try
+        {
+            var magicRead = await countingStream
+                .ReadAtLeastAsync(
+                    buffer.AsMemory(0, 4),
+                    4,
+                    throwOnEndOfStream: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            if (magicRead < 4 || !HasLZipMagic(buffer.AsSpan(0, 4)))
+            {
+                return false;
+            }
+
+            // Read the remaining two header bytes: version and coded dictionary size.
+            var restRead = await countingStream
+                .ReadAtLeastAsync(
+                    buffer.AsMemory(4, 2),
+                    2,
+                    throwOnEndOfStream: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            if (restRead < 2 || buffer[4] != 1)
+            {
+                return false;
+            }
+
+            var dictionarySize = DecodeDictionarySize(buffer[5]);
+            if (dictionarySize == 0)
+            {
+                return false;
+            }
+
+            StartNextMember(dictionarySize);
+            return true;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>
