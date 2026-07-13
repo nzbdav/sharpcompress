@@ -155,7 +155,7 @@ public partial class Decoder : IAsyncDisposable
         }
 
         var rangeDecoder = new RangeCoder.Decoder();
-        await rangeDecoder.InitAsync(inStream, cancellationToken).ConfigureAwait(false);
+        await rangeDecoder.InitAsync(inStream, inSize, cancellationToken).ConfigureAwait(false);
 
         await CodeAsync(_dictionarySize, _outWindow, rangeDecoder, cancellationToken)
             .ConfigureAwait(false);
