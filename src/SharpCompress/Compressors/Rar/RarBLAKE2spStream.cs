@@ -114,7 +114,7 @@ internal partial class RarBLAKE2spStream : RarStream
     {
         this.readStream = readStream;
 
-        // TODO: rar uses a modified hash xor'ed with encryption key?
+        // Encrypted entries skip CRC: UnRAR may XOR the hash with the encryption key; exact behavior is unclear.
         disableCRCCheck = fileHeader.IsEncrypted;
         this._blake2sp = CreateBlake2sp();
     }

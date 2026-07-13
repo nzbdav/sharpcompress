@@ -108,8 +108,7 @@ internal partial class Unpack : IRarUnpack
         }
         else
         {
-            // TODO: When compression methods are converted to async, call them here
-            // For now, fall back to synchronous version
+            // See #67: call async compression methods when available; sync fallback for now.
             await DoUnpackAsync(
                     fileHeader.CompressionAlgorithm,
                     fileHeader.IsSolid,
@@ -164,7 +163,7 @@ internal partial class Unpack : IRarUnpack
 
     public int ReadChar()
     {
-        // TODO: coderb: not sure where the "MAXSIZE-30" comes from, ported from V1 code
+        // Refill when near end of buffer; the MAX_SIZE-30 threshold is ported from V1/UnRAR and not independently derived.
         if (InAddr > MAX_SIZE - 30)
         {
             UnpReadBuf();
@@ -175,7 +174,7 @@ internal partial class Unpack : IRarUnpack
     public async ValueTask<int> ReadCharAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // TODO: coderb: not sure where the "MAXSIZE-30" comes from, ported from V1 code
+        // Refill when near end of buffer; the MAX_SIZE-30 threshold is ported from V1/UnRAR and not independently derived.
         if (InAddr > MAX_SIZE - 30)
         {
             await UnpReadBufAsync(cancellationToken).ConfigureAwait(false);

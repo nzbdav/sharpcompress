@@ -43,7 +43,7 @@ internal class CryptKey3 : ICryptKey
         byte[] digest;
         var data = new byte[(rawPassword.Length + iblock) * noOfRounds];
 
-        //TODO slow code below, find ways to optimize
+        // See #23: O(n²) hashing + large LOH allocation in RAR3 KDF.
         for (var i = 0; i < noOfRounds; i++)
         {
             rawPassword.CopyTo(data, i * (rawPassword.Length + iblock));

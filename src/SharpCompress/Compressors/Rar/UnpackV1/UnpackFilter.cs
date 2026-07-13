@@ -9,7 +9,6 @@ internal class UnpackFilter
 
     internal UnpackFilter() => Program = new VMPreparedProgram();
 
-    // TODO uint
     internal uint uBlockStart
     {
         get => (uint)BlockStart;

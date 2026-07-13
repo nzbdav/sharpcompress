@@ -1,7 +1,7 @@
 /*
  * ArmFThumbFilter.cs -- XZ converter ARMThumb executable
  * <Contribution by Louis-Michel Bergeron, on behalf of aDolus Technolog Inc., 2022>
- * @TODO Properties offset
+ * Properties offset handling is not implemented; filter properties are unused.
  */
 
 using System.IO;

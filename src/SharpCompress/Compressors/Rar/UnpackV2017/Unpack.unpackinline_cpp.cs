@@ -25,7 +25,7 @@ internal partial class Unpack
             // If we are not close to end of window, we do not need to waste time
             // to "& MaxWinMask" pointer protection.
 
-            // TODO: sharpcompress: non-optimized loop, we may be able to unroll and speed up
+            // See #68: non-optimized loop; may be unrollable.
             var Window = this.Window;
             while (Length-- > 0)
             {

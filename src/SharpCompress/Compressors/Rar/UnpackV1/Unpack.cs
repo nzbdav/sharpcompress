@@ -784,9 +784,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
         destUnpSize -= size;
     }
 
-    private void InsertOldDist(uint distance) =>
-        // TODO uint
-        InsertOldDist((int)distance);
+    private void InsertOldDist(uint distance) => InsertOldDist((int)distance);
 
     private void InsertOldDist(int distance)
     {
@@ -802,9 +800,7 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
         lastLength = length;
     }
 
-    private void CopyString(uint length, uint distance) =>
-        // TODO uint
-        CopyString((int)length, (int)distance);
+    private void CopyString(uint length, uint distance) => CopyString((int)length, (int)distance);
 
     private void CopyString(int length, int distance)
     {

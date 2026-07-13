@@ -264,7 +264,7 @@ internal sealed partial class Unpack : BitInput
             case 29: // rar 3.x compression
                 if (!Fragmented)
                 {
-                    // TODO: Create Unpack29Async when ready
+                    // See #67: Unpack29Async not implemented yet.
                     throw new NotImplementedException();
                 }
 

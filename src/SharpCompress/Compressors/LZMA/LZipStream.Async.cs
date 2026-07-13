@@ -131,7 +131,7 @@ public sealed partial class LZipStream
         {
             var n = await stream.ReadAsync(header, 0, 6, cancellationToken).ConfigureAwait(false);
 
-            // TODO: Handle reading only part of the header?
+            // Incomplete header read is treated as not-LZIP (return 0); callers do not retry partial reads.
 
             if (n != 6)
             {

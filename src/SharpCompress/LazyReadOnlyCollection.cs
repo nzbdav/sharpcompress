@@ -111,7 +111,7 @@ internal sealed class LazyReadOnlyCollection<T> : ICollection<T>
 
     #region IEnumerable<T> Members
 
-    //TODO check for concurrent access
+    // See #64: concurrent enumeration while lazy-loading is not synchronized.
     public IEnumerator<T> GetEnumerator() => new LazyLoader(this);
 
     #endregion

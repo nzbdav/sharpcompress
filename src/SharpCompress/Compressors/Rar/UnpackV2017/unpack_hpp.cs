@@ -5,7 +5,7 @@ using static SharpCompress.Compressors.Rar.UnpackV2017.UnpackGlobal;
 using int64 = System.Int64;
 using size_t = System.UInt32;
 
-// TODO: REMOVE THIS... WIP
+// Port of UnRAR unpack.hpp globals/types used by UnpackV2017.
 #pragma warning disable 169
 #pragma warning disable 414
 

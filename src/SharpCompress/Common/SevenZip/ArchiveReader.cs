@@ -1382,7 +1382,7 @@ internal partial class ArchiveReader
                 packSizes[j] = db._packSizes[packStreamIndex + j];
             }
 
-            // TODO: If the decoding fails the last file may be extracted incompletely. Delete it?
+            // See #66: if decoding fails, the last file may be incomplete; consider deleting it.
 
             var s = DecoderStreamHelper.CreateDecoderStream(
                 _stream,

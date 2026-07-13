@@ -1588,7 +1588,7 @@ public static unsafe partial class Methods
         }
         else if (dictMode == ZSTD_dictMode_e.ZSTD_dictMatchState)
         {
-            /* TODO: Measure and potentially add prefetching to DMS */
+            /* Consider measuring and potentially adding prefetching to DMS. */
             uint dmsLowestIndex = dms->window.dictLimit;
             byte* dmsBase = dms->window.@base;
             byte* dmsEnd = dms->window.nextSrc;
