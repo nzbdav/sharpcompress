@@ -6,7 +6,6 @@ namespace SharpCompress.Common.Zip;
 
 internal class PkwareTraditionalEncryptionData
 {
-    private static readonly CRC32 CRC32 = new();
     private readonly uint[] _keys = { 0x12345678, 0x23456789, 0x34567890 };
     private readonly IArchiveEncoding _archiveEncoding;
 

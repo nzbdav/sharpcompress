@@ -22,19 +22,16 @@
 // Implements the CRC algorithm, which is used in zip files.  The zip format calls for
 // the zipfile to contain a CRC for the unencrypted byte stream of each file.
 //
-// It is based on example source code published at
-//    http://www.vbaccelerator.com/home/net/code/libraries/CRC32/Crc32_zip_CRC32_CRC32_cs.asp
-//
-// This implementation adds a tweak of that code for use within zip creation.  While
-// computing the CRC we also compress the byte stream, in the same read loop. This
-// avoids the need to read through the uncompressed stream twice - once to compute CRC
-// and another time to compress.
+// Internals now delegate to System.IO.Hashing via Crc32Helper for SIMD acceleration.
 //
 // ------------------------------------------------------------------
 
 using System;
 using System.Buffers;
 using System.IO;
+using System.IO.Hashing;
+using System.Runtime.CompilerServices;
+using SharpCompress.Algorithms;
 
 namespace SharpCompress.Compressors.Deflate;
 
@@ -48,54 +45,19 @@ namespace SharpCompress.Compressors.Deflate;
 public class CRC32
 {
     private const int BUFFER_SIZE = 8192;
-    private static readonly uint[] crc32Table;
-    private uint runningCrc32Result = 0xFFFFFFFF;
-
-    static CRC32()
-    {
-        unchecked
-        {
-            // PKZip specifies CRC32 with a polynomial of 0xEDB88320;
-            // This is also the CRC-32 polynomial used bby Ethernet, FDDI,
-            // bzip2, gzip, and others.
-            // Often the polynomial is shown reversed as 0x04C11DB7.
-            // For more details, see http://en.wikipedia.org/wiki/Cyclic_redundancy_check
-            var dwPolynomial = 0xEDB88320;
-            uint i,
-                j;
-
-            crc32Table = new uint[256];
-
-            uint dwCrc;
-            for (i = 0; i < 256; i++)
-            {
-                dwCrc = i;
-                for (j = 8; j > 0; j--)
-                {
-                    if ((dwCrc & 1) == 1)
-                    {
-                        dwCrc = (dwCrc >> 1) ^ dwPolynomial;
-                    }
-                    else
-                    {
-                        dwCrc >>= 1;
-                    }
-                }
-                crc32Table[i] = dwCrc;
-            }
-        }
-    }
+    private readonly Crc32 _hasher = new();
+    private long _totalBytesRead;
 
     /// <summary>
     /// indicates the total number of bytes read on the CRC stream.
     /// This is used when writing the ZipDirEntry when compressing files.
     /// </summary>
-    public long TotalBytesRead { get; private set; }
+    public long TotalBytesRead => _totalBytesRead;
 
     /// <summary>
     /// Indicates the current CRC for all blocks slurped in.
     /// </summary>
-    public int Crc32Result => unchecked((int)(~runningCrc32Result));
+    public int Crc32Result => unchecked((int)_hasher.GetCurrentHashAsUInt32());
 
     /// <summary>
     /// Returns the CRC32 for the specified stream.
@@ -119,26 +81,25 @@ public class CRC32
         }
         unchecked
         {
-            //UInt32 crc32Result;
-            //crc32Result = 0xFFFFFFFF;
             var buffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);
             try
             {
                 var readSize = BUFFER_SIZE;
 
-                TotalBytesRead = 0;
+                _totalBytesRead = 0;
+                _hasher.Reset();
                 var count = input.Read(buffer, 0, readSize);
                 output?.Write(buffer, 0, count);
-                TotalBytesRead += count;
+                _totalBytesRead += count;
                 while (count > 0)
                 {
                     SlurpBlock(buffer, 0, count);
                     count = input.Read(buffer, 0, readSize);
                     output?.Write(buffer, 0, count);
-                    TotalBytesRead += count;
+                    _totalBytesRead += count;
                 }
 
-                return ~runningCrc32Result;
+                return _hasher.GetCurrentHashAsUInt32();
             }
             finally
             {
@@ -154,10 +115,10 @@ public class CRC32
     /// <param name="W">The word to start with.</param>
     /// <param name="B">The byte to combine it with.</param>
     /// <returns>The CRC-ized result.</returns>
-    public int ComputeCrc32(int W, byte B) => _InternalComputeCrc32((uint)W, B);
+    public static int ComputeCrc32(int W, byte B) => _InternalComputeCrc32((uint)W, B);
 
-    internal int _InternalComputeCrc32(uint W, byte B) =>
-        (int)(crc32Table[(W ^ B) & 0xFF] ^ (W >> 8));
+    internal static int _InternalComputeCrc32(uint W, byte B) =>
+        unchecked((int)Crc32Helper.Append(W, B));
 
     /// <summary>
     /// Update the value for the running CRC32 using the given block of bytes.
@@ -173,17 +134,9 @@ public class CRC32
             throw new ZlibException("The data buffer must not be null.");
         }
 
-        for (var i = 0; i < count; i++)
-        {
-            var x = offset + i;
-            runningCrc32Result =
-                ((runningCrc32Result) >> 8)
-                ^ crc32Table[(block[x]) ^ ((runningCrc32Result) & 0x000000FF)];
-        }
-        TotalBytesRead += count;
+        _hasher.Append(block.AsSpan(offset, count));
+        _totalBytesRead += count;
     }
-
-    // pre-initialize the crc table for speed of lookup.
 
     private uint gf2_matrix_times(ReadOnlySpan<uint> matrix, uint vec)
     {
@@ -229,7 +182,7 @@ public class CRC32
             return;
         }
 
-        var crc1 = ~runningCrc32Result;
+        var crc1 = _hasher.GetCurrentHashAsUInt32();
         var crc2 = (uint)crc;
 
         // put operator for one zero bit in odd
@@ -278,10 +231,10 @@ public class CRC32
 
         crc1 ^= crc2;
 
-        runningCrc32Result = ~crc1;
-
-        //return (int) crc1;
+        // Restore raw state into the System.IO.Hashing hasher (~finalized).
+        GetCrc(_hasher) = ~crc1;
     }
 
-    // private member vars
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_crc")]
+    private static extern ref uint GetCrc(Crc32 crc);
 }
