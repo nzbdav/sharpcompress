@@ -6,10 +6,13 @@ public static class Constants
 {
     /// <summary>
     /// The default buffer size for stream operations, matching .NET's Stream.CopyTo default of 81920 bytes.
-    /// This can be modified globally at runtime.
     /// </summary>
-    // See #32: revisit remaining non-extraction usages after extraction buffering moves to ExtractionOptions.
-    public static int BufferSize { get; set; } = 81920;
+    /// <remarks>
+    /// Configure buffer sizes per operation via <see cref="Readers.ReaderOptions.BufferSize"/>,
+    /// <see cref="ExtractionOptions.BufferSize"/>, or <see cref="Writers.WriterOptions.BufferSize"/>
+    /// instead of mutating this value.
+    /// </remarks>
+    public static int BufferSize { get; } = 81920;
 
     /// <summary>
     /// The default size for rewindable buffers in SharpCompressStream.

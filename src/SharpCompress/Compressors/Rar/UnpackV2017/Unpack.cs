@@ -10,6 +10,9 @@ namespace SharpCompress.Compressors.Rar.UnpackV2017;
 
 internal partial class Unpack : IRarUnpack
 {
+    // 64 KB stored-file copy block, inherited from unrar.
+    private const int UnstoreBlockSize = 0x10000;
+
     private FileHeader fileHeader = null!;
     private Stream readStream = null!;
     private Stream writeStream = null!;
@@ -120,7 +123,7 @@ internal partial class Unpack : IRarUnpack
 
     private void UnstoreFile()
     {
-        var size = (int)Math.Min(0x10000, DestUnpSize);
+        var size = (int)Math.Min(UnstoreBlockSize, DestUnpSize);
         var buffer = ArrayPool<byte>.Shared.Rent(size);
         try
         {
@@ -143,7 +146,7 @@ internal partial class Unpack : IRarUnpack
 
     private async ValueTask UnstoreFileAsync(CancellationToken cancellationToken = default)
     {
-        var size = (int)Math.Min(0x10000, DestUnpSize);
+        var size = (int)Math.Min(UnstoreBlockSize, DestUnpSize);
         var buffer = ArrayPool<byte>.Shared.Rent(size);
         try
         {

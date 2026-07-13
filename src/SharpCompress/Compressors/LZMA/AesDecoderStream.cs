@@ -11,6 +11,9 @@ namespace SharpCompress.Compressors.LZMA;
 
 internal sealed partial class AesDecoderStream : DecoderStream2
 {
+    // 4 KB, multiple of the 16-byte AES block; small because 7z decrypt runs interleaved with decode.
+    private const int DecryptBlockSize = 4 << 10;
+
     private readonly Stream mStream;
     private readonly ICryptoTransform mDecoder;
     private readonly byte[] mBuffer;
@@ -55,7 +58,7 @@ internal sealed partial class AesDecoderStream : DecoderStream2
             mDecoder = aes.CreateDecryptor(key, seed);
         }
 
-        mBuffer = new byte[4 << 10];
+        mBuffer = new byte[DecryptBlockSize];
     }
 
     protected override void Dispose(bool disposing)

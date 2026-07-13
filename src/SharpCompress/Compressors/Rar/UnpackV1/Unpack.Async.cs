@@ -75,7 +75,7 @@ internal sealed partial class Unpack
 
     private async ValueTask UnstoreFileAsync(CancellationToken cancellationToken = default)
     {
-        var size = (int)Math.Min(0x10000, destUnpSize);
+        var size = (int)Math.Min(UnstoreBlockSize, destUnpSize);
         var buffer = ArrayPool<byte>.Shared.Rent(size);
         try
         {

@@ -8,6 +8,9 @@ namespace SharpCompress.Compressors.Rar;
 
 internal partial class RarStream : Stream
 {
+    // 64 KB matches RAR unpack write-block granularity; oversizing wastes pool memory per open entry.
+    private const int TmpBufferSize = 65536;
+
     private readonly IRarUnpack unpack;
     private readonly FileHeader fileHeader;
     private readonly Stream readStream;
@@ -41,7 +44,7 @@ internal partial class RarStream : Stream
         this.readStream = readStream;
         this.ownsUnpack = ownsUnpack;
         this.onDispose = onDispose;
-        tmpBuffer = ArrayPool<byte>.Shared.Rent(65536);
+        tmpBuffer = ArrayPool<byte>.Shared.Rent(TmpBufferSize);
     }
 
     public void Initialize()
