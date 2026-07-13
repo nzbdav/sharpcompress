@@ -38,7 +38,7 @@ public static partial class ReaderFactory
         );
         sharpCompressStream.StartRecording();
 
-        var factories = Factories.Factory.Factories.OfType<Factories.Factory>();
+        var factories = Factories.Factory.Factories.OfType<Factories.Factory>().ToArray();
 
         Factory? testedFactory = null;
 
