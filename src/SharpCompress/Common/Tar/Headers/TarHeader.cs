@@ -122,7 +122,15 @@ internal sealed partial class TarHeader
     internal void WriteUstar(Stream output)
     {
         var buffer = new byte[BLOCK_SIZE];
+        FormatUstar(buffer);
+        output.Write(buffer, 0, buffer.Length);
+    }
 
+    // IO-free core that lays out a USTAR header into a 512-byte block. Shared by the
+    // sync WriteUstar and async WriteUstarAsync wrappers, which only differ in how
+    // the finished block is written to the stream.
+    private void FormatUstar(Span<byte> buffer)
+    {
         WriteOctalBytes(511, buffer, 100, 8); // file mode
         WriteOctalBytes(0, buffer, 108, 8); // owner ID
         WriteOctalBytes(0, buffer, 116, 8); // group ID
@@ -212,14 +220,38 @@ internal sealed partial class TarHeader
 
         var crc = RecalculateChecksum(buffer);
         WriteOctalBytes(crc, buffer, 148, 8);
-
-        output.Write(buffer, 0, buffer.Length);
     }
 
     internal void WriteGnuTarLongLink(Stream output)
     {
         var buffer = new byte[BLOCK_SIZE];
+        var nameByteCount = FormatGnuTarLongLinkHeader(buffer);
+        output.Write(buffer, 0, buffer.Length);
 
+        if (nameByteCount > 100)
+        {
+            WriteLongFilenameHeader(output);
+            // update to short name lower than 100 - [max bytes of one character].
+            // subtracting bytes is needed because preventing infinite loop(example code is here).
+            //
+            // var bytes = Encoding.UTF8.GetBytes(new string(0x3042, 100));
+            // var truncated = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(bytes, 0, 100));
+            //
+            // and then infinite recursion is occured in WriteLongFilenameHeader because truncated.Length is 102.
+            Name = ArchiveEncoding.Decode(
+                ArchiveEncoding.Encode(Name.NotNull("Name is null")),
+                0,
+                100 - ArchiveEncoding.GetEncoding().GetMaxByteCount(1)
+            );
+            WriteGnuTarLongLink(output);
+        }
+    }
+
+    // IO-free core that lays out the GNU long-link header block. Returns the encoded
+    // name byte count so the sync/async wrappers can decide whether the long-name
+    // payload block(s) must still be written to the stream.
+    private int FormatGnuTarLongLinkHeader(Span<byte> buffer)
+    {
         WriteOctalBytes(511, buffer, 100, 8); // file mode
         WriteOctalBytes(0, buffer, 108, 8); // owner ID
         WriteOctalBytes(0, buffer, 116, 8); // group ID
@@ -248,32 +280,13 @@ internal sealed partial class TarHeader
                 Span<byte> bytes12 = stackalloc byte[12];
                 BinaryPrimitives.WriteInt64BigEndian(bytes12.Slice(4), Size);
                 bytes12[0] |= 0x80;
-                bytes12.CopyTo(buffer.AsSpan(124));
+                bytes12.CopyTo(buffer.Slice(124));
             }
         }
 
         var crc = RecalculateChecksum(buffer);
         WriteOctalBytes(crc, buffer, 148, 8);
-
-        output.Write(buffer, 0, buffer.Length);
-
-        if (nameByteCount > 100)
-        {
-            WriteLongFilenameHeader(output);
-            // update to short name lower than 100 - [max bytes of one character].
-            // subtracting bytes is needed because preventing infinite loop(example code is here).
-            //
-            // var bytes = Encoding.UTF8.GetBytes(new string(0x3042, 100));
-            // var truncated = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(bytes, 0, 100));
-            //
-            // and then infinite recursion is occured in WriteLongFilenameHeader because truncated.Length is 102.
-            Name = ArchiveEncoding.Decode(
-                ArchiveEncoding.Encode(Name.NotNull("Name is null")),
-                0,
-                100 - ArchiveEncoding.GetEncoding().GetMaxByteCount(1)
-            );
-            WriteGnuTarLongLink(output);
-        }
+        return nameByteCount;
     }
 
     private void WriteLongFilenameHeader(Stream output)
@@ -338,35 +351,49 @@ internal sealed partial class TarHeader
             break;
         }
 
+        return ParseCore(buffer, entryType, pendingMetadata);
+    }
+
+    // IO-free core that decodes every field of a fully-read 512-byte header block:
+    // checksum validation, name/prefix, octal numeric fields, typeflag-derived
+    // link name, and applied PAX/GNU metadata. This is shared verbatim by the sync
+    // Read and async ReadAsync paths, which only differ in how they fill the block
+    // (and any preceding long-name/PAX payload blocks).
+    private bool ParseCore(
+        ReadOnlySpan<byte> block,
+        EntryType entryType,
+        PaxMetadata pendingMetadata
+    )
+    {
         // Check header checksum
-        if (!checkChecksum(buffer))
+        if (!checkChecksum(block))
         {
             return false;
         }
 
-        Name = ArchiveEncoding.Decode(buffer, 0, 100).TrimNulls();
+        Name = DecodeString(block, 0, 100);
         EntryType = entryType;
-        Size = ReadSize(buffer);
+        Size = ReadSize(block);
         LinkName = null;
 
         // for symlinks, additionally read the linkname
         if (entryType == EntryType.SymLink || entryType == EntryType.HardLink)
         {
-            LinkName = ArchiveEncoding.Decode(buffer, 157, 100).TrimNulls();
+            LinkName = DecodeString(block, 157, 100);
         }
 
-        Mode = ReadAsciiInt64Base8(buffer, 100, 7);
-        UserId = ReadAsciiInt64Base8oldGnu(buffer, 108, 7);
-        GroupId = ReadAsciiInt64Base8oldGnu(buffer, 116, 7);
+        Mode = ReadAsciiInt64Base8(block, 100, 7);
+        UserId = ReadAsciiInt64Base8oldGnu(block, 108, 7);
+        GroupId = ReadAsciiInt64Base8oldGnu(block, 116, 7);
 
-        var unixTimeStamp = ReadAsciiInt64Base8(buffer, 136, 11);
+        var unixTimeStamp = ReadAsciiInt64Base8(block, 136, 11);
 
         LastModifiedTime = EPOCH.AddSeconds(unixTimeStamp).ToLocalTime();
-        Magic = ArchiveEncoding.Decode(buffer, 257, 6).TrimNulls();
+        Magic = DecodeString(block, 257, 6);
 
         if (!string.IsNullOrEmpty(Magic) && "ustar".Equals(Magic, StringComparison.Ordinal))
         {
-            var namePrefix = ArchiveEncoding.Decode(buffer, 345, 157).TrimNulls();
+            var namePrefix = DecodeString(block, 345, 157);
 
             if (!string.IsNullOrEmpty(namePrefix))
             {
@@ -387,6 +414,15 @@ internal sealed partial class TarHeader
         }
 
         return true;
+    }
+
+    // Decodes a field slice from a header block. ArchiveEncoding.Decode works on
+    // byte[] (to support IArchiveEncoding.CustomDecoder), so the slice is copied out
+    // of the block before decoding.
+    private string DecodeString(ReadOnlySpan<byte> block, int start, int length)
+    {
+        var bytes = block.Slice(start, length).ToArray();
+        return ArchiveEncoding.Decode(bytes, 0, bytes.Length).TrimNulls();
     }
 
     private string ReadLongName(BinaryReader reader, byte[] buffer)
@@ -623,13 +659,13 @@ internal sealed partial class TarHeader
         }
     }
 
-    private static EntryType ReadEntryType(byte[] buffer) => (EntryType)buffer[156];
+    private static EntryType ReadEntryType(ReadOnlySpan<byte> buffer) => (EntryType)buffer[156];
 
-    private long ReadSize(byte[] buffer)
+    private long ReadSize(ReadOnlySpan<byte> buffer)
     {
         if ((buffer[124] & 0x80) == 0x80) // if size in binary
         {
-            return BinaryPrimitives.ReadInt64BigEndian(buffer.AsSpan(0x80));
+            return BinaryPrimitives.ReadInt64BigEndian(buffer.Slice(0x80));
         }
 
         return ReadAsciiInt64Base8(buffer, 124, 11);
@@ -665,7 +701,7 @@ internal sealed partial class TarHeader
         buffer.Slice(offset + i, length - i).Clear();
     }
 
-    private static void WriteStringBytes(string name, byte[] buffer, int offset, int length)
+    private static void WriteStringBytes(string name, Span<byte> buffer, int offset, int length)
     {
         int i;
 
@@ -680,7 +716,7 @@ internal sealed partial class TarHeader
         }
     }
 
-    private static void WriteOctalBytes(long value, byte[] buffer, int offset, int length)
+    private static void WriteOctalBytes(long value, Span<byte> buffer, int offset, int length)
     {
         var val = Convert.ToString(value, 8);
         var shift = length - val.Length - 1;
@@ -704,9 +740,9 @@ internal sealed partial class TarHeader
         return Convert.ToInt32(s, 8);
     }
 
-    private static long ReadAsciiInt64Base8(byte[] buffer, int offset, int count)
+    private static long ReadAsciiInt64Base8(ReadOnlySpan<byte> buffer, int offset, int count)
     {
-        var s = Encoding.UTF8.GetString(buffer, offset, count).TrimNulls();
+        var s = Encoding.UTF8.GetString(buffer.Slice(offset, count)).TrimNulls();
         if (string.IsNullOrEmpty(s))
         {
             return 0;
@@ -714,7 +750,7 @@ internal sealed partial class TarHeader
         return Convert.ToInt64(s, 8);
     }
 
-    private static long ReadAsciiInt64Base8oldGnu(byte[] buffer, int offset, int count)
+    private static long ReadAsciiInt64Base8oldGnu(ReadOnlySpan<byte> buffer, int offset, int count)
     {
         if (buffer[offset] == 0x80 && buffer[offset + 1] == 0x00)
         {
@@ -723,7 +759,7 @@ internal sealed partial class TarHeader
                 | buffer[offset + 6] << 8
                 | buffer[offset + 7];
         }
-        var s = Encoding.UTF8.GetString(buffer, offset, count).TrimNulls();
+        var s = Encoding.UTF8.GetString(buffer.Slice(offset, count)).TrimNulls();
 
         if (string.IsNullOrEmpty(s))
         {
@@ -754,10 +790,10 @@ internal sealed partial class TarHeader
         (byte)' ',
     };
 
-    internal static bool checkChecksum(byte[] buf)
+    internal static bool checkChecksum(ReadOnlySpan<byte> buf)
     {
         const int eightSpacesChksum = 256;
-        var buffer = new Span<byte>(buf).Slice(0, 512);
+        var buffer = buf.Slice(0, 512);
         int posix_sum = eightSpacesChksum;
         int sun_sum = eightSpacesChksum;
 
@@ -790,10 +826,10 @@ internal sealed partial class TarHeader
         return true;
     }
 
-    internal static int RecalculateChecksum(byte[] buf)
+    internal static int RecalculateChecksum(Span<byte> buf)
     {
         // Set default value for checksum. That is 8 spaces.
-        eightSpaces.CopyTo(buf, 148);
+        eightSpaces.CopyTo(buf.Slice(148));
 
         // Calculate checksum
         var headerChecksum = 0;

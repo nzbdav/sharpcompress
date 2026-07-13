@@ -77,21 +77,30 @@ internal sealed partial class GZipFilePart : FilePart
         // Read and potentially verify the GZIP trailer: CRC32 and  size mod 2^32
         Span<byte> trailer = stackalloc byte[8];
         _stream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
+        ParseTrailer(trailer);
+    }
 
+    // IO-free core that decodes the 8-byte gzip trailer. Shared by the sync
+    // ReadTrailer and async ReadTrailerAsync paths, which only fill the buffer.
+    private void ParseTrailer(ReadOnlySpan<byte> trailer)
+    {
         Crc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);
         UncompressedSize = BinaryPrimitives.ReadUInt32LittleEndian(trailer.Slice(4));
     }
 
-    private void ReadAndValidateGzipHeader()
+    // IO-free core that validates and decodes the fixed 10-byte gzip member header.
+    // Returns false for an empty stream (n == 0; workitem 8501), validates the magic
+    // bytes, sets DateModified, and reports the FLG byte via <paramref name="flags"/>.
+    // The variable-length extra/name/comment/CRC16 fields still require IO and are
+    // read by the sync/async wrappers using the returned flags.
+    private bool ParseFixedHeader(ReadOnlySpan<byte> header, int n, out int flags)
     {
-        // read the header on the first read
-        Span<byte> header = stackalloc byte[10];
-        var n = _stream.Read(header);
+        flags = 0;
 
         // workitem 8501: handle edge case (decompress empty stream)
         if (n == 0)
         {
-            return;
+            return false;
         }
 
         if (n != 10)
@@ -106,10 +115,25 @@ internal sealed partial class GZipFilePart : FilePart
 
         var timet = BinaryPrimitives.ReadInt32LittleEndian(header.Slice(4));
         DateModified = TarHeader.EPOCH.AddSeconds(timet);
-        if ((header[3] & 0x04) == 0x04)
+        flags = header[3];
+        return true;
+    }
+
+    private void ReadAndValidateGzipHeader()
+    {
+        // read the header on the first read
+        Span<byte> header = stackalloc byte[10];
+        var n = _stream.Read(header);
+
+        if (!ParseFixedHeader(header, n, out var flags))
+        {
+            return;
+        }
+
+        if ((flags & 0x04) == 0x04)
         {
             // read and discard extra field
-            n = _stream.Read(header.Slice(0, 2)); // 2-byte length field
+            _ = _stream.Read(header.Slice(0, 2)); // 2-byte length field
 
             var extraLength = (short)(header[0] + (header[1] * 256));
             var extra = new byte[extraLength];
@@ -118,17 +142,16 @@ internal sealed partial class GZipFilePart : FilePart
             {
                 throw new ZlibException("Unexpected end-of-file reading GZIP header.");
             }
-            n = extraLength;
         }
-        if ((header[3] & 0x08) == 0x08)
+        if ((flags & 0x08) == 0x08)
         {
             _name = ReadZeroTerminatedString(_stream);
         }
-        if ((header[3] & 0x10) == 0x010)
+        if ((flags & 0x10) == 0x010)
         {
             ReadZeroTerminatedString(_stream);
         }
-        if ((header[3] & 0x02) == 0x02)
+        if ((flags & 0x02) == 0x02)
         {
             _stream.ReadByte(); // CRC16, ignore
         }

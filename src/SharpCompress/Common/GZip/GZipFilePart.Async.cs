@@ -1,10 +1,8 @@
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpCompress.Common.Tar.Headers;
 using SharpCompress.Compressors;
 using SharpCompress.Compressors.Deflate;
 using SharpCompress.Providers;
@@ -53,8 +51,8 @@ internal sealed partial class GZipFilePart
             )
             .ConfigureAwait(false);
 
-        Crc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);
-        UncompressedSize = BinaryPrimitives.ReadUInt32LittleEndian(trailer.AsSpan().Slice(4));
+        // Same IO-free core as the sync ReadTrailer; only the fill step above differs.
+        ParseTrailer(trailer);
     }
 
     private async ValueTask ReadAndValidateGzipHeaderAsync(
@@ -65,25 +63,14 @@ internal sealed partial class GZipFilePart
         var header = new byte[10];
         var n = await _stream.ReadAsync(header, 0, 10, cancellationToken).ConfigureAwait(false);
 
-        // workitem 8501: handle edge case (decompress empty stream)
-        if (n == 0)
+        // Same IO-free core as the sync ReadAndValidateGzipHeader; only the fill
+        // steps (here and below) differ between sync and async.
+        if (!ParseFixedHeader(header, n, out var flags))
         {
             return;
         }
 
-        if (n != 10)
-        {
-            throw new ZlibException("Not a valid GZIP stream.");
-        }
-
-        if (header[0] != 0x1F || header[1] != 0x8B || header[2] != 8)
-        {
-            throw new ZlibException("Bad GZIP header.");
-        }
-
-        var timet = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan().Slice(4));
-        DateModified = TarHeader.EPOCH.AddSeconds(timet);
-        if ((header[3] & 0x04) == 0x04)
+        if ((flags & 0x04) == 0x04)
         {
             // read and discard extra field
             var lengthField = new byte[2];
@@ -106,16 +93,16 @@ internal sealed partial class GZipFilePart
                 throw new ZlibException("Unexpected end-of-file reading GZIP header.");
             }
         }
-        if ((header[3] & 0x08) == 0x08)
+        if ((flags & 0x08) == 0x08)
         {
             _name = await ReadZeroTerminatedStringAsync(_stream, cancellationToken)
                 .ConfigureAwait(false);
         }
-        if ((header[3] & 0x10) == 0x010)
+        if ((flags & 0x10) == 0x010)
         {
             await ReadZeroTerminatedStringAsync(_stream, cancellationToken).ConfigureAwait(false);
         }
-        if ((header[3] & 0x02) == 0x02)
+        if ((flags & 0x02) == 0x02)
         {
             var buf = new byte[1];
             _ = await _stream.ReadAsync(buf, 0, 1, cancellationToken).ConfigureAwait(false); // CRC16, ignore
