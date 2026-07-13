@@ -154,6 +154,9 @@ public partial class RarArchive
     }
 
     private bool? _isSolid;
+    private bool? _isEncrypted;
+    private int? _minVersion;
+    private int? _maxVersion;
 
     public override bool IsSolid
     {
@@ -168,9 +171,35 @@ public partial class RarArchive
         }
     }
 
-    public override bool IsEncrypted => Entries.First(x => !x.IsDirectory).IsEncrypted;
+    public override bool IsEncrypted
+    {
+        get
+        {
+            if (_isEncrypted is null)
+            {
+                // Do not cache failures (e.g. no non-directory entries) so behavior is unchanged.
+                _isEncrypted = Entries.First(x => !x.IsDirectory).IsEncrypted;
+            }
 
-    public virtual int MinVersion => Volumes.First().MinVersion;
+            return _isEncrypted.Value;
+        }
+    }
 
-    public virtual int MaxVersion => Volumes.First().MaxVersion;
+    public virtual int MinVersion
+    {
+        get
+        {
+            _minVersion ??= Volumes.First().MinVersion;
+            return _minVersion.Value;
+        }
+    }
+
+    public virtual int MaxVersion
+    {
+        get
+        {
+            _maxVersion ??= Volumes.First().MaxVersion;
+            return _maxVersion.Value;
+        }
+    }
 }
