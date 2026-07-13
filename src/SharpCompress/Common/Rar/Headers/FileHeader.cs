@@ -2,25 +2,22 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using SharpCompress.Common.Rar;
-using SharpCompress.IO;
 using size_t = System.UInt32;
 
 namespace SharpCompress.Common.Rar.Headers;
 
-internal partial class FileHeader : RarHeader
+internal class FileHeader : RarHeader
 {
     private byte[]? _hash;
 
     public static FileHeader Create(
         RarHeader header,
-        RarCrcBinaryReader reader,
+        RarBlockBuffer reader,
         HeaderType headerType
     ) => CreateChild<FileHeader>(header, reader, headerType);
 
-    protected override void ReadFinish(MarkingBinaryReader reader)
+    protected override void ReadFinish(RarBlockBuffer reader)
     {
         if (IsRar5)
         {
@@ -32,7 +29,7 @@ internal partial class FileHeader : RarHeader
         }
     }
 
-    private void ReadFromReaderV5(MarkingBinaryReader reader)
+    private void ReadFromReaderV5(RarBlockBuffer reader)
     {
         Flags = reader.ReadRarVIntUInt16();
 
@@ -165,7 +162,7 @@ internal partial class FileHeader : RarHeader
         }
     }
 
-    private static DateTime ReadExtendedTimeV5(MarkingBinaryReader reader, bool isWindowsTime)
+    private static DateTime ReadExtendedTimeV5(RarBlockBuffer reader, bool isWindowsTime)
     {
         if (isWindowsTime)
         {
@@ -187,7 +184,7 @@ internal partial class FileHeader : RarHeader
         return path;
     }
 
-    private void ReadFromReaderV4(MarkingBinaryReader reader)
+    private void ReadFromReaderV4(RarBlockBuffer reader)
     {
         Flags = HeaderFlags;
         IsSolid = HasFlag(FileFlagsV4.SOLID);
@@ -326,7 +323,7 @@ internal partial class FileHeader : RarHeader
     private static DateTime? ProcessExtendedTimeV4(
         ushort extendedFlags,
         DateTime? time,
-        MarkingBinaryReader reader,
+        RarBlockBuffer reader,
         int i
     )
     {

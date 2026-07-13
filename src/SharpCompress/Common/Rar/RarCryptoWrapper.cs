@@ -1,9 +1,7 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpCompress.Common;
 using SharpCompress.Crypto;
 
 namespace SharpCompress.Common.Rar;
@@ -11,14 +9,14 @@ namespace SharpCompress.Common.Rar;
 internal sealed class RarCryptoWrapper : Stream
 {
     private readonly Stream _actualStream;
-    private readonly BlockTransformer _rijndael;
-    private RarAesDecryptCarry _carry;
+    private readonly RarAesDecryptor _decryptor;
 
     public RarCryptoWrapper(Stream actualStream, byte[] salt, ICryptKey key)
     {
         _actualStream = actualStream;
-        _rijndael = new BlockTransformer(key.Transformer(salt));
-        _carry = new RarAesDecryptCarry();
+        // Packed-data decryption shares the single AES decrypt + carry engine used by the
+        // RAR header block reader.
+        _decryptor = new RarAesDecryptor(key.Transformer(salt));
     }
 
     public override void Flush() { }
@@ -37,41 +35,8 @@ internal sealed class RarCryptoWrapper : Stream
             return 0;
         }
 
-        var written = _carry.Read(buffer.AsSpan(offset, count));
-        if (written == count)
-        {
-            return count;
-        }
-
-        var sizeToRead = count - written;
-        var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
-        var cipherText = ArrayPool<byte>.Shared.Rent(alignedSize);
-        var plainText = ArrayPool<byte>.Shared.Rent(alignedSize);
-        try
-        {
-            try
-            {
-                _actualStream.ReadExactly(cipherText, 0, alignedSize);
-            }
-            catch (EndOfStreamException e)
-            {
-                throw new InvalidFormatException("Unexpected end of encrypted stream", e);
-            }
-
-            _rijndael.Process(cipherText, 0, alignedSize, plainText, 0);
-            plainText.AsSpan(0, sizeToRead).CopyTo(buffer.AsSpan(offset + written, sizeToRead));
-            if (alignedSize > sizeToRead)
-            {
-                _carry.Store(plainText.AsSpan(sizeToRead, alignedSize - sizeToRead));
-            }
-
-            return count;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(cipherText);
-            ArrayPool<byte>.Shared.Return(plainText);
-        }
+        _decryptor.Fill(_actualStream, buffer.AsSpan(offset, count));
+        return count;
     }
 
     public override Task<int> ReadAsync(
@@ -79,80 +44,27 @@ internal sealed class RarCryptoWrapper : Stream
         int offset,
         int count,
         CancellationToken cancellationToken
-    ) => ReadAndDecryptAsync(buffer, offset, count, cancellationToken).AsTask();
+    ) => ReadAndDecryptAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+    public override async ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    ) => await ReadAndDecryptAsync(buffer, cancellationToken).ConfigureAwait(false);
 
     private async ValueTask<int> ReadAndDecryptAsync(
-        byte[] buffer,
-        int offset,
-        int count,
+        Memory<byte> buffer,
         CancellationToken cancellationToken
     )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (count == 0)
+        if (buffer.IsEmpty)
         {
             return 0;
         }
 
-        var written = _carry.Read(buffer.AsSpan(offset, count));
-        if (written == count)
-        {
-            return count;
-        }
-
-        var sizeToRead = count - written;
-        var alignedSize = sizeToRead + ((~sizeToRead + 1) & 0xf);
-        var cipherText = ArrayPool<byte>.Shared.Rent(alignedSize);
-        var plainText = ArrayPool<byte>.Shared.Rent(alignedSize);
-        try
-        {
-            try
-            {
-                await _actualStream
-                    .ReadExactlyAsync(cipherText.AsMemory(0, alignedSize), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (EndOfStreamException e)
-            {
-                throw new InvalidFormatException("Unexpected end of encrypted stream", e);
-            }
-
-            _rijndael.Process(cipherText, 0, alignedSize, plainText, 0);
-            plainText.AsSpan(0, sizeToRead).CopyTo(buffer.AsSpan(offset + written, sizeToRead));
-            if (alignedSize > sizeToRead)
-            {
-                _carry.Store(plainText.AsSpan(sizeToRead, alignedSize - sizeToRead));
-            }
-
-            return count;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(cipherText);
-            ArrayPool<byte>.Shared.Return(plainText);
-        }
-    }
-
-    public override async ValueTask<int> ReadAsync(
-        Memory<byte> buffer,
-        CancellationToken cancellationToken = default
-    )
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var array = ArrayPool<byte>.Shared.Rent(buffer.Length);
-        try
-        {
-            var bytesRead = await ReadAndDecryptAsync(array, 0, buffer.Length, cancellationToken)
-                .ConfigureAwait(false);
-            new ReadOnlySpan<byte>(array, 0, bytesRead).CopyTo(buffer.Span);
-            return bytesRead;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(array);
-        }
+        await _decryptor.FillAsync(_actualStream, buffer, cancellationToken).ConfigureAwait(false);
+        return buffer.Length;
     }
 
     public override void Write(byte[] buffer, int offset, int count) =>
@@ -172,7 +84,7 @@ internal sealed class RarCryptoWrapper : Stream
     {
         if (disposing)
         {
-            _rijndael.Dispose();
+            _decryptor.Dispose();
         }
 
         base.Dispose(disposing);

@@ -127,7 +127,7 @@ Stream wrappers and utilities.
 **Key Classes:**
 - `SharpCompressStream` - Base stream class
 - `ProgressReportingStream` - Progress tracking wrapper
-- `MarkingBinaryReader` - Binary reader with position marks
+- `AsyncBinaryReader` - Async little-endian binary reader (Zip/Tar header parsing)
 - `BufferedSubStream` - Buffered read-only substream
 - `ReadOnlySubStream` - Read-only view of parent stream
 - `NonDisposingStream` - Prevents wrapped stream disposal
@@ -311,6 +311,17 @@ wrappers only differ in `Write` vs `await WriteAsync`.
 Because the shared core is invoked from an `async` method, do any span slicing
 inside the core (a normal method) rather than across an `await`; `Span<T>` cannot
 live across an `await` boundary.
+
+RAR header parsing follows the same rule via `RarBlockBuffer`
+(`Common/Rar/RarBlockBuffer.cs`). A single header block is read into a pooled
+buffer once — `ReadHeaderBlock` (sync) or `ReadHeaderBlockAsync` (async) are the
+only fill twins — after which every header type (`RarHeader`, `FileHeader`,
+`ArchiveHeader`, …) decodes its fields synchronously from the buffer, so those
+parsers exist exactly once instead of as mirrored `.Async.cs` twins. Encrypted
+headers share the same buffer path; the AES decrypt + carry logic lives once in
+`Crypto/RarAesDecryptor.cs` (used by both the header buffer and the packed-data
+`RarCryptoWrapper`), and CRC accumulation is driven by the parse reads so the CRC
+boundaries are identical to the previous byte-at-a-time readers.
 
 ### Rule 2 — Twins that can't share a buffer must keep structural parity
 

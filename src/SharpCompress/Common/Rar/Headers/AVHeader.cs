@@ -1,10 +1,10 @@
-using SharpCompress.IO;
+using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Common.Rar.Headers;
 
 internal class AvHeader : RarHeader
 {
-    public static AvHeader Create(RarHeader header, RarCrcBinaryReader reader)
+    public static AvHeader Create(RarHeader header, RarBlockBuffer reader)
     {
         var c = CreateChild<AvHeader>(header, reader, HeaderType.Av);
         if (c.IsRar5)
@@ -14,7 +14,7 @@ internal class AvHeader : RarHeader
         return c;
     }
 
-    protected override void ReadFinish(MarkingBinaryReader reader)
+    protected override void ReadFinish(RarBlockBuffer reader)
     {
         UnpackVersion = reader.ReadByte();
         Method = reader.ReadByte();
