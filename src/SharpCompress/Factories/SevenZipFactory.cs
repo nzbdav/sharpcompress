@@ -17,7 +17,12 @@ namespace SharpCompress.Factories;
 /// <summary>
 /// Represents the foundation factory of 7Zip archive.
 /// </summary>
-public class SevenZipFactory : Factory, IArchiveFactory, IMultiArchiveFactory, IWriterFactory
+public class SevenZipFactory
+    : Factory,
+        IArchiveFactory,
+        IMultiArchiveFactory,
+        IWriterFactory,
+        IWritableArchiveFactory<SevenZipWriterOptions>
 {
     #region IFactory
 
@@ -164,6 +169,14 @@ public class SevenZipFactory : Factory, IArchiveFactory, IMultiArchiveFactory, I
         var writer = OpenWriter(stream, writerOptions);
         return new((IAsyncWriter)writer);
     }
+
+    #endregion
+
+    #region IWritableArchiveFactory
+
+    /// <inheritdoc/>
+    public IWritableArchive<SevenZipWriterOptions> CreateArchive() =>
+        SevenZipArchive.CreateArchive();
 
     #endregion
 }

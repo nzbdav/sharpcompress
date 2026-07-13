@@ -6,13 +6,18 @@ namespace SharpCompress.Common.SevenZip;
 
 public class SevenZipEntry : Entry
 {
-    internal SevenZipEntry(SevenZipFilePart filePart, IReaderOptions readerOptions)
+    private readonly SevenZipFilePart? _filePart;
+
+    internal SevenZipEntry(SevenZipFilePart? filePart, IReaderOptions readerOptions)
         : base(readerOptions)
     {
-        FilePart = filePart;
+        _filePart = filePart;
     }
 
-    internal SevenZipFilePart FilePart { get; }
+    // Non-null for entries loaded from an existing archive. Writable (pending) entries created
+    // through the Archive write API have no backing file part and override every member that
+    // would otherwise read it, so the null-forgiving access here is never reached for them.
+    internal SevenZipFilePart FilePart => _filePart!;
 
     public override CompressionType CompressionType => FilePart.CompressionType;
 

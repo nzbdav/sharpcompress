@@ -88,6 +88,7 @@ using (var writer = WriterFactory.OpenWriter(stream, ArchiveType.Zip, Compressio
 using (var archive = ZipArchive.CreateArchive())
 using (var archive = TarArchive.CreateArchive())
 using (var archive = GZipArchive.CreateArchive())
+using (var archive = SevenZipArchive.CreateArchive())
 
 // With fluent options (preferred)
 var options = WriterOptions.ForZip()
@@ -453,12 +454,22 @@ var tarOptions = new TarWriterOptions(CompressionType.GZip, finalizeArchiveOnClo
 // GZip-specific options
 var gzipOptions = new GZipWriterOptions(compressionLevel: 9);
 
-// 7z writing requires a seekable output stream and writes non-solid archives
+// 7z writing requires a seekable output stream; set Solid = true to share one folder
 var sevenZipOptions = new SevenZipWriterOptions(CompressionType.LZMA2)
 {
     CompressHeader = true,
     LzmaProperties = new LzmaEncoderProperties(),
+    Solid = false,
 };
+
+// SevenZipArchive also supports the writable Archive API. It has no in-place editing,
+// so SaveTo re-compresses the surviving source entries plus any pending additions.
+using (var archive = SevenZipArchive.OpenArchive("input.7z"))
+{
+    archive.RemoveEntry(archive.Entries.First(e => e.Key == "obsolete.txt"));
+    archive.AddEntry("added.txt", File.OpenRead("added.txt"), closeStream: true);
+    archive.SaveTo("output.7z", sevenZipOptions);
+}
 ```
 
 Alternative: traditional constructor with object initializer:

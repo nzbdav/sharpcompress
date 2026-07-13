@@ -15,7 +15,7 @@ namespace SharpCompress.Writers.SevenZip;
 /// Writes 7z archives. By default each file is compressed independently; enabling
 /// <see cref="SevenZipWriterOptions.Solid" /> shares one compressor/folder across
 /// consecutive non-empty files. Requires a seekable output stream for back-patching
-/// the signature header. Remaining work tracked in #63: IWritableArchive support.
+/// the signature header.
 /// </summary>
 public partial class SevenZipWriter : AbstractWriter
 {
