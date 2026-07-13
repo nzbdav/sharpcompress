@@ -34,6 +34,16 @@ Use scoped Conventional Commit subjects such as `fix(zip):`, `feat(rar):`,
 `docs:`, or `chore(ci):`. Release Please uses commit history to prepare release
 notes and determine semantic versions.
 
+## Code review checklist
+
+- **Sync/async twins:** If you touched a file that has a `.Async.cs` twin (for
+  example `Foo.cs` and `Foo.Async.cs`), show in the PR that the twin was updated
+  in the same change, or explain why no twin change was required. This prevents the
+  sync and async code paths from drifting apart. See the
+  [sync/async parity strategy](docs/ARCHITECTURE.md#syncasync-parity-strategy) for
+  the pattern to follow (shared span-based IO-free cores; structural parity where
+  buffers can't be shared; no faked async).
+
 ## Releases
 
 Release Please maintains a release pull request. Merging that pull request

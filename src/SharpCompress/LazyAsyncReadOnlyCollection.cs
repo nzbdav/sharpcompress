@@ -7,11 +7,14 @@ using System.Threading.Tasks;
 namespace SharpCompress;
 
 internal sealed class LazyAsyncReadOnlyCollection<T>(IAsyncEnumerable<T> source)
-    : IAsyncEnumerable<T>
+    : IAsyncEnumerable<T>,
+        IDisposable
 {
     private readonly List<T> _backing = new();
     private readonly IAsyncEnumerator<T> _source = source.GetAsyncEnumerator();
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private bool _fullyLoaded;
+    private bool _disposed;
 
     private class LazyLoader(
         LazyAsyncReadOnlyCollection<T> lazyReadOnlyCollection,
@@ -20,6 +23,9 @@ internal sealed class LazyAsyncReadOnlyCollection<T>(IAsyncEnumerable<T> source)
     {
         private bool _disposed;
         private int _index = -1;
+
+        // Captured under the collection gate so Current does not race with List.Add/resize.
+        private T? _current = default;
 
         public ValueTask DisposeAsync()
         {
@@ -33,27 +39,44 @@ internal sealed class LazyAsyncReadOnlyCollection<T>(IAsyncEnumerable<T> source)
         public async ValueTask<bool> MoveNextAsync()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_index + 1 < lazyReadOnlyCollection._backing.Count)
+            await lazyReadOnlyCollection._gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                _index++;
-                return true;
+                if (_index + 1 < lazyReadOnlyCollection._backing.Count)
+                {
+                    _index++;
+                    _current = lazyReadOnlyCollection._backing[_index];
+                    return true;
+                }
+
+                if (
+                    !lazyReadOnlyCollection._fullyLoaded
+                    && await lazyReadOnlyCollection._source.MoveNextAsync().ConfigureAwait(false)
+                )
+                {
+                    lazyReadOnlyCollection._backing.Add(lazyReadOnlyCollection._source.Current);
+                    _index++;
+                    _current = lazyReadOnlyCollection._backing[_index];
+                    return true;
+                }
+
+                // Only mark fully loaded when the source actually reached EOF.
+                if (!lazyReadOnlyCollection._fullyLoaded)
+                {
+                    lazyReadOnlyCollection._fullyLoaded = true;
+                }
+
+                return false;
             }
-            if (
-                !lazyReadOnlyCollection._fullyLoaded
-                && await lazyReadOnlyCollection._source.MoveNextAsync().ConfigureAwait(false)
-            )
+            finally
             {
-                lazyReadOnlyCollection._backing.Add(lazyReadOnlyCollection._source.Current);
-                _index++;
-                return true;
+                lazyReadOnlyCollection._gate.Release();
             }
-            lazyReadOnlyCollection._fullyLoaded = true;
-            return false;
         }
 
         #region IEnumerator<T> Members
 
-        public T Current => lazyReadOnlyCollection._backing[_index];
+        public T Current => _current!;
 
         #endregion
 
@@ -99,4 +122,15 @@ internal sealed class LazyAsyncReadOnlyCollection<T>(IAsyncEnumerable<T> source)
 
     public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default) =>
         new LazyLoader(this, cancellationToken);
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _gate.Dispose();
+    }
 }

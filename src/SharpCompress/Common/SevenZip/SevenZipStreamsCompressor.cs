@@ -14,8 +14,23 @@ namespace SharpCompress.Common.SevenZip;
 internal sealed class PackedStream
 {
     public CFolder Folder { get; init; } = new();
+
+    /// <summary>Compressed (packed) stream sizes for the folder.</summary>
     public ulong[] Sizes { get; init; } = [];
+
+    /// <summary>Compressed (packed) stream CRCs for the folder.</summary>
     public uint?[] CRCs { get; init; } = [];
+
+    /// <summary>
+    /// Per-substream (per-file) uncompressed sizes. In non-solid mode this contains a
+    /// single element; in solid mode it contains one entry per file in the shared folder.
+    /// </summary>
+    public ulong[] UnpackSizes { get; init; } = [];
+
+    /// <summary>
+    /// Per-substream (per-file) uncompressed-data CRCs, aligned with <see cref="UnpackSizes" />.
+    /// </summary>
+    public uint?[] UnpackCRCs { get; init; } = [];
 }
 
 /// <summary>
@@ -177,7 +192,7 @@ internal sealed class SevenZipStreamsCompressor(Stream outputStream)
     /// Copies data from source to destination while computing CRC32 of the source data.
     /// Uses Crc32Stream.Compute for CRC calculation to avoid duplicating the table/algorithm.
     /// </summary>
-    private static void CopyWithCrc(
+    internal static void CopyWithCrc(
         Stream source,
         Stream destination,
         out uint crc,
@@ -210,7 +225,7 @@ internal sealed class SevenZipStreamsCompressor(Stream outputStream)
     /// Asynchronously copies data from source to destination while computing CRC32 of source data.
     /// Uses Crc32Stream.Compute for CRC calculation to avoid duplicating the table/algorithm.
     /// </summary>
-    private static async ValueTask<(uint crc, long bytesRead)> CopyWithCrcAsync(
+    internal static async ValueTask<(uint crc, long bytesRead)> CopyWithCrcAsync(
         Stream source,
         Stream destination,
         CancellationToken cancellationToken
@@ -273,6 +288,8 @@ internal sealed class SevenZipStreamsCompressor(Stream outputStream)
             Folder = folder,
             Sizes = [compressedSize],
             CRCs = [outputCrc],
+            UnpackSizes = [uncompressedSize],
+            UnpackCRCs = [inputCrc],
         };
     }
 }

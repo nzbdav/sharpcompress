@@ -445,7 +445,7 @@ public partial class ZipWriter
                     writer.WriteFooter(entry.Crc, compressedvalue, decompressedvalue);
                     writer.streamPosition += (long)entry.Compressed + 16;
                 }
-                writer.entries.Add(entry);
+                writer.AddEntry(entry);
             }
         }
 
@@ -720,7 +720,7 @@ public partial class ZipWriter
                     .ConfigureAwait(false);
                 writer.streamPosition += (long)entry.Compressed + 16;
             }
-            writer.entries.Add(entry);
+            writer.AddEntry(entry);
             // base.DisposeAsync() is a no-op since isDisposed is already set
             await base.DisposeAsync().ConfigureAwait(false);
         }

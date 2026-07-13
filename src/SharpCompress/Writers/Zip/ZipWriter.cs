@@ -24,6 +24,10 @@ public partial class ZipWriter : AbstractWriter
     private readonly CompressionType compressionType;
     private readonly int compressionLevel;
     private readonly List<ZipCentralDirectoryEntry> entries = new();
+
+    // Counts are tracked separately so Zip64 EOCD fields can use ulong; the in-memory
+    // central-directory list still caps entries at int.MaxValue.
+    private ulong _entryCount;
     private readonly string zipComment;
     private long streamPosition;
     private PpmdProperties? ppmdProps;
@@ -196,7 +200,20 @@ public partial class ZipWriter : AbstractWriter
 
         var headersize = (uint)WriteHeader(directoryPath, options, entry, useZip64);
         streamPosition += headersize;
+        AddEntry(entry);
+    }
+
+    private void AddEntry(ZipCentralDirectoryEntry entry)
+    {
+        if (entries.Count == int.MaxValue)
+        {
+            throw new ArchiveOperationException(
+                "Zip writer supports at most int.MaxValue entries."
+            );
+        }
+
         entries.Add(entry);
+        _entryCount++;
     }
 
     private int WriteHeader(
@@ -313,7 +330,7 @@ public partial class ZipWriter : AbstractWriter
     private void WriteEndRecord(Stream stream, ulong size)
     {
         var zip64EndOfCentralDirectoryNeeded =
-            entries.Count > ushort.MaxValue
+            _entryCount > ushort.MaxValue
             || streamPosition >= uint.MaxValue
             || size >= uint.MaxValue;
 
@@ -340,8 +357,8 @@ public partial class ZipWriter : AbstractWriter
             stream.Write(intBuf.Slice(0, 4)); // Disk number
             stream.Write(intBuf.Slice(0, 4)); // Central dir disk
 
-            // See #65: entries.Count is int, so max 2^31 files.
-            BinaryPrimitives.WriteUInt64LittleEndian(intBuf, (ulong)entries.Count);
+            // Entry counts tracked as ulong; list storage still caps at int.MaxValue.
+            BinaryPrimitives.WriteUInt64LittleEndian(intBuf, _entryCount);
             stream.Write(intBuf); // Entries in this disk
             stream.Write(intBuf); // Total entries
             BinaryPrimitives.WriteUInt64LittleEndian(intBuf, size);
@@ -366,7 +383,7 @@ public partial class ZipWriter : AbstractWriter
         stream.Write(stackalloc byte[] { 80, 75, 5, 6, 0, 0, 0, 0 });
         BinaryPrimitives.WriteUInt16LittleEndian(
             intBuf,
-            (ushort)(entries.Count < 0xFFFF ? entries.Count : 0xFFFF)
+            (ushort)(_entryCount < 0xFFFF ? _entryCount : 0xFFFF)
         );
         stream.Write(intBuf.Slice(0, 2));
         stream.Write(intBuf.Slice(0, 2));

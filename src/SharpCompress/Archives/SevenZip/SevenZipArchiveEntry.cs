@@ -10,14 +10,14 @@ public class SevenZipArchiveEntry : SevenZipEntry, IArchiveEntry
 {
     internal SevenZipArchiveEntry(
         SevenZipArchive archive,
-        SevenZipFilePart part,
+        SevenZipFilePart? part,
         IReaderOptions readerOptions
     )
         : base(part, readerOptions) => Archive = archive;
 
-    public Stream OpenEntryStream() => FilePart.GetCompressedStream();
+    public virtual Stream OpenEntryStream() => FilePart.GetCompressedStream();
 
-    public async ValueTask<Stream> OpenEntryStreamAsync(
+    public virtual async ValueTask<Stream> OpenEntryStreamAsync(
         CancellationToken cancellationToken = default
     ) =>
         (
@@ -31,5 +31,5 @@ public class SevenZipArchiveEntry : SevenZipEntry, IArchiveEntry
     /// <summary>
     /// This is a 7Zip Anti item
     /// </summary>
-    public bool IsAnti => FilePart.Header.IsAnti;
+    public virtual bool IsAnti => FilePart.Header.IsAnti;
 }

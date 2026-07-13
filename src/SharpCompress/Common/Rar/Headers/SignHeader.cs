@@ -1,10 +1,10 @@
-using SharpCompress.IO;
+using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Common.Rar.Headers;
 
 internal class SignHeader : RarHeader
 {
-    public static SignHeader Create(RarHeader header, RarCrcBinaryReader reader)
+    public static SignHeader Create(RarHeader header, RarBlockBuffer reader)
     {
         var c = CreateChild<SignHeader>(header, reader, HeaderType.Sign);
         if (c.IsRar5)
@@ -14,7 +14,7 @@ internal class SignHeader : RarHeader
         return c;
     }
 
-    protected override void ReadFinish(MarkingBinaryReader reader)
+    protected override void ReadFinish(RarBlockBuffer reader)
     {
         CreationTime = reader.ReadInt32();
         ArcNameSize = reader.ReadInt16();

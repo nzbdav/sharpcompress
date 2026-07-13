@@ -1,10 +1,9 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common.Rar;
+using SharpCompress.Crypto;
 using SharpCompress.IO;
 using SharpCompress.Readers;
 
@@ -43,191 +42,198 @@ public partial class RarHeaderFactory
         }
     }
 
+    // Async twin of CreateHeaderDecryptor: only the plaintext salt/IV read differs.
+    private async ValueTask<RarAesDecryptor?> CreateHeaderDecryptorAsync(
+        Stream stream,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!IsEncrypted)
+        {
+            return null;
+        }
+
+        if (Options.Password is null)
+        {
+            throw new CryptographicException("Encrypted Rar archive has no password specified.");
+        }
+
+        if (_isRar5 && _cryptInfo != null)
+        {
+            _cryptInfo.InitV = await RarBlockBuffer
+                .ReadStreamBytesAsync(stream, EncryptionConstV5.SIZE_INITV, cancellationToken)
+                .ConfigureAwait(false);
+            var headerKey = new CryptKey5(Options.Password, _cryptInfo);
+            return new RarAesDecryptor(headerKey.Transformer(_cryptInfo.Salt));
+        }
+
+        var salt = await RarBlockBuffer
+            .ReadStreamBytesAsync(stream, EncryptionConstV5.SIZE_SALT30, cancellationToken)
+            .ConfigureAwait(false);
+        var key = new CryptKey3(Options.Password);
+        return new RarAesDecryptor(key.Transformer(salt));
+    }
+
     private async ValueTask<RarHeader?> TryReadNextHeaderAsync(
         Stream stream,
         CancellationToken cancellationToken
     )
     {
-        AsyncRarCrcBinaryReader reader;
-        if (!IsEncrypted)
-        {
-            reader = new AsyncRarCrcBinaryReader(stream);
-        }
-        else
-        {
-            if (Options.Password is null)
-            {
-                throw new CryptographicException(
-                    "Encrypted Rar archive has no password specified."
-                );
-            }
-
-            if (_isRar5 && _cryptInfo != null)
-            {
-                await _cryptInfo
-                    .ReadInitVAsync(new AsyncMarkingBinaryReader(stream))
-                    .ConfigureAwait(false);
-                var _headerKey = new CryptKey5(Options.Password!, _cryptInfo);
-
-                reader = await AsyncRarCryptoBinaryReader
-                    .Create(stream, _headerKey, _cryptInfo.Salt)
-                    .ConfigureAwait(false);
-            }
-            else
-            {
-                var key = new CryptKey3(Options.Password);
-                reader = await AsyncRarCryptoBinaryReader.Create(stream, key).ConfigureAwait(false);
-            }
-        }
-
-        var header = await RarHeader
-            .TryReadBaseAsync(reader, _isRar5, Options.ArchiveEncoding, cancellationToken)
+        // The per-header salt/IV read mirrors the previous readers, which read it eagerly and
+        // let a short read surface; only the header block fill is treated as a graceful end.
+        var decryptor = await CreateHeaderDecryptorAsync(stream, cancellationToken)
             .ConfigureAwait(false);
-        if (header is null)
+        RarBlockBuffer buffer;
+        try
         {
+            buffer = await RarBlockBuffer
+                .ReadHeaderBlockAsync(stream, _isRar5, decryptor, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidFormatException)
+        {
+            decryptor?.Dispose();
             return null;
         }
-        switch (header.HeaderCode)
+
+        using (decryptor)
+        using (buffer)
         {
-            case HeaderCodeV.RAR5_ARCHIVE_HEADER:
-            case HeaderCodeV.RAR4_ARCHIVE_HEADER:
+            // Header field decoding is IO-free and shared with the synchronous path; only the
+            // trailing data skip in Streaming mode needs to await.
+            var header = RarHeader.TryReadBase(buffer, _isRar5, Options.ArchiveEncoding);
+            if (header is null)
             {
-                var ah = await ArchiveHeader
-                    .CreateAsync(header, reader, cancellationToken)
-                    .ConfigureAwait(false);
-                if (ah.IsEncrypted == true)
+                return null;
+            }
+            switch (header.HeaderCode)
+            {
+                case HeaderCodeV.RAR5_ARCHIVE_HEADER:
+                case HeaderCodeV.RAR4_ARCHIVE_HEADER:
                 {
-                    //!!! rar5 we don't know yet
+                    var ah = ArchiveHeader.Create(header, buffer);
+                    if (ah.IsEncrypted == true)
+                    {
+                        //!!! rar5 we don't know yet
+                        IsEncrypted = true;
+                    }
+                    return ah;
+                }
+
+                case HeaderCodeV.RAR4_PROTECT_HEADER:
+                {
+                    var ph = ProtectHeader.Create(header, buffer);
+                    // skip the recovery record data, we do not use it.
+                    switch (StreamingMode)
+                    {
+                        case StreamingMode.Seekable:
+                            {
+                                stream.Position += ph.DataSize;
+                            }
+                            break;
+                        case StreamingMode.Streaming:
+                            {
+                                await stream
+                                    .SkipAsync(ph.DataSize, cancellationToken)
+                                    .ConfigureAwait(false);
+                            }
+                            break;
+                        default:
+                        {
+                            throw new InvalidFormatException("Invalid StreamingMode");
+                        }
+                    }
+                    return ph;
+                }
+
+                case HeaderCodeV.RAR5_SERVICE_HEADER:
+                {
+                    var fh = FileHeader.Create(header, buffer, HeaderType.Service);
+                    if (fh.FileName == "CMT")
+                    {
+                        fh.PackedStream = new ReadOnlySubStream(stream, fh.CompressedSize);
+                    }
+                    else
+                    {
+                        await SkipDataAsync(fh, stream, cancellationToken).ConfigureAwait(false);
+                    }
+                    return fh;
+                }
+
+                case HeaderCodeV.RAR4_NEW_SUB_HEADER:
+                {
+                    var fh = FileHeader.Create(header, buffer, HeaderType.NewSub);
+                    await SkipDataAsync(fh, stream, cancellationToken).ConfigureAwait(false);
+                    return fh;
+                }
+
+                case HeaderCodeV.RAR5_FILE_HEADER:
+                case HeaderCodeV.RAR4_FILE_HEADER:
+                {
+                    var fh = FileHeader.Create(header, buffer, HeaderType.File);
+                    switch (StreamingMode)
+                    {
+                        case StreamingMode.Seekable:
+                            {
+                                fh.DataStartPosition = stream.Position;
+                                stream.Position += fh.CompressedSize;
+                            }
+                            break;
+                        case StreamingMode.Streaming:
+                            {
+                                var ms = new ReadOnlySubStream(stream, fh.CompressedSize);
+                                if (fh.R4Salt is null && fh.Rar5CryptoInfo is null)
+                                {
+                                    fh.PackedStream = ms;
+                                }
+                                else
+                                {
+                                    fh.PackedStream = new RarCryptoWrapper(
+                                        ms,
+                                        fh.R4Salt is null
+                                            ? fh.Rar5CryptoInfo.NotNull().Salt
+                                            : fh.R4Salt,
+                                        fh.R4Salt is null
+                                            ? new CryptKey5(
+                                                Options.Password,
+                                                fh.Rar5CryptoInfo.NotNull()
+                                            )
+                                            : new CryptKey3(Options.Password)
+                                    );
+                                }
+                            }
+                            break;
+                        default:
+                        {
+                            throw new InvalidFormatException("Invalid StreamingMode");
+                        }
+                    }
+                    return fh;
+                }
+                case HeaderCodeV.RAR5_END_ARCHIVE_HEADER:
+                case HeaderCodeV.RAR4_END_ARCHIVE_HEADER:
+                {
+                    return EndArchiveHeader.Create(header, buffer);
+                }
+                case HeaderCodeV.RAR5_ARCHIVE_ENCRYPTION_HEADER:
+                {
+                    var cryptoHeader = ArchiveCryptHeader.Create(header, buffer);
                     IsEncrypted = true;
-                }
-                return ah;
-            }
+                    _cryptInfo = cryptoHeader.CryptInfo;
 
-            case HeaderCodeV.RAR4_PROTECT_HEADER:
-            {
-                var ph = await ProtectHeader
-                    .CreateAsync(header, reader, cancellationToken)
-                    .ConfigureAwait(false);
-                // skip the recovery record data, we do not use it.
-                switch (StreamingMode)
+                    return cryptoHeader;
+                }
+                default:
                 {
-                    case StreamingMode.Seekable:
-                        {
-                            reader.BaseStream.Position += ph.DataSize;
-                        }
-                        break;
-                    case StreamingMode.Streaming:
-                        {
-                            await reader
-                                .BaseStream.SkipAsync(ph.DataSize, cancellationToken)
-                                .ConfigureAwait(false);
-                        }
-                        break;
-                    default:
-                    {
-                        throw new InvalidFormatException("Invalid StreamingMode");
-                    }
+                    throw new InvalidFormatException("Unknown Rar Header: " + header.HeaderCode);
                 }
-                return ph;
-            }
-
-            case HeaderCodeV.RAR5_SERVICE_HEADER:
-            {
-                var fh = await FileHeader
-                    .CreateAsync(header, reader, HeaderType.Service, cancellationToken)
-                    .ConfigureAwait(false);
-                if (fh.FileName == "CMT")
-                {
-                    fh.PackedStream = new ReadOnlySubStream(reader.BaseStream, fh.CompressedSize);
-                }
-                else
-                {
-                    await SkipDataAsync(fh, reader, cancellationToken).ConfigureAwait(false);
-                }
-                return fh;
-            }
-
-            case HeaderCodeV.RAR4_NEW_SUB_HEADER:
-            {
-                var fh = await FileHeader
-                    .CreateAsync(header, reader, HeaderType.NewSub, cancellationToken)
-                    .ConfigureAwait(false);
-                await SkipDataAsync(fh, reader, cancellationToken).ConfigureAwait(false);
-                return fh;
-            }
-
-            case HeaderCodeV.RAR5_FILE_HEADER:
-            case HeaderCodeV.RAR4_FILE_HEADER:
-            {
-                var fh = await FileHeader
-                    .CreateAsync(header, reader, HeaderType.File, cancellationToken)
-                    .ConfigureAwait(false);
-                switch (StreamingMode)
-                {
-                    case StreamingMode.Seekable:
-                        {
-                            fh.DataStartPosition = reader.BaseStream.Position;
-                            reader.BaseStream.Position += fh.CompressedSize;
-                        }
-                        break;
-                    case StreamingMode.Streaming:
-                        {
-                            var ms = new ReadOnlySubStream(reader.BaseStream, fh.CompressedSize);
-                            if (fh.R4Salt is null && fh.Rar5CryptoInfo is null)
-                            {
-                                fh.PackedStream = ms;
-                            }
-                            else
-                            {
-                                fh.PackedStream = new RarCryptoWrapper(
-                                    ms,
-                                    fh.R4Salt is null
-                                        ? fh.Rar5CryptoInfo.NotNull().Salt
-                                        : fh.R4Salt,
-                                    fh.R4Salt is null
-                                        ? new CryptKey5(
-                                            Options.Password,
-                                            fh.Rar5CryptoInfo.NotNull()
-                                        )
-                                        : new CryptKey3(Options.Password)
-                                );
-                            }
-                        }
-                        break;
-                    default:
-                    {
-                        throw new InvalidFormatException("Invalid StreamingMode");
-                    }
-                }
-                return fh;
-            }
-            case HeaderCodeV.RAR5_END_ARCHIVE_HEADER:
-            case HeaderCodeV.RAR4_END_ARCHIVE_HEADER:
-            {
-                return await EndArchiveHeader
-                    .CreateAsync(header, reader, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            case HeaderCodeV.RAR5_ARCHIVE_ENCRYPTION_HEADER:
-            {
-                var cryptoHeader = await ArchiveCryptHeader
-                    .CreateAsync(header, reader, cancellationToken)
-                    .ConfigureAwait(false);
-                IsEncrypted = true;
-                _cryptInfo = cryptoHeader.CryptInfo;
-
-                return cryptoHeader;
-            }
-            default:
-            {
-                throw new InvalidFormatException("Unknown Rar Header: " + header.HeaderCode);
             }
         }
     }
 
     private async ValueTask SkipDataAsync(
         FileHeader fh,
-        AsyncRarCrcBinaryReader reader,
+        Stream stream,
         CancellationToken cancellationToken
     )
     {
@@ -235,15 +241,15 @@ public partial class RarHeaderFactory
         {
             case StreamingMode.Seekable:
                 {
-                    fh.DataStartPosition = reader.BaseStream.Position;
-                    reader.BaseStream.Position += fh.CompressedSize;
+                    fh.DataStartPosition = stream.Position;
+                    stream.Position += fh.CompressedSize;
                 }
                 break;
             case StreamingMode.Streaming:
                 {
                     //skip the data because it's useless?
-                    await reader
-                        .BaseStream.SkipAsync(fh.CompressedSize, cancellationToken)
+                    await stream
+                        .SkipAsync(fh.CompressedSize, cancellationToken)
                         .ConfigureAwait(false);
                 }
                 break;

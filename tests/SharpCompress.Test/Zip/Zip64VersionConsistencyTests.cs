@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Linq;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Zip;
 using SharpCompress.Common;
@@ -437,5 +438,40 @@ public class Zip64VersionConsistencyTests : WriterTests
         {
             Assert.Equal(lfhVersions[i], cdhVersions[i]);
         }
+    }
+
+    [Fact]
+    public void ZipWriter_EntryCounts_RoundTrip_ThroughEocd()
+    {
+        using var ms = new MemoryStream();
+        using (
+            var writer = new ZipWriter(
+                ms,
+                new ZipWriterOptions(CompressionType.None)
+                {
+                    LeaveStreamOpen = true,
+                    UseZip64 = true,
+                }
+            )
+        )
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var payload = System.Text.Encoding.UTF8.GetBytes($"entry-{i}");
+                using var entryStream = new MemoryStream(payload);
+                writer.Write($"file{i}.txt", entryStream, DateTime.Now);
+            }
+        }
+
+        ms.Position = 0;
+        using var archive = ZipArchive.OpenArchive(ms);
+        Assert.Equal(3, archive.Entries.Count());
+
+        // Classic EOCD is at the end; entry-count fields should match.
+        var data = ms.ToArray();
+        var eocd = data.AsSpan(data.Length - 22);
+        Assert.Equal(0x06054b50u, BinaryPrimitives.ReadUInt32LittleEndian(eocd));
+        Assert.Equal(3, BinaryPrimitives.ReadUInt16LittleEndian(eocd.Slice(8)));
+        Assert.Equal(3, BinaryPrimitives.ReadUInt16LittleEndian(eocd.Slice(10)));
     }
 }

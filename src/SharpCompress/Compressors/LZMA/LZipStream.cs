@@ -10,30 +10,36 @@ using SharpCompress.Providers;
 
 namespace SharpCompress.Compressors.LZMA;
 
-// Remaining LZIP gaps tracked in #61:
-// - Multi-volume support
-// - Use of the data size / member size values at the end of the stream
-// - Length/Position when trailer sizes are available
-
 /// <summary>
 /// Stream supporting the LZIP format, as documented at http://www.nongnu.org/lzip/manual/lzip_manual.html
 /// </summary>
 public sealed partial class LZipStream : Stream, IFinishable
 {
-    private readonly Stream _stream;
+    // _stream is reassigned per member when decompressing a multimember (multi-volume)
+    // LZIP stream, so it is not readonly.
+    private Stream _stream;
     private readonly CountingStream? _countingWritableSubStream;
     private readonly CountingStream? _countingReadableSubStream;
     private readonly uint[]? _crc32Table;
+
+    // Only populated (and only trusted) when the stream is a verified single member;
+    // the trailer size fields at the very end of a multimember stream describe the
+    // last member only, so they cannot be used for Length or the LzmaStream output size.
     private readonly ulong? _expectedDataSize;
-    private readonly ulong? _expectedMemberSize;
+    private readonly bool _singleMemberVerified;
     private readonly bool _skipTrailerValidation;
     private bool _disposed;
     private bool _finished;
+
+    // Per-member decode state, reset by StartNextMember when advancing to the next member.
     private bool _trailerValidated;
     private uint _seed = Crc32Stream.DEFAULT_SEED;
+    private ulong _memberReadCount;
+    private long _memberStartPosition;
+    private long _compressedDataStartPosition;
+
+    // Cumulative count of decompressed bytes returned across all members; backs Position.
     private ulong _readCount;
-    private readonly long _memberStartPosition;
-    private readonly long _compressedDataStartPosition;
 
     private long _writeCount;
     private readonly Stream? _originalStream;
@@ -55,38 +61,57 @@ public sealed partial class LZipStream : Stream, IFinishable
                 throw new InvalidFormatException("Not an LZip stream");
             }
             var properties = GetProperties(dSize);
+
+            // The 16-byte size fields at the very end of the stream describe the LAST
+            // member only. They can be trusted for the decompressed Length and the
+            // LzmaStream output size solely when this is a verified single-member stream;
+            // otherwise the expected sizes stay unset and decoding proceeds without a
+            // known output size so that multimember streams are read correctly.
+            var outputSize = -1L;
             var trailerStream = GetSeekableTrailerStream(stream);
             if (trailerStream is not null)
             {
                 var position = trailerStream.Position;
-                stream.Position = trailerStream.Length - 16;
+                trailerStream.Position = trailerStream.Length - 16;
                 Span<byte> sizeTrailer = stackalloc byte[16];
                 trailerStream.ReadAtLeast(
                     sizeTrailer,
                     sizeTrailer.Length,
                     throwOnEndOfStream: false
                 );
-                _expectedDataSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer);
-                _expectedMemberSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer[8..]);
-                if (_expectedDataSize > long.MaxValue)
-                {
-                    throw new InvalidFormatException("LZip data size is too large.");
-                }
+                var dataSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer);
+                var memberSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer[8..]);
                 trailerStream.Position = position;
+
+                // Single member when the reported member size spans exactly from this
+                // member's start to the end of the stream. The member starts six header
+                // bytes before the current trailer-stream position.
+                var memberStart = position - 6;
+                if (memberSize == (ulong)(trailerStream.Length - memberStart))
+                {
+                    if (dataSize > long.MaxValue)
+                    {
+                        throw new InvalidFormatException("LZip data size is too large.");
+                    }
+                    _expectedDataSize = dataSize;
+                    _singleMemberVerified = true;
+                    outputSize = (long)dataSize;
+                }
             }
             _compressedDataStartPosition = stream.CanSeek ? stream.Position : 0;
             _countingReadableSubStream = new CountingStream(
                 SharpCompressStream.CreateNonDisposing(stream)
             );
             _crc32Table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
+            // leaveOpen: true keeps the counting substream alive so it can be reused when
+            // reinitializing the LzmaStream for a subsequent member. LZipStream.Dispose
+            // owns disposal of the counting substream.
             _stream = LzmaStream.Create(
                 properties,
                 _countingReadableSubStream,
                 inputSize: -1,
-                outputSize: _expectedDataSize.HasValue
-                    ? checked((long)_expectedDataSize.Value)
-                    : -1,
-                leaveOpen: leaveOpen
+                outputSize: outputSize,
+                leaveOpen: true
             );
         }
         else
@@ -150,6 +175,9 @@ public sealed partial class LZipStream : Stream, IFinishable
         {
             Finish();
             _stream.Dispose();
+            // The inner decompress LzmaStream is created with leaveOpen: true, so the
+            // counting substream is disposed here (it never disposes the original stream).
+            _countingReadableSubStream?.Dispose();
             if (!_leaveOpen)
             {
                 _originalStream?.Dispose();
@@ -168,48 +196,65 @@ public sealed partial class LZipStream : Stream, IFinishable
 
     public override void Flush() => _stream.Flush();
 
-    // See #61: Length/Position are feasible once trailer output length is available.
-    public override long Length => throw new NotImplementedException();
+    // The decompressed length is only known (from the trailer) for a verified
+    // single-member stream; the stream is otherwise forward-only.
+    public override long Length =>
+        Mode == CompressionMode.Decompress && _singleMemberVerified && _expectedDataSize is { } size
+            ? checked((long)size)
+            : throw new NotSupportedException();
 
     public override long Position
     {
-        get => throw new NotImplementedException();
-        set => throw new NotImplementedException();
+        get => Mode == CompressionMode.Decompress ? checked((long)_readCount) : _writeCount;
+        set => throw new NotSupportedException();
     }
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        var read = _stream.Read(buffer, offset, count);
-        UpdateAndValidateAtEof(buffer.AsSpan(offset, read), read);
-        return read;
+        while (count > 0)
+        {
+            var read = _stream.Read(buffer, offset, count);
+            if (read > 0)
+            {
+                UpdateChecksum(buffer.AsSpan(offset, read));
+                return read;
+            }
+            if (!AdvanceToNextMember())
+            {
+                break;
+            }
+        }
+        return 0;
     }
 
     public override int ReadByte()
     {
-        var value = _stream.ReadByte();
-        if (value == -1)
-        {
-            ValidateTrailer();
-        }
-        else
-        {
-            Span<byte> buffer = stackalloc byte[1];
-            buffer[0] = (byte)value;
-            UpdateChecksum(buffer);
-        }
-
-        return value;
+        // Delegate to the span-based Read so member advancement, checksumming, and the
+        // LzmaStream block-read path (which tracks compressed bytes read) are shared.
+        Span<byte> buffer = stackalloc byte[1];
+        return Read(buffer) == 0 ? -1 : buffer[0];
     }
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
-    public override void SetLength(long value) => throw new NotImplementedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
 
     public override int Read(Span<byte> buffer)
     {
-        var read = _stream.Read(buffer);
-        UpdateAndValidateAtEof(buffer[..read], read);
-        return read;
+        while (!buffer.IsEmpty)
+        {
+            var read = _stream.Read(buffer);
+            if (read > 0)
+            {
+                UpdateChecksum(buffer[..read]);
+                return read;
+            }
+            if (!AdvanceToNextMember())
+            {
+                break;
+            }
+        }
+        return 0;
     }
 
     public override void Write(ReadOnlySpan<byte> buffer)
@@ -328,84 +373,93 @@ public sealed partial class LZipStream : Stream, IFinishable
             : null;
     }
 
-    private static Stream? GetPhysicalSeekableStream(Stream stream)
+    private static bool HasLZipMagic(ReadOnlySpan<byte> bytes) =>
+        bytes.Length >= 4
+        && bytes[0] == (byte)'L'
+        && bytes[1] == (byte)'Z'
+        && bytes[2] == (byte)'I'
+        && bytes[3] == (byte)'P';
+
+    /// <summary>
+    /// Decodes the LZIP coded dictionary-size byte, returning 0 for out-of-range values.
+    /// </summary>
+    private static int DecodeDictionarySize(byte codedSize)
     {
-        while (stream is SharpCompressStream sharpCompressStream)
+        var basePower = codedSize & 0x1F;
+        if (basePower < 4 || basePower > 30)
         {
-            var baseStream = sharpCompressStream.BaseStream();
-            if (ReferenceEquals(baseStream, stream) || !baseStream.CanSeek)
-            {
-                break;
-            }
-
-            stream = baseStream;
+            return 0;
         }
-
-        return stream.CanSeek ? stream : null;
-    }
-
-    private static bool IsProbeWrapper(Stream stream) =>
-        stream is SharpCompressStream { IsPassthrough: true } sharpCompressStream
-        && sharpCompressStream.BaseStream() is SharpCompressStream { IsPassthrough: false };
-
-    private void UpdateAndValidateAtEof(ReadOnlySpan<byte> buffer, int read)
-    {
-        if (Mode != CompressionMode.Decompress)
-        {
-            return;
-        }
-
-        if (read > 0)
-        {
-            UpdateChecksum(buffer);
-            return;
-        }
-
-        ValidateTrailer();
+        var subtractionNumerator = (codedSize & 0xE0) >> 5;
+        return (1 << basePower) - (subtractionNumerator * (1 << (basePower - 4)));
     }
 
     private void UpdateChecksum(ReadOnlySpan<byte> buffer)
     {
         _seed = Crc32Stream.CalculateCrc(_crc32Table.NotNull(), _seed, buffer);
         _readCount += (ulong)buffer.Length;
+        _memberReadCount += (ulong)buffer.Length;
     }
 
-    private void ValidateTrailer()
+    /// <summary>
+    /// Called when the current member reports end-of-stream. Validates and consumes the
+    /// member trailer, then continues into the next concatenated member when one is present.
+    /// Returns <c>false</c> when the whole LZIP stream is exhausted.
+    /// </summary>
+    private bool AdvanceToNextMember()
     {
-        if (_trailerValidated || _skipTrailerValidation || Mode != CompressionMode.Decompress)
+        if (Mode != CompressionMode.Decompress)
+        {
+            return false;
+        }
+
+        ValidateTrailer();
+        return TryStartNextMember();
+    }
+
+    /// <summary>
+    /// Repositions a seekable substream to the exact start of the current member's trailer
+    /// and returns the compressed size the LZMA decoder consumed for this member. Non-seekable
+    /// substreams are already positioned at the trailer because the range decoder reads
+    /// byte-by-byte.
+    /// </summary>
+    private long PrepareTrailerPosition()
+    {
+        var countingStream = _countingReadableSubStream.NotNull();
+        var compressedDataSize = _stream is LzmaStream lzmaStream
+            ? lzmaStream.CompressedBytesRead
+            : 0;
+
+        if (countingStream.CanSeek && compressedDataSize > 0)
+        {
+            countingStream.Position = _compressedDataStartPosition + compressedDataSize;
+        }
+
+        return compressedDataSize;
+    }
+
+    /// <summary>
+    /// Validates the 20-byte trailer that was read for the current member. The trailer is
+    /// always consumed (see <see cref="ValidateTrailer"/>); when
+    /// <see cref="_skipTrailerValidation"/> is set the CRC/size checks are skipped but the
+    /// trailer bytes are still consumed so a following member can be located.
+    /// </summary>
+    private void ValidateTrailerData(
+        ReadOnlySpan<byte> trailer,
+        int trailerRead,
+        long compressedDataSize
+    )
+    {
+        if (_skipTrailerValidation)
         {
             return;
         }
 
-        _trailerValidated = true;
-
-        var countingStream = _countingReadableSubStream.NotNull();
-        ulong? compressedDataSize = null;
-        Span<byte> trailer = stackalloc byte[20];
-        if (_expectedMemberSize.HasValue && countingStream.CanSeek)
+        if (trailerRead < trailer.Length)
         {
-            compressedDataSize = _expectedMemberSize.Value - 26;
-            countingStream.Position = _compressedDataStartPosition + (long)compressedDataSize.Value;
-            countingStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
-        }
-        else if (GetPhysicalSeekableStream(countingStream.WrappedStream) is { } trailerStream)
-        {
-            var position = trailerStream.Position;
-            trailerStream.Position = trailerStream.Length - 20;
-            trailerStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
-            trailerStream.Position = position;
-        }
-        else
-        {
-            compressedDataSize = _stream is LzmaStream lzmaStream
-                ? (ulong)lzmaStream.CompressedBytesRead
-                : (ulong)countingStream.BytesRead;
-            if (countingStream.CanSeek)
-            {
-                countingStream.Position =
-                    _compressedDataStartPosition + (long)compressedDataSize.Value;
-            }
-            countingStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
+            throw new InvalidFormatException(
+                "LZip stream is truncated; the member trailer is incomplete."
+            );
         }
 
         var expectedCrc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);
@@ -420,20 +474,104 @@ public sealed partial class LZipStream : Stream, IFinishable
             );
         }
 
-        if (_readCount != expectedDataSize)
+        if (_memberReadCount != expectedDataSize)
         {
             throw new InvalidFormatException(
-                $"LZip data size mismatch. Expected {expectedDataSize}, actual {_readCount}."
+                $"LZip data size mismatch. Expected {expectedDataSize}, actual {_memberReadCount}."
             );
         }
 
-        var actualMemberSize = compressedDataSize ?? expectedMemberSize - 26;
-        actualMemberSize += 26;
+        // Member size = 6-byte header + compressed data + 20-byte trailer.
+        var actualMemberSize = (ulong)compressedDataSize + 26;
         if (actualMemberSize != expectedMemberSize)
         {
             throw new InvalidFormatException(
                 $"LZip member size mismatch. Expected {expectedMemberSize}, actual {actualMemberSize}."
             );
         }
+    }
+
+    private void ValidateTrailer()
+    {
+        if (_trailerValidated || Mode != CompressionMode.Decompress)
+        {
+            return;
+        }
+
+        _trailerValidated = true;
+
+        var compressedDataSize = PrepareTrailerPosition();
+        Span<byte> trailer = stackalloc byte[20];
+        var trailerRead = _countingReadableSubStream
+            .NotNull()
+            .ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
+        ValidateTrailerData(trailer, trailerRead, compressedDataSize);
+    }
+
+    /// <summary>
+    /// Reinitializes decode state for a subsequent member and creates a fresh
+    /// <see cref="LzmaStream"/> over the shared counting substream. The dictionary size comes
+    /// from the already-consumed member header.
+    /// </summary>
+    private void StartNextMember(int dictionarySize)
+    {
+        var countingStream = _countingReadableSubStream.NotNull();
+
+        // The previous member's decoder was created with leaveOpen: true, so disposing it
+        // leaves the shared counting substream open for reuse here.
+        _stream.Dispose();
+
+        _seed = Crc32Stream.DEFAULT_SEED;
+        _memberReadCount = 0;
+        _trailerValidated = false;
+        _memberStartPosition = countingStream.CanSeek ? countingStream.Position - 6 : 0;
+        _compressedDataStartPosition = countingStream.CanSeek ? countingStream.Position : 0;
+
+        var properties = GetProperties(dictionarySize);
+        _stream = LzmaStream.Create(
+            properties,
+            countingStream,
+            inputSize: -1,
+            outputSize: -1,
+            leaveOpen: true
+        );
+    }
+
+    /// <summary>
+    /// Peeks for the next concatenated member. Per the lzip specification, trailing data that
+    /// is not a valid member header ends the stream.
+    /// </summary>
+    private bool TryStartNextMember()
+    {
+        var countingStream = _countingReadableSubStream.NotNull();
+
+        Span<byte> magic = stackalloc byte[4];
+        if (
+            countingStream.ReadAtLeast(magic, magic.Length, throwOnEndOfStream: false)
+                < magic.Length
+            || !HasLZipMagic(magic)
+        )
+        {
+            return false;
+        }
+
+        // Read the remaining two header bytes: version and coded dictionary size.
+        Span<byte> rest = stackalloc byte[2];
+        if (
+            countingStream.ReadAtLeast(rest, rest.Length, throwOnEndOfStream: false) < rest.Length
+            || rest[0] != 1
+        )
+        {
+            return false;
+        }
+
+        var dictionarySize = DecodeDictionarySize(rest[1]);
+        if (dictionarySize == 0)
+        {
+            return false;
+        }
+
+        StartNextMember(dictionarySize);
+        return true;
     }
 }

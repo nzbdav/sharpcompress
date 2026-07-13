@@ -209,6 +209,6 @@ public partial class ZipWriter
             await WriteHeaderAsync(directoryPath, options, entry, useZip64, cancellationToken)
                 .ConfigureAwait(false);
         streamPosition += headersize;
-        entries.Add(entry);
+        AddEntry(entry);
     }
 }

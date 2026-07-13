@@ -9,10 +9,17 @@ using SharpCompress.Common.SevenZip;
 using SharpCompress.Compressors.LZMA.Utilities;
 using SharpCompress.IO;
 using SharpCompress.Readers;
+using SharpCompress.Writers.SevenZip;
 
 namespace SharpCompress.Archives.SevenZip;
 
-public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, SevenZipVolume>
+/// <summary>
+/// A 7z archive with random-access read support and rewrite-on-<see cref="SaveTo(Stream, SevenZipWriterOptions)"/>
+/// write support. There is no in-place editing: saving re-compresses the surviving source entries
+/// together with any pending additions through <see cref="SevenZipWriter"/>.
+/// </summary>
+public partial class SevenZipArchive
+    : AbstractWritableArchive<SevenZipArchiveEntry, SevenZipVolume, SevenZipWriterOptions>
 {
     private ArchiveDatabase? _database;
 
@@ -91,6 +98,54 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
 
     protected override IReader CreateReaderForSolidExtraction() =>
         new SevenZipReader(ReaderOptions, this);
+
+    /// <summary>
+    /// Saves the archive using default LZMA2 writer options.
+    /// </summary>
+    public void SaveTo(Stream stream) =>
+        SaveTo(stream, new SevenZipWriterOptions(CompressionType.LZMA2));
+
+    // 7z has no in-place editing, so saving always rebuilds the whole archive: the surviving
+    // source entries and any pending additions are re-compressed through SevenZipWriter.
+    protected override void SaveTo(
+        Stream stream,
+        SevenZipWriterOptions options,
+        IEnumerable<SevenZipArchiveEntry> oldEntries,
+        IEnumerable<SevenZipArchiveEntry> newEntries
+    )
+    {
+        using var writer = new SevenZipWriter(stream, options);
+        foreach (var entry in oldEntries.Concat(newEntries))
+        {
+            if (entry.IsDirectory)
+            {
+                writer.WriteDirectory(
+                    entry.Key.NotNull("Entry Key is null"),
+                    entry.LastModifiedTime
+                );
+            }
+            else
+            {
+                using var entryStream = entry.OpenEntryStream();
+                writer.Write(
+                    entry.Key.NotNull("Entry Key is null"),
+                    entryStream,
+                    entry.LastModifiedTime
+                );
+            }
+        }
+    }
+
+    protected override SevenZipArchiveEntry CreateEntryInternal(
+        string key,
+        Stream source,
+        long size,
+        DateTime? modified,
+        bool closeStream
+    ) => new SevenZipWritableArchiveEntry(this, source, key, size, modified, closeStream);
+
+    protected override SevenZipArchiveEntry CreateDirectoryEntry(string key, DateTime? modified) =>
+        new SevenZipWritableArchiveEntry(this, key, modified);
 
     public override bool IsSolid =>
         Entries

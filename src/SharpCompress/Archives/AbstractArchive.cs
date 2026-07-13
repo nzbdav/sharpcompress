@@ -97,6 +97,8 @@ public abstract partial class AbstractArchive<TEntry, TVolume> : IArchive, IAsyn
             {
                 x.Close();
             }
+            _lazyEntriesAsync.Dispose();
+            _lazyVolumesAsync.Dispose();
             _sourceStream?.Dispose();
 
             _disposed = true;

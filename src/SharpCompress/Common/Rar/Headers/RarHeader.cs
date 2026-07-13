@@ -1,14 +1,11 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using SharpCompress.Common.Rar;
-using SharpCompress.IO;
 
 namespace SharpCompress.Common.Rar.Headers;
 
 // http://www.forensicswiki.org/w/images/5/5b/RARFileStructure.txt
 // https://www.rarlab.com/technote.htm
-internal partial class RarHeader : IRarHeader
+internal class RarHeader : IRarHeader
 {
     private HeaderType _headerType;
     private bool _isRar5;
@@ -19,7 +16,7 @@ internal partial class RarHeader : IRarHeader
     }
 
     internal static RarHeader? TryReadBase(
-        RarCrcBinaryReader reader,
+        RarBlockBuffer reader,
         bool isRar5,
         IArchiveEncoding archiveEncoding
     )
@@ -36,11 +33,7 @@ internal partial class RarHeader : IRarHeader
         }
     }
 
-    private void Initialize(
-        RarCrcBinaryReader reader,
-        bool isRar5,
-        IArchiveEncoding archiveEncoding
-    )
+    private void Initialize(RarBlockBuffer reader, bool isRar5, IArchiveEncoding archiveEncoding)
     {
         _headerType = HeaderType.Null;
         _isRar5 = isRar5;
@@ -78,11 +71,7 @@ internal partial class RarHeader : IRarHeader
         }
     }
 
-    internal static T CreateChild<T>(
-        RarHeader header,
-        RarCrcBinaryReader reader,
-        HeaderType headerType
-    )
+    internal static T CreateChild<T>(RarHeader header, RarBlockBuffer reader, HeaderType headerType)
         where T : RarHeader, new()
     {
         var child = new T() { ArchiveEncoding = header.ArchiveEncoding };
@@ -106,19 +95,10 @@ internal partial class RarHeader : IRarHeader
         return child;
     }
 
-    protected int RemainingHeaderBytes(MarkingBinaryReader reader) =>
+    protected int RemainingHeaderBytes(RarBlockBuffer reader) =>
         checked(HeaderSize - (int)reader.CurrentReadByteCount);
 
-    protected int RemainingHeaderBytesAsync(AsyncMarkingBinaryReader reader) =>
-        checked(HeaderSize - (int)reader.CurrentReadByteCount);
-
-    protected virtual void ReadFinish(MarkingBinaryReader reader) =>
-        throw new NotImplementedException();
-
-    protected virtual ValueTask ReadFinishAsync(
-        AsyncMarkingBinaryReader reader,
-        CancellationToken cancellationToken = default
-    ) => throw new NotImplementedException();
+    protected virtual void ReadFinish(RarBlockBuffer reader) => throw new NotImplementedException();
 
     private void VerifyHeaderCrc(uint crc32)
     {

@@ -127,7 +127,7 @@ Stream wrappers and utilities.
 **Key Classes:**
 - `SharpCompressStream` - Base stream class
 - `ProgressReportingStream` - Progress tracking wrapper
-- `MarkingBinaryReader` - Binary reader with position marks
+- `AsyncBinaryReader` - Async little-endian binary reader (Zip/Tar header parsing)
 - `BufferedSubStream` - Buffered read-only substream
 - `ReadOnlySubStream` - Read-only view of parent stream
 - `NonDisposingStream` - Prevents wrapped stream disposal
@@ -256,6 +256,98 @@ while (reader.MoveToNextEntry())
     var entry = reader.Entry;
 }
 ```
+
+---
+
+## Sync/async parity strategy
+
+SharpCompress exposes both synchronous and asynchronous APIs. Historically this
+has been implemented by duplicating logic across a file and its `.Async.cs` twin
+(there are ~130 such twins). Duplication is the primary source of sync/async
+drift: a fix or format change lands in one twin but not the other, silently
+producing divergent behavior between the sync and async code paths.
+
+The strategy below keeps the twins honest. It was piloted on `TarHeader`
+(`Common/Tar/Headers/TarHeader.cs` + `TarHeader.Async.cs`) and `GZipFilePart`
+(`Common/GZip/GZipFilePart.cs` + `GZipFilePart.Async.cs`); prefer this shape when
+touching or adding twins.
+
+### Rule 1 — Header/metadata parsing must be span-based, IO-free cores
+
+Field decoding and encoding of fixed-layout headers/metadata must live in a
+single IO-free core that operates on an in-memory buffer (`ReadOnlySpan<byte>` for
+parsing, `Span<byte>` for formatting). The sync and async wrappers differ **only**
+in how they fill the read buffer (or flush the write buffer):
+
+- Sync wrapper: `ReadExactly`/`Read` into a buffer, then call the core.
+- Async wrapper: `ReadExactlyAsync`/`ReadAsync` into a buffer, then call the *same* core.
+
+There is then exactly one copy of the checksum, encoding, endianness, and
+typeflag logic, so the two paths cannot drift.
+
+```csharp
+// Sync
+internal bool Read(BinaryReader reader, PaxMetadata? globalPaxMetadata = null)
+{
+    // ... fill `buffer` (512 bytes) and handle long-name/PAX payload blocks ...
+    return ParseCore(buffer, entryType, pendingMetadata);
+}
+
+// Async
+internal async ValueTask<bool> ReadAsync(AsyncBinaryReader reader, ...)
+{
+    // ... fill `buffer` (512 bytes) and handle long-name/PAX payload blocks ...
+    return ParseCore(buffer.AsSpan(0, BLOCK_SIZE), entryType, pendingMetadata);
+}
+
+// One IO-free core: checksum, name/prefix, octal fields, typeflag, PAX/GNU metadata.
+private bool ParseCore(ReadOnlySpan<byte> block, EntryType entryType, PaxMetadata pendingMetadata) { ... }
+```
+
+The write side is symmetric: a `FormatCore(Span<byte>)`-style helper lays out the
+block (`TarHeader.FormatUstar` / `FormatGnuTarLongLinkHeader`), and the sync/async
+wrappers only differ in `Write` vs `await WriteAsync`.
+
+Because the shared core is invoked from an `async` method, do any span slicing
+inside the core (a normal method) rather than across an `await`; `Span<T>` cannot
+live across an `await` boundary.
+
+RAR header parsing follows the same rule via `RarBlockBuffer`
+(`Common/Rar/RarBlockBuffer.cs`). A single header block is read into a pooled
+buffer once — `ReadHeaderBlock` (sync) or `ReadHeaderBlockAsync` (async) are the
+only fill twins — after which every header type (`RarHeader`, `FileHeader`,
+`ArchiveHeader`, …) decodes its fields synchronously from the buffer, so those
+parsers exist exactly once instead of as mirrored `.Async.cs` twins. Encrypted
+headers share the same buffer path; the AES decrypt + carry logic lives once in
+`Crypto/RarAesDecryptor.cs` (used by both the header buffer and the packed-data
+`RarCryptoWrapper`), and CRC accumulation is driven by the parse reads so the CRC
+boundaries are identical to the previous byte-at-a-time readers.
+
+### Rule 2 — Twins that can't share a buffer must keep structural parity
+
+Some `Read`/`ReadAsync` (or decoder) twins genuinely cannot funnel through a
+single buffer core — for example a streaming decompressor that interleaves reads
+with state updates. When you can't share code, you must preserve **structural
+parity**: the two twins must have the same statement order and the same control
+flow, with the only differences being the `await`/`Async` mechanics
+(`x.Read(...)` ↔ `await x.ReadAsync(...)`). Reviewers should be able to diff the
+twins side by side and see nothing but the await plumbing. Any logic change to one
+twin must be mirrored in the other in the same commit.
+
+### Rule 3 — Never fake async
+
+Do not implement an async method by wrapping synchronous, genuinely-blocking work
+in `Task.Run(...)`, and do not return `new ValueTask<T>(syncResult)` after doing
+blocking IO on the calling thread. Either do real async IO, or — if a code path is
+intentionally synchronous-under-async (e.g. it only touches an in-memory buffer,
+or the underlying source has no async primitive) — add a short doc comment
+explaining why so the next reader/reviewer doesn't "fix" it incorrectly.
+
+### Review workflow
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md): any change to a file that has a
+`.Async.cs` twin must show the twin was updated, or explain why no twin change was
+required.
 
 ---
 

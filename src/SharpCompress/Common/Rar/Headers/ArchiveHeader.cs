@@ -1,14 +1,13 @@
 using SharpCompress.Common.Rar;
-using SharpCompress.IO;
 
 namespace SharpCompress.Common.Rar.Headers;
 
-internal sealed partial class ArchiveHeader : RarHeader
+internal sealed class ArchiveHeader : RarHeader
 {
-    public static ArchiveHeader Create(RarHeader header, RarCrcBinaryReader reader) =>
+    public static ArchiveHeader Create(RarHeader header, RarBlockBuffer reader) =>
         CreateChild<ArchiveHeader>(header, reader, HeaderType.Archive);
 
-    protected sealed override void ReadFinish(MarkingBinaryReader reader)
+    protected override void ReadFinish(RarBlockBuffer reader)
     {
         if (IsRar5)
         {

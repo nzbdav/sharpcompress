@@ -514,7 +514,19 @@ internal sealed class InflaterManaged
     {
         endOfBlockCodeSeen = false;
 
-        var freeBytes = _output.FreeBytes; // it is a little bit faster than frequently accessing the property
+        // Cache the frequently accessed reference fields in locals for the duration of the
+        // hot decode loop. These references are stable while decoding a block (the state
+        // machine only cycles DecodeTop -> HaveInitialLength -> HaveFullLength ->
+        // HaveDistCode -> DecodeTop), so reading them once avoids repeated field loads on
+        // the per-symbol literal-tree decode path. The mutable bit-buffer state itself lives
+        // in InputBuffer; caching the InputBuffer/OutputWindow references is the low-risk
+        // win without reimplementing the bit reader here.
+        var input = _input;
+        var output = _output;
+        var literalLengthTree = _literalLengthTree;
+        var distanceTree = _distanceTree;
+
+        var freeBytes = output.FreeBytes; // it is a little bit faster than frequently accessing the property
         while (freeBytes > 65536)
         {
             // With Deflate64 we can have up to a 64kb length, so we ensure at least that much space is available
@@ -525,9 +537,7 @@ internal sealed class InflaterManaged
             {
                 case InflaterState.DecodeTop:
                     // decode an element from the literal tree
-
-                    // See #62: hot-path literal-tree decode candidate for optimization.
-                    symbol = _literalLengthTree.GetNextSymbol(_input);
+                    symbol = literalLengthTree.GetNextSymbol(input);
                     if (symbol < 0)
                     {
                         // running out of input
@@ -537,7 +547,7 @@ internal sealed class InflaterManaged
                     if (symbol < 256)
                     {
                         // literal
-                        _output.Write((byte)symbol);
+                        output.Write((byte)symbol);
                         --freeBytes;
                     }
                     else if (symbol == 256)
@@ -580,7 +590,7 @@ internal sealed class InflaterManaged
                     if (_extraBits > 0)
                     {
                         _state = InflaterState.HaveInitialLength;
-                        var bits = _input.GetBits(_extraBits);
+                        var bits = input.GetBits(_extraBits);
                         if (bits < 0)
                         {
                             return false;
@@ -598,12 +608,12 @@ internal sealed class InflaterManaged
                 case InflaterState.HaveFullLength:
                     if (_blockType == BlockType.Dynamic)
                     {
-                        _distanceCode = _distanceTree.GetNextSymbol(_input);
+                        _distanceCode = distanceTree.GetNextSymbol(input);
                     }
                     else
                     {
                         // get distance code directly for static block
-                        _distanceCode = _input.GetBits(5);
+                        _distanceCode = input.GetBits(5);
                         if (_distanceCode >= 0)
                         {
                             _distanceCode = S_STATIC_DISTANCE_TREE_TABLE[_distanceCode];
@@ -626,7 +636,7 @@ internal sealed class InflaterManaged
                     if (_distanceCode > 3)
                     {
                         _extraBits = (_distanceCode - 2) >> 1;
-                        var bits = _input.GetBits(_extraBits);
+                        var bits = input.GetBits(_extraBits);
                         if (bits < 0)
                         {
                             return false;
@@ -638,7 +648,7 @@ internal sealed class InflaterManaged
                         offset = _distanceCode + 1;
                     }
 
-                    _output.WriteLengthDistance(_length, offset);
+                    output.WriteLengthDistance(_length, offset);
                     freeBytes -= _length;
                     _state = InflaterState.DecodeTop;
                     break;

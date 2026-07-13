@@ -1,10 +1,6 @@
 using System;
 using System.Buffers;
-using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.IO;
@@ -34,88 +30,7 @@ internal sealed partial class TarHeader
     private async ValueTask WriteUstarAsync(Stream output, CancellationToken cancellationToken)
     {
         var buffer = new byte[BLOCK_SIZE];
-
-        WriteOctalBytes(511, buffer, 100, 8);
-        WriteOctalBytes(0, buffer, 108, 8);
-        WriteOctalBytes(0, buffer, 116, 8);
-
-        var nameByteCount = ArchiveEncoding
-            .GetEncoding()
-            .GetByteCount(Name.NotNull("Name is null"));
-
-        if (nameByteCount > 100)
-        {
-            string fullName = Name.NotNull("Name is null");
-
-            List<int> dirSeps = new List<int>();
-            for (int i = 0; i < fullName.Length; i++)
-            {
-                if (fullName[i] == Path.DirectorySeparatorChar)
-                {
-                    dirSeps.Add(i);
-                }
-            }
-
-            int splitIndex = -1;
-            for (int i = 0; i < dirSeps.Count; i++)
-            {
-                int count = ArchiveEncoding
-                    .GetEncoding()
-                    .GetByteCount(fullName.AsSpan(0, dirSeps[i]));
-                if (count < 155)
-                {
-                    splitIndex = dirSeps[i];
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            if (splitIndex == -1)
-            {
-                throw new InvalidFormatException(
-                    $"Tar header USTAR format can not fit file name \"{fullName}\" of length {nameByteCount}! Directory separator not found! Try using GNU Tar format instead!"
-                );
-            }
-
-            string namePrefix = fullName.Substring(0, splitIndex);
-            string name = fullName.Substring(splitIndex + 1);
-
-            if (this.ArchiveEncoding.GetEncoding().GetByteCount(namePrefix) >= 155)
-            {
-                throw new InvalidFormatException(
-                    $"Tar header USTAR format can not fit file name \"{fullName}\" of length {nameByteCount}! Try using GNU Tar format instead!"
-                );
-            }
-
-            if (this.ArchiveEncoding.GetEncoding().GetByteCount(name) >= 100)
-            {
-                throw new InvalidFormatException(
-                    $"Tar header USTAR format can not fit file name \"{fullName}\" of length {nameByteCount}! Try using GNU Tar format instead!"
-                );
-            }
-
-            WriteStringBytes(ArchiveEncoding.Encode(namePrefix), buffer, 345, 100);
-            WriteStringBytes(ArchiveEncoding.Encode(name), buffer, 100);
-        }
-        else
-        {
-            WriteStringBytes(ArchiveEncoding.Encode(Name.NotNull("Name is null")), buffer, 100);
-        }
-
-        WriteOctalBytes(Size, buffer, 124, 12);
-        var time = (long)(LastModifiedTime.ToUniversalTime() - EPOCH).TotalSeconds;
-        WriteOctalBytes(time, buffer, 136, 12);
-        buffer[156] = (byte)EntryType;
-
-        WriteStringBytes(Encoding.ASCII.GetBytes("ustar"), buffer, 257, 6);
-        buffer[263] = 0x30;
-        buffer[264] = 0x30;
-
-        var crc = RecalculateChecksum(buffer);
-        WriteOctalBytes(crc, buffer, 148, 8);
-
+        FormatUstar(buffer);
         await output.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
     }
 
@@ -125,40 +40,7 @@ internal sealed partial class TarHeader
     )
     {
         var buffer = new byte[BLOCK_SIZE];
-
-        WriteOctalBytes(511, buffer, 100, 8);
-        WriteOctalBytes(0, buffer, 108, 8);
-        WriteOctalBytes(0, buffer, 116, 8);
-
-        var nameByteCount = ArchiveEncoding
-            .GetEncoding()
-            .GetByteCount(Name.NotNull("Name is null"));
-        if (nameByteCount > 100)
-        {
-            WriteStringBytes("././@LongLink", buffer, 0, 100);
-            buffer[156] = (byte)EntryType.LongName;
-            WriteOctalBytes(nameByteCount + 1, buffer, 124, 12);
-        }
-        else
-        {
-            WriteStringBytes(ArchiveEncoding.Encode(Name.NotNull("Name is null")), buffer, 100);
-            WriteOctalBytes(Size, buffer, 124, 12);
-            var time = (long)(LastModifiedTime.ToUniversalTime() - EPOCH).TotalSeconds;
-            WriteOctalBytes(time, buffer, 136, 12);
-            buffer[156] = (byte)EntryType;
-
-            if (Size >= 0x1FFFFFFFF)
-            {
-                Span<byte> bytes12 = stackalloc byte[12];
-                BinaryPrimitives.WriteInt64BigEndian(bytes12.Slice(4), Size);
-                bytes12[0] |= 0x80;
-                bytes12.CopyTo(buffer.AsSpan(124));
-            }
-        }
-
-        var crc = RecalculateChecksum(buffer);
-        WriteOctalBytes(crc, buffer, 148, 8);
-
+        var nameByteCount = FormatGnuTarLongLinkHeader(buffer);
         await output.WriteAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
 
         if (nameByteCount > 100)
@@ -203,9 +85,9 @@ internal sealed partial class TarHeader
         globalPaxMetadata ??= new PaxMetadata();
         var pendingMetadata = globalPaxMetadata.Clone();
         var buffer = ArrayPool<byte>.Shared.Rent(BLOCK_SIZE);
-        EntryType entryType;
         try
         {
+            EntryType entryType;
             while (true)
             {
                 await reader
@@ -254,61 +136,15 @@ internal sealed partial class TarHeader
 
                 break;
             }
+
+            // Parse the fully-read block with the shared IO-free core while the
+            // rented buffer is still valid (before it is returned to the pool).
+            return ParseCore(buffer.AsSpan(0, BLOCK_SIZE), entryType, pendingMetadata);
         }
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
         }
-
-        // Check header checksum
-        if (!checkChecksum(buffer))
-        {
-            return false;
-        }
-
-        Name = ArchiveEncoding.Decode(buffer, 0, 100).TrimNulls();
-        EntryType = entryType;
-        Size = ReadSize(buffer);
-        LinkName = null;
-
-        // for symlinks, additionally read the linkname
-        if (entryType == EntryType.SymLink || entryType == EntryType.HardLink)
-        {
-            LinkName = ArchiveEncoding.Decode(buffer, 157, 100).TrimNulls();
-        }
-
-        Mode = ReadAsciiInt64Base8(buffer, 100, 7);
-        UserId = ReadAsciiInt64Base8oldGnu(buffer, 108, 7);
-        GroupId = ReadAsciiInt64Base8oldGnu(buffer, 116, 7);
-
-        var unixTimeStamp = ReadAsciiInt64Base8(buffer, 136, 11);
-
-        LastModifiedTime = EPOCH.AddSeconds(unixTimeStamp).ToLocalTime();
-        Magic = ArchiveEncoding.Decode(buffer, 257, 6).TrimNulls();
-
-        if (!string.IsNullOrEmpty(Magic) && "ustar".Equals(Magic, StringComparison.Ordinal))
-        {
-            var namePrefix = ArchiveEncoding.Decode(buffer, 345, 157).TrimNulls();
-
-            if (!string.IsNullOrEmpty(namePrefix))
-            {
-                Name = namePrefix + "/" + Name;
-            }
-        }
-
-        pendingMetadata.ApplyTo(this);
-
-        if (entryType == EntryType.Directory)
-        {
-            Mode |= 0b1_000_000_000;
-        }
-
-        if (entryType != EntryType.LongName && Name.Length == 0)
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private static async ValueTask ReadLengthAsync(

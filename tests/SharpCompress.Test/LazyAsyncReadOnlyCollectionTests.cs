@@ -343,6 +343,39 @@ public class LazyAsyncReadOnlyCollectionTests
         Assert.Equal(new[] { 1, 2, 3 }, results);
     }
 
+    [Fact]
+    public async Task ConcurrentLazyEnumeration_WhileLoading_IsSafe()
+    {
+        var items = Enumerable.Range(0, 1000).ToArray();
+        var source = new TrackingAsyncEnumerable<int>(items);
+        var collection = new LazyAsyncReadOnlyCollection<int>(source);
+        const int taskCount = 8;
+
+        var tasks = Enumerable
+            .Range(0, taskCount)
+            .Select(_ =>
+                Task.Run(async () =>
+                {
+                    var results = new List<int>(items.Length);
+                    await foreach (var item in collection)
+                    {
+                        results.Add(item);
+                    }
+                    return results;
+                })
+            )
+            .ToArray();
+
+        var allResults = await Task.WhenAll(tasks);
+
+        foreach (var results in allResults)
+        {
+            Assert.Equal(items, results);
+        }
+
+        Assert.Equal(items.Length, source.ItemsRequestedCount);
+    }
+
     // Helper method to create an async enumerable with delays
     private static async IAsyncEnumerable<T> CreateDelayedAsyncEnumerable<T>(
         IEnumerable<T> items,

@@ -1,3 +1,4 @@
+using System;
 using static SharpCompress.Compressors.Rar.UnpackV2017.PackDef;
 
 namespace SharpCompress.Compressors.Rar.UnpackV2017;
@@ -24,63 +25,48 @@ internal partial class Unpack
         {
             // If we are not close to end of window, we do not need to waste time
             // to "& MaxWinMask" pointer protection.
-
-            // See #68: non-optimized loop; may be unrollable.
             var Window = this.Window;
-            while (Length-- > 0)
-            {
-                Window[UnpPtr++] = Window[SrcPtr++];
-            }
+            var src = (int)SrcPtr;
+            var dest = (int)UnpPtr;
+            var len = (int)Length;
+            UnpPtr += Length;
 
-            //    byte *Src=Window+SrcPtr;
-            //    byte *Dest=Window+UnpPtr;
-            //    UnpPtr+=Length;
-            //
-            //#if FAST_MEMCPY
-            //    if (Distance<Length) // Overlapping strings
-            //#endif
-            //      while (Length>=8)
-            //      {
-            //        Dest[0]=Src[0];
-            //        Dest[1]=Src[1];
-            //        Dest[2]=Src[2];
-            //        Dest[3]=Src[3];
-            //        Dest[4]=Src[4];
-            //        Dest[5]=Src[5];
-            //        Dest[6]=Src[6];
-            //        Dest[7]=Src[7];
-            //
-            //        Src+=8;
-            //        Dest+=8;
-            //        Length-=8;
-            //      }
-            //#if FAST_MEMCPY
-            //    else
-            //      while (Length>=8)
-            //      {
-            //        // In theory we still could overlap here.
-            //        // Supposing Distance == MaxWinSize - 1 we have memcpy(Src, Src + 1, 8).
-            //        // But for real RAR archives Distance <= MaxWinSize - MAX_LZ_MATCH
-            //        // always, so overlap here is impossible.
-            //
-            //        // This memcpy expanded inline by MSVC. We could also use uint64
-            //        // assignment, which seems to provide about the same speed.
-            //        memcpy(Dest,Src,8);
-            //
-            //        Src+=8;
-            //        Dest+=8;
-            //        Length-=8;
-            //      }
-            //#endif
-            //
-            //    // Unroll the loop for 0 - 7 bytes left. Note that we use nested "if"s.
-            //    if (Length>0) { Dest[0]=Src[0];
-            //    if (Length>1) { Dest[1]=Src[1];
-            //    if (Length>2) { Dest[2]=Src[2];
-            //    if (Length>3) { Dest[3]=Src[3];
-            //    if (Length>4) { Dest[4]=Src[4];
-            //    if (Length>5) { Dest[5]=Src[5];
-            //    if (Length>6) { Dest[6]=Src[6]; } } } } } } } // Close all nested "if"s.
+            if (Distance == 1)
+            {
+                // Run-length fill: the match is a single repeated byte.
+                Window.AsSpan(dest, len).Fill(Window[src]);
+            }
+            else if (Distance >= Length)
+            {
+                // Source and destination ranges do not overlap, so a bulk copy
+                // (which lowers to memmove) is safe and fast.
+                Window.AsSpan(src, len).CopyTo(Window.AsSpan(dest, len));
+            }
+            else
+            {
+                // Overlapping match: bytes must be produced in order so the
+                // pattern propagates. Sequential assignments read positions that
+                // were already written, matching the byte-by-byte semantics while
+                // letting the JIT process 8 bytes per iteration.
+                while (len >= 8)
+                {
+                    Window[dest] = Window[src];
+                    Window[dest + 1] = Window[src + 1];
+                    Window[dest + 2] = Window[src + 2];
+                    Window[dest + 3] = Window[src + 3];
+                    Window[dest + 4] = Window[src + 4];
+                    Window[dest + 5] = Window[src + 5];
+                    Window[dest + 6] = Window[src + 6];
+                    Window[dest + 7] = Window[src + 7];
+                    src += 8;
+                    dest += 8;
+                    len -= 8;
+                }
+                while (len-- > 0)
+                {
+                    Window[dest++] = Window[src++];
+                }
+            }
         }
         else
         {

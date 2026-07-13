@@ -216,7 +216,9 @@ internal sealed partial class Unpack : BitInput
             case 29: // rar 3.x compression
                 if (!Fragmented)
                 {
-                    throw new NotImplementedException();
+                    throw new InvalidFormatException(
+                        "RAR 3.x (method 29) entries are handled by the UnpackV1 decoder; UnpackV2017 does not implement method 29."
+                    );
                 }
 
                 break;
@@ -262,8 +264,9 @@ internal sealed partial class Unpack : BitInput
             case 29: // rar 3.x compression
                 if (!Fragmented)
                 {
-                    // See #67: Unpack29Async not implemented yet.
-                    throw new NotImplementedException();
+                    throw new InvalidFormatException(
+                        "RAR 3.x (method 29) entries are handled by the UnpackV1 decoder; UnpackV2017 does not implement method 29."
+                    );
                 }
 
                 break;
