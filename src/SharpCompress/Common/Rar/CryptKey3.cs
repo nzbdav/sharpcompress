@@ -24,18 +24,13 @@ internal class CryptKey3 : ICryptKey
     {
         var aesIV = new byte[EncryptionConstV5.SIZE_INITV];
 
-        var rawLength = 2 * _password.Length;
-        var rawPassword = new byte[rawLength + EncryptionConstV5.SIZE_SALT30];
-        var passwordBytes = Encoding.UTF8.GetBytes(_password);
-        for (var i = 0; i < _password.Length; i++)
-        {
-            rawPassword[i * 2] = passwordBytes[i];
-            rawPassword[(i * 2) + 1] = 0;
-        }
+        var passwordBytes = Encoding.Unicode.GetBytes(_password); // UTF-16LE, matches unrar WideToRaw
+        var rawPassword = new byte[passwordBytes.Length + EncryptionConstV5.SIZE_SALT30];
+        passwordBytes.CopyTo(rawPassword, 0);
 
         for (var i = 0; i < salt.Length; i++)
         {
-            rawPassword[i + rawLength] = salt[i];
+            rawPassword[i + passwordBytes.Length] = salt[i];
         }
 
         const int noOfRounds = 1 << 18;
