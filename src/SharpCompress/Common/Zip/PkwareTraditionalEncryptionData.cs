@@ -47,6 +47,16 @@ internal class PkwareTraditionalEncryptionData
         return encryptor;
     }
 
+    public void Decrypt(Span<byte> data)
+    {
+        for (var i = 0; i < data.Length; i++)
+        {
+            var c = (byte)(data[i] ^ MagicByte);
+            UpdateKeys(c);
+            data[i] = c;
+        }
+    }
+
     public byte[] Decrypt(byte[] cipherText, int length)
     {
         if (length > cipherText.Length)
@@ -58,12 +68,8 @@ internal class PkwareTraditionalEncryptionData
         }
 
         var plainText = new byte[length];
-        for (var i = 0; i < length; i++)
-        {
-            var c = (byte)(cipherText[i] ^ MagicByte);
-            UpdateKeys(c);
-            plainText[i] = c;
-        }
+        cipherText.AsSpan(0, length).CopyTo(plainText);
+        Decrypt(plainText.AsSpan(0, length));
         return plainText;
     }
 

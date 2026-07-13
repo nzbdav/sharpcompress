@@ -50,10 +50,8 @@ internal partial class PkwareTraditionalCryptoStream : Stream
 
         ThrowHelper.ThrowIfNull(buffer);
 
-        var temp = new byte[count];
-        var readBytes = _stream.Read(temp, 0, count);
-        var decrypted = _encryptor.Decrypt(temp, readBytes);
-        Buffer.BlockCopy(decrypted, 0, buffer, offset, readBytes);
+        var readBytes = _stream.Read(buffer, offset, count);
+        _encryptor.Decrypt(buffer.AsSpan(offset, readBytes));
         return readBytes;
     }
 

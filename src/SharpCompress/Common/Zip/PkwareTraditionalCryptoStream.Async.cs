@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,12 +21,10 @@ internal partial class PkwareTraditionalCryptoStream
 
         ThrowHelper.ThrowIfNull(buffer);
 
-        var temp = new byte[count];
         var readBytes = await _stream
-            .ReadAsync(temp, 0, count, cancellationToken)
+            .ReadAsync(buffer, offset, count, cancellationToken)
             .ConfigureAwait(false);
-        var decrypted = _encryptor.Decrypt(temp, readBytes);
-        Buffer.BlockCopy(decrypted, 0, buffer, offset, readBytes);
+        _encryptor.Decrypt(buffer.AsSpan(offset, readBytes));
         return readBytes;
     }
 
@@ -41,20 +38,9 @@ internal partial class PkwareTraditionalCryptoStream
             throw new NotSupportedException("This stream does not encrypt via Read()");
         }
 
-        byte[] temp = ArrayPool<byte>.Shared.Rent(buffer.Length);
-        try
-        {
-            int readBytes = await _stream
-                .ReadAsync(temp.AsMemory(0, buffer.Length), cancellationToken)
-                .ConfigureAwait(false);
-            var decrypted = _encryptor.Decrypt(temp, readBytes);
-            decrypted.AsMemory(0, readBytes).CopyTo(buffer);
-            return readBytes;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(temp);
-        }
+        var readBytes = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        _encryptor.Decrypt(buffer.Span[..readBytes]);
+        return readBytes;
     }
 
     public override async Task WriteAsync(

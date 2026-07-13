@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Compressors.LZMA.RangeCoder;
@@ -326,13 +328,36 @@ public class PpmdStream : Stream, IAsyncDisposable
 
         if (_properties.Version == PpmdVersion.I1)
         {
-            // Need to use a temporary buffer since DecodeBlockAsync works with byte[]
-            var tempBuffer = new byte[count];
-            size = await _model
-                .NotNull()
-                .DecodeBlockAsync(_stream, tempBuffer, 0, count, cancellationToken)
-                .ConfigureAwait(false);
-            tempBuffer.AsMemory(0, size).CopyTo(buffer);
+            // DecodeBlockAsync works with byte[]; use the Memory's array when available.
+            if (MemoryMarshal.TryGetArray(buffer, out ArraySegment<byte> segment))
+            {
+                size = await _model
+                    .NotNull()
+                    .DecodeBlockAsync(
+                        _stream,
+                        segment.Array!,
+                        segment.Offset,
+                        count,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                var tempBuffer = ArrayPool<byte>.Shared.Rent(count);
+                try
+                {
+                    size = await _model
+                        .NotNull()
+                        .DecodeBlockAsync(_stream, tempBuffer, 0, count, cancellationToken)
+                        .ConfigureAwait(false);
+                    tempBuffer.AsMemory(0, size).CopyTo(buffer);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(tempBuffer);
+                }
+            }
         }
         if (_properties.Version == PpmdVersion.H)
         {
