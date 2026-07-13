@@ -220,7 +220,7 @@ internal partial class StreamingZipHeaderFactory : ZipHeaderFactory
                         // Peek ahead to check if next data is a header or file data.
                         // Use the IStreamStack.Rewind mechanism to give back the peeked bytes.
                         var nextHeaderBytes = reader.ReadUInt32();
-                        sharpCompressStream.Rewind(sizeof(uint));
+                        sharpCompressStream.RewindOrThrow(sizeof(uint));
 
                         // Check if next data is PostDataDescriptor, streamed file with 0 length
                         header.HasData = !IsHeader(nextHeaderBytes);
