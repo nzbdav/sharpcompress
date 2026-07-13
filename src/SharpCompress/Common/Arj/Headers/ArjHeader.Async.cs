@@ -50,7 +50,9 @@ public abstract partial class ArjHeader
         }
 
         byte[] crc = new byte[4];
-        await stream.ReadFullyAsync(crc, 0, 4, cancellationToken).ConfigureAwait(false);
+        await stream
+            .ReadAtLeastAsync(crc.AsMemory(0, 4), 4, throwOnEndOfStream: false, cancellationToken)
+            .ConfigureAwait(false);
         var checksum = Crc32Stream.Compute(body);
         // Compute the hash value
         if (checksum != BitConverter.ToUInt32(crc, 0))

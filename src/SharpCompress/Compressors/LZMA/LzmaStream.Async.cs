@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common;
 using SharpCompress.IO;
 
 namespace SharpCompress.Compressors.LZMA;
@@ -84,9 +85,7 @@ public partial class LzmaStream
     private async ValueTask DecodeChunkHeaderAsync(CancellationToken cancellationToken = default)
     {
         var headerBuffer = GetAsyncHeaderBuffer();
-        await _inputStream!
-            .ReadExactAsync(headerBuffer, 0, 1, cancellationToken)
-            .ConfigureAwait(false);
+        await ReadHeaderOrThrowAsync(headerBuffer, 1, cancellationToken).ConfigureAwait(false);
         var control = headerBuffer[0];
         _inputPosition++;
 
@@ -117,23 +116,18 @@ public partial class LzmaStream
             _uncompressedChunk = false;
 
             _availableBytes = (control & 0x1F) << 16;
-            await _inputStream!
-                .ReadExactAsync(headerBuffer, 0, 2, cancellationToken)
-                .ConfigureAwait(false);
+            await ReadHeaderOrThrowAsync(headerBuffer, 2, cancellationToken).ConfigureAwait(false);
             _availableBytes += (headerBuffer[0] << 8) + headerBuffer[1] + 1;
             _inputPosition += 2;
 
-            await _inputStream!
-                .ReadExactAsync(headerBuffer, 0, 2, cancellationToken)
-                .ConfigureAwait(false);
+            await ReadHeaderOrThrowAsync(headerBuffer, 2, cancellationToken).ConfigureAwait(false);
             _rangeDecoderLimit = (headerBuffer[0] << 8) + headerBuffer[1] + 1;
             _inputPosition += 2;
 
             if (control >= 0xC0)
             {
                 _needProps = false;
-                await _inputStream!
-                    .ReadExactAsync(headerBuffer, 0, 1, cancellationToken)
+                await ReadHeaderOrThrowAsync(headerBuffer, 1, cancellationToken)
                     .ConfigureAwait(false);
                 Properties[0] = headerBuffer[0];
                 _inputPosition++;
@@ -160,11 +154,27 @@ public partial class LzmaStream
         else
         {
             _uncompressedChunk = true;
-            await _inputStream!
-                .ReadExactAsync(headerBuffer, 0, 2, cancellationToken)
-                .ConfigureAwait(false);
+            await ReadHeaderOrThrowAsync(headerBuffer, 2, cancellationToken).ConfigureAwait(false);
             _availableBytes = (headerBuffer[0] << 8) + headerBuffer[1] + 1;
             _inputPosition += 2;
+        }
+    }
+
+    private async ValueTask ReadHeaderOrThrowAsync(
+        byte[] headerBuffer,
+        int count,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await _inputStream!
+                .ReadExactlyAsync(headerBuffer.AsMemory(0, count), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
         }
     }
 

@@ -138,7 +138,7 @@ internal sealed class GZipChecksumValidationStream : Stream
         if (!expectedCrc.HasValue || !expectedSize.HasValue)
         {
             Span<byte> trailer = stackalloc byte[8];
-            _rawStream.ReadFully(trailer);
+            _rawStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
             expectedCrc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);
             expectedSize = BinaryPrimitives.ReadUInt32LittleEndian(trailer[4..]);
         }

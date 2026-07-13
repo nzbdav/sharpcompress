@@ -30,11 +30,12 @@ public interface IRarAsyncArchive : IAsyncArchive, IRarArchiveCommon { }
 /// <remarks>
 /// <para>
 /// Non-solid archives may open multiple entry streams concurrently; each stream owns a private
-/// unpacker instance.
+/// unpacker instance with a pool-rented decompression window (up to ~4 MB+ for RAR5).
 /// </para>
 /// <para>
 /// Solid archives share a single unpacker and do not support concurrent entry streams. Open at most
-/// one entry stream at a time, or extract sequentially with <see cref="IArchive.ExtractAllEntries"/>.
+/// one entry stream at a time via <c>OpenEntryStream</c> / <c>OpenEntryStreamAsync</c>, or extract
+/// sequentially with <see cref="IArchive.ExtractAllEntries"/>.
 /// </para>
 /// </remarks>
 public partial class RarArchive
@@ -53,8 +54,9 @@ public partial class RarArchive
         : base(ArchiveType.Rar, sourceStream) { }
 
     /// <summary>
-    /// Acquires an unpacker for an entry stream. Non-solid archives get a private instance;
-    /// solid archives reuse the shared instance and enforce single active stream.
+    /// Acquires an unpacker for an entry stream. Non-solid archives get a private instance
+    /// (pool-rented window, up to ~4 MB+ for RAR5); solid archives reuse the shared instance and
+    /// enforce a single active stream.
     /// </summary>
     /// <param name="isRarV3">Whether the entry uses the RAR3 unpacker.</param>
     /// <param name="isSolidArchive">Archive-level solid flag (use sync or async IsSolid consistently with the open path).</param>

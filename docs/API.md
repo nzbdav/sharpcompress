@@ -181,7 +181,9 @@ await using (var asyncArchive = await ZipArchive.OpenAsyncArchive("file.zip"))
 ```
 
 RAR notes: non-solid `RarArchive` may open multiple entry streams concurrently (each owns a private
-unpacker). Solid RAR archives allow only one active entry stream at a time; a second concurrent
+unpacker). Each private unpacker allocates a decompression window (up to ~4 MB+ for RAR5), rented
+from `ArrayPool`, so concurrent opens increase pooled memory use but do not permanently grow the LOH.
+Solid RAR archives allow only one active entry stream at a time; a second concurrent
 `OpenEntryStream` / `OpenEntryStreamAsync` throws `ArchiveOperationException`. Prefer
 `ExtractAllEntries()` for solid sequential extraction.
 

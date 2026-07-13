@@ -12,102 +12,40 @@ namespace SharpCompress.Test;
 
 public class UtilityTests
 {
-    #region ReadFully Tests
+    #region ReadAtLeast / EOF semantics
 
     [Fact]
-    public void ReadFully_ByteArray_ReadsExactlyRequiredBytes()
+    public void ReadAtLeast_ByteArray_ReadsExactlyRequiredBytes()
     {
         var data = new byte[] { 1, 2, 3, 4, 5 };
         using var stream = new MemoryStream(data);
         var buffer = new byte[5];
 
-        var result = stream.ReadFully(buffer);
+        var result = stream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
 
-        Assert.True(result);
+        Assert.Equal(5, result);
         Assert.Equal(data, buffer);
     }
 
     [Fact]
-    public void ReadFully_ByteArray_ReturnsFalseWhenNotEnoughData()
+    public void ReadAtLeast_ByteArray_ReturnsPartialWhenNotEnoughData()
     {
         var data = new byte[] { 1, 2, 3 };
         using var stream = new MemoryStream(data);
         var buffer = new byte[5];
 
-        var result = stream.ReadFully(buffer);
+        var result = stream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
 
-        Assert.False(result);
+        Assert.Equal(3, result);
     }
 
     [Fact]
-    public void ReadFully_ByteArray_EmptyStream_ReturnsFalse()
+    public void ReadExactly_EmptyStream_ThrowsEndOfStreamException()
     {
         using var stream = new MemoryStream();
         var buffer = new byte[5];
 
-        var result = stream.ReadFully(buffer);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void ReadFully_ByteArray_EmptyBuffer_ReturnsTrue()
-    {
-        var data = new byte[] { 1, 2, 3 };
-        using var stream = new MemoryStream(data);
-        var buffer = Array.Empty<byte>();
-
-        var result = stream.ReadFully(buffer);
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void ReadFully_Span_ReadsExactlyRequiredBytes()
-    {
-        var data = new byte[] { 1, 2, 3, 4, 5 };
-        using var stream = new MemoryStream(data);
-        Span<byte> buffer = new byte[5];
-
-        var result = stream.ReadFully(buffer);
-
-        Assert.True(result);
-        Assert.Equal(data, buffer.ToArray());
-    }
-
-    [Fact]
-    public void ReadFully_Span_ReturnsFalseWhenNotEnoughData()
-    {
-        var data = new byte[] { 1, 2, 3 };
-        using var stream = new MemoryStream(data);
-        Span<byte> buffer = new byte[5];
-
-        var result = stream.ReadFully(buffer);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void ReadFully_Span_EmptyStream_ReturnsFalse()
-    {
-        using var stream = new MemoryStream();
-        Span<byte> buffer = new byte[5];
-
-        var result = stream.ReadFully(buffer);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void ReadFully_Span_EmptyBuffer_ReturnsTrue()
-    {
-        var data = new byte[] { 1, 2, 3 };
-        using var stream = new MemoryStream(data);
-        Span<byte> buffer = Array.Empty<byte>();
-
-        var result = stream.ReadFully(buffer);
-
-        Assert.True(result);
+        Assert.Throws<EndOfStreamException>(() => stream.ReadExactly(buffer));
     }
 
     #endregion

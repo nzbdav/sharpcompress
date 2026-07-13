@@ -136,51 +136,6 @@ internal static partial class Utility
                 ArrayPool<byte>.Shared.Return(array);
             }
         }
-
-        public bool ReadFully(byte[] buffer)
-        {
-            try
-            {
-                source.ReadExactly(buffer);
-                return true;
-            }
-            catch (EndOfStreamException)
-            {
-                return false;
-            }
-        }
-
-        public bool ReadFully(Span<byte> buffer)
-        {
-            try
-            {
-                source.ReadExactly(buffer);
-                return true;
-            }
-            catch (EndOfStreamException)
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Read exactly the requested number of bytes from a stream.
-        /// Throws <see cref="IncompleteArchiveException"/> if not enough data is available.
-        /// </summary>
-        public void ReadExact(byte[] buffer, int offset, int length)
-        {
-            ThrowHelper.ThrowIfNull(source);
-            ThrowHelper.ThrowIfNull(buffer);
-
-            try
-            {
-                source.ReadExactly(buffer.AsSpan(offset, length));
-            }
-            catch (EndOfStreamException)
-            {
-                throw new IncompleteArchiveException("Unexpected end of stream.");
-            }
-        }
     }
 
     public static string TrimNulls(this string source) => source.Replace('\0', ' ').Trim();

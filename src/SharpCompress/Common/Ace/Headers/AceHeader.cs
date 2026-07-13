@@ -66,7 +66,10 @@ public abstract partial class AceHeader
     {
         // Read header CRC (2 bytes) and header size (2 bytes)
         var headerBytes = new byte[4];
-        if (!stream.ReadFully(headerBytes))
+        if (
+            stream.ReadAtLeast(headerBytes, headerBytes.Length, throwOnEndOfStream: false)
+            != headerBytes.Length
+        )
         {
             return Array.Empty<byte>();
         }
@@ -80,7 +83,7 @@ public abstract partial class AceHeader
 
         // Read the header data
         var body = new byte[HeaderSize];
-        if (!stream.ReadFully(body))
+        if (stream.ReadAtLeast(body, body.Length, throwOnEndOfStream: false) != body.Length)
         {
             return Array.Empty<byte>();
         }

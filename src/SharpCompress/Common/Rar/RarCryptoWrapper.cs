@@ -96,7 +96,7 @@ internal sealed class RarCryptoWrapper : Stream
                 for (var i = 0; i < alignedSize / 16; i++)
                 {
                     await _actualStream
-                        .ReadExactAsync(cipherText, 0, 16, cancellationToken)
+                        .ReadExactlyAsync(cipherText, cancellationToken)
                         .ConfigureAwait(false);
 
                     var readBytes = _rijndael.ProcessBlock(cipherText);

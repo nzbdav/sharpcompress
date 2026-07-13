@@ -15,10 +15,13 @@ public static partial class BinaryUtils
     )
     {
         var bytes = new byte[4];
-        var read = await stream.ReadFullyAsync(bytes, cancellationToken).ConfigureAwait(false);
-        if (!read)
+        try
         {
-            throw new IncompleteArchiveException("Unexpected end of stream.");
+            await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
         }
         return BinaryPrimitives.ReadInt32LittleEndian(bytes);
     }

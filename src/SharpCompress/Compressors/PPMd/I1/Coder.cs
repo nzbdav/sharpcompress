@@ -1,5 +1,6 @@
 #region Using
 
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -122,7 +123,14 @@ internal class Coder
         _range = uint.MaxValue;
 
         byte[] buffer = new byte[4];
-        await stream.ReadFullyAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+        await stream
+            .ReadAtLeastAsync(
+                buffer.AsMemory(0, 4),
+                4,
+                throwOnEndOfStream: false,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
 
         for (uint index = 0; index < 4; index++)
         {
@@ -154,7 +162,14 @@ internal class Coder
         )
         {
             byte[] buffer = new byte[1];
-            await stream.ReadFullyAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+            await stream
+                .ReadAtLeastAsync(
+                    buffer.AsMemory(0, 1),
+                    1,
+                    throwOnEndOfStream: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             _code = (_code << 8) | buffer[0];
             _range <<= 8;
             _low <<= 8;

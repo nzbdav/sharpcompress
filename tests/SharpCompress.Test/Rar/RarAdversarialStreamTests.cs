@@ -29,60 +29,25 @@ public class RarAdversarialStreamTests : ArchiveTests
     [Fact(Timeout = 30_000)]
     public void Rar_MultiVolume_TruncatedLastPart_ThrowsIncompleteArchiveException()
     {
-        var streams = OpenTruncatedMultiVolume(percentOfLastPart: 50);
-        try
-        {
-            using var archive = RarArchive.OpenArchive(streams);
-            var exception = Assert.ThrowsAny<Exception>(() =>
-            {
-                foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
-                {
-                    using var entryStream = entry.OpenEntryStream();
-                    entryStream.CopyTo(Stream.Null);
-                }
-            });
+        AssertMultiVolumeTruncationThrows(useExplicitBufferLoop: false);
+    }
 
-            AssertIncompleteOrWrapped(exception);
-        }
-        finally
-        {
-            foreach (var stream in streams)
-            {
-                stream.Dispose();
-            }
-        }
+    [Fact(Timeout = 30_000)]
+    public void Rar_MultiVolume_TruncatedLastPart_Throws_ViaSyncRead()
+    {
+        AssertMultiVolumeTruncationThrows(useExplicitBufferLoop: true);
     }
 
     [Fact(Timeout = 30_000)]
     public async Task Rar_MultiVolume_TruncatedLastPart_ThrowsIncompleteArchiveException_Async()
     {
-        var streams = OpenTruncatedMultiVolume(percentOfLastPart: 50);
-        try
-        {
-            await using var archive = await RarArchive.OpenAsyncArchive(streams);
-            var exception = await Assert.ThrowsAnyAsync<Exception>(async () =>
-            {
-                await foreach (var entry in archive.EntriesAsync)
-                {
-                    if (entry.IsDirectory)
-                    {
-                        continue;
-                    }
+        await AssertMultiVolumeTruncationThrowsAsync(useMemoryOverload: false);
+    }
 
-                    await using var entryStream = await entry.OpenEntryStreamAsync();
-                    await entryStream.CopyToAsync(Stream.Null);
-                }
-            });
-
-            AssertIncompleteOrWrapped(exception);
-        }
-        finally
-        {
-            foreach (var stream in streams)
-            {
-                await stream.DisposeAsync();
-            }
-        }
+    [Fact(Timeout = 30_000)]
+    public async Task Rar_MultiVolume_TruncatedLastPart_Throws_ViaReadAsyncMemory()
+    {
+        await AssertMultiVolumeTruncationThrowsAsync(useMemoryOverload: true);
     }
 
     [Theory]
@@ -99,8 +64,8 @@ public class RarAdversarialStreamTests : ArchiveTests
         var bytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
         var options = ReaderOptions.ForExternalStream with { Password = password };
 
-        var baseline = ExtractEntryBytes(new MemoryStream(bytes, writable: false), options);
-        var chunked = ExtractEntryBytes(
+        var baseline = ExtractRarEntryBytes(new MemoryStream(bytes, writable: false), options);
+        var chunked = ExtractRarEntryBytes(
             new ChunkyReadStream(new MemoryStream(bytes, writable: false), chunkSize),
             options
         );
@@ -124,11 +89,11 @@ public class RarAdversarialStreamTests : ArchiveTests
         var bytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
         var options = ReaderOptions.ForExternalStream with { Password = password };
 
-        var baseline = await ExtractEntryBytesAsync(
+        var baseline = await ExtractRarEntryBytesAsync(
             new MemoryStream(bytes, writable: false),
             options
         );
-        var chunked = await ExtractEntryBytesAsync(
+        var chunked = await ExtractRarEntryBytesAsync(
             new ChunkyReadStream(new MemoryStream(bytes, writable: false), chunkSize),
             options
         );
@@ -143,6 +108,8 @@ public class RarAdversarialStreamTests : ArchiveTests
     [Fact(Timeout = 30_000)]
     public async Task Rar_AsyncExtraction_RespectsCancellationDuringRead()
     {
+        // RarArchive.OpenAsyncArchive still sync-reads headers, so CancelAfterBytesReadStream
+        // (sync Read unsupported) cannot wrap the archive source. Cancel after the first entry chunk.
         var archiveBytes = await File.ReadAllBytesAsync(
             Path.Combine(TEST_ARCHIVES_PATH, "Rar.rar")
         );
@@ -174,7 +141,7 @@ public class RarAdversarialStreamTests : ArchiveTests
         using var fileStream = File.OpenRead(path);
         using var truncated = TruncatedStream.AtPercent(fileStream, 50, leaveOpen: false);
 
-        Assert.ThrowsAny<Exception>(() =>
+        var exception = Assert.ThrowsAny<Exception>(() =>
         {
             using var archive = SevenZipArchive.OpenArchive(truncated);
             foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
@@ -183,6 +150,8 @@ public class RarAdversarialStreamTests : ArchiveTests
                 entryStream.CopyTo(Stream.Null);
             }
         });
+
+        AssertTruncationFailure(exception);
     }
 
     [Fact(Timeout = 30_000)]
@@ -192,7 +161,7 @@ public class RarAdversarialStreamTests : ArchiveTests
         using var fileStream = File.OpenRead(path);
         using var truncated = TruncatedStream.AtPercent(fileStream, 50, leaveOpen: false);
 
-        Assert.ThrowsAny<Exception>(() =>
+        var exception = Assert.ThrowsAny<Exception>(() =>
         {
             using var archive = ArchiveFactory.OpenArchive(truncated);
             foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
@@ -201,6 +170,174 @@ public class RarAdversarialStreamTests : ArchiveTests
                 entryStream.CopyTo(Stream.Null);
             }
         });
+
+        AssertTruncationFailure(exception);
+    }
+
+    [Theory]
+    [InlineData("Zip.bzip2.pkware.zip", "test", 1)]
+    [InlineData("Zip.bzip2.pkware.zip", "test", 7)]
+    [InlineData("Zip.deflate.zip", null, 1)]
+    public void Zip_ChunkyReads_MatchBaseline(string archiveName, string? password, int chunkSize)
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
+        var options = ReaderOptions.ForExternalStream;
+        if (password is not null)
+        {
+            options = options with { Password = password };
+        }
+
+        var baseline = ExtractArchiveEntryBytes(new MemoryStream(bytes, writable: false), options);
+        var chunked = ExtractArchiveEntryBytes(
+            new ChunkyReadStream(new MemoryStream(bytes, writable: false), chunkSize),
+            options
+        );
+
+        Assert.Equal(baseline.Count, chunked.Count);
+        foreach (var key in baseline.Keys)
+        {
+            Assert.Equal(baseline[key], chunked[key]);
+        }
+    }
+
+    [Theory]
+    [InlineData("7Zip.LZMA.7z", null, 1)]
+    [InlineData("7Zip.LZMA.7z", null, 16)]
+    [InlineData("7Zip.LZMA.Aes.7z", "testpassword", 7)]
+    public void SevenZip_ChunkyReads_MatchBaseline(
+        string archiveName,
+        string? password,
+        int chunkSize
+    )
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, archiveName));
+        var options = ReaderOptions.ForExternalStream;
+        if (password is not null)
+        {
+            options = options with { Password = password };
+        }
+
+        var baseline = ExtractSevenZipEntryBytes(new MemoryStream(bytes, writable: false), options);
+        var chunked = ExtractSevenZipEntryBytes(
+            new ChunkyReadStream(new MemoryStream(bytes, writable: false), chunkSize),
+            options
+        );
+
+        Assert.Equal(baseline.Count, chunked.Count);
+        foreach (var key in baseline.Keys)
+        {
+            Assert.Equal(baseline[key], chunked[key]);
+        }
+    }
+
+    private void AssertMultiVolumeTruncationThrows(bool useExplicitBufferLoop)
+    {
+        var streams = OpenTruncatedMultiVolume(percentOfLastPart: 50);
+        try
+        {
+            using var archive = RarArchive.OpenArchive(streams);
+            var exception = Assert.ThrowsAny<Exception>(() =>
+            {
+                foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+                {
+                    using var entryStream = entry.OpenEntryStream();
+                    if (useExplicitBufferLoop)
+                    {
+                        DrainWithSyncRead(entryStream);
+                    }
+                    else
+                    {
+                        entryStream.CopyTo(Stream.Null);
+                    }
+                }
+            });
+
+            AssertIncompleteOrWrapped(exception);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                stream.Dispose();
+            }
+        }
+    }
+
+    private async Task AssertMultiVolumeTruncationThrowsAsync(bool useMemoryOverload)
+    {
+        var streams = OpenTruncatedMultiVolume(percentOfLastPart: 50);
+        try
+        {
+            await using var archive = await RarArchive.OpenAsyncArchive(streams);
+            var exception = await Assert.ThrowsAnyAsync<Exception>(async () =>
+            {
+                await foreach (var entry in archive.EntriesAsync)
+                {
+                    if (entry.IsDirectory)
+                    {
+                        continue;
+                    }
+
+                    await using var entryStream = await entry.OpenEntryStreamAsync();
+                    if (useMemoryOverload)
+                    {
+                        await DrainWithReadAsyncMemory(entryStream);
+                    }
+                    else
+                    {
+                        await DrainWithReadAsyncByteArray(entryStream);
+                    }
+                }
+            });
+
+            AssertIncompleteOrWrapped(exception);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
+    }
+
+    private static void DrainWithSyncRead(Stream entryStream)
+    {
+        var buffer = new byte[4096];
+        while (true)
+        {
+            var read = entryStream.Read(buffer, 0, buffer.Length);
+            if (read == 0)
+            {
+                break;
+            }
+        }
+    }
+
+    private static async Task DrainWithReadAsyncByteArray(Stream entryStream)
+    {
+        var buffer = new byte[4096];
+        while (true)
+        {
+            var read = await entryStream.ReadAsync(buffer, 0, buffer.Length);
+            if (read == 0)
+            {
+                break;
+            }
+        }
+    }
+
+    private static async Task DrainWithReadAsyncMemory(Stream entryStream)
+    {
+        var buffer = new byte[4096];
+        while (true)
+        {
+            var read = await entryStream.ReadAsync(buffer.AsMemory());
+            if (read == 0)
+            {
+                break;
+            }
+        }
     }
 
     private Stream[] OpenTruncatedMultiVolume(int percentOfLastPart)
@@ -241,7 +378,19 @@ public class RarAdversarialStreamTests : ArchiveTests
         );
     }
 
-    private static Dictionary<string, byte[]> ExtractEntryBytes(
+    private static void AssertTruncationFailure(Exception exception)
+    {
+        // Truncation must not succeed silently; formats may surface IncompleteArchiveException,
+        // InvalidFormatException, decoder DataErrorException, or bounds errors depending on where
+        // the cut lands.
+        Assert.NotNull(exception);
+        Assert.False(
+            exception is ArgumentNullException or ObjectDisposedException,
+            $"Unexpected exception type for truncation: {exception.GetType().Name}: {exception.Message}"
+        );
+    }
+
+    private static Dictionary<string, byte[]> ExtractRarEntryBytes(
         Stream stream,
         ReaderOptions options
     )
@@ -259,7 +408,7 @@ public class RarAdversarialStreamTests : ArchiveTests
         return results;
     }
 
-    private static async Task<Dictionary<string, byte[]>> ExtractEntryBytesAsync(
+    private static async Task<Dictionary<string, byte[]>> ExtractRarEntryBytesAsync(
         Stream stream,
         ReaderOptions options
     )
@@ -276,6 +425,42 @@ public class RarAdversarialStreamTests : ArchiveTests
             await using var entryStream = await entry.OpenEntryStreamAsync();
             using var ms = new MemoryStream();
             await entryStream.CopyToAsync(ms);
+            results[entry.Key!] = ms.ToArray();
+        }
+
+        return results;
+    }
+
+    private static Dictionary<string, byte[]> ExtractArchiveEntryBytes(
+        Stream stream,
+        ReaderOptions options
+    )
+    {
+        var results = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        using var archive = ArchiveFactory.OpenArchive(stream, options);
+        foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+        {
+            using var entryStream = entry.OpenEntryStream();
+            using var ms = new MemoryStream();
+            entryStream.CopyTo(ms);
+            results[entry.Key!] = ms.ToArray();
+        }
+
+        return results;
+    }
+
+    private static Dictionary<string, byte[]> ExtractSevenZipEntryBytes(
+        Stream stream,
+        ReaderOptions options
+    )
+    {
+        var results = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        using var archive = SevenZipArchive.OpenArchive(stream, options);
+        foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+        {
+            using var entryStream = entry.OpenEntryStream();
+            using var ms = new MemoryStream();
+            entryStream.CopyTo(ms);
             results[entry.Key!] = ms.ToArray();
         }
 

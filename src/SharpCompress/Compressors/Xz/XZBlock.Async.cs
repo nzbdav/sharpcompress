@@ -64,9 +64,16 @@ public sealed partial class XZBlock
             var paddingBytes = ArrayPool<byte>.Shared.Rent(size);
             try
             {
-                await BaseStream
-                    .ReadExactAsync(paddingBytes, 0, size, cancellationToken)
-                    .ConfigureAwait(false);
+                try
+                {
+                    await BaseStream
+                        .ReadExactlyAsync(paddingBytes.AsMemory(0, size), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (EndOfStreamException e)
+                {
+                    throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                }
                 for (var i = 0; i < size; i++)
                 {
                     if (paddingBytes[i] != 0)
@@ -88,9 +95,16 @@ public sealed partial class XZBlock
         var crc = ArrayPool<byte>.Shared.Rent(_checkSize);
         try
         {
-            await BaseStream
-                .ReadExactAsync(crc, 0, _checkSize, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await BaseStream
+                    .ReadExactlyAsync(crc.AsMemory(0, _checkSize), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             VerifyCheck(crc.AsSpan().Slice(0, _checkSize));
             _crcChecked = true;
         }
@@ -120,7 +134,16 @@ public sealed partial class XZBlock
         var buffer = ArrayPool<byte>.Shared.Rent(1);
         try
         {
-            await BaseStream.ReadExactAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await BaseStream
+                    .ReadExactlyAsync(buffer.AsMemory(0, 1), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             _blockHeaderSizeByte = buffer[0];
             if (_blockHeaderSizeByte == 0)
             {

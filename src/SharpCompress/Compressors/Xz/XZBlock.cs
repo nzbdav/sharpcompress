@@ -101,7 +101,14 @@ public sealed partial class XZBlock : XZReadOnlyStream
         var crc = ArrayPool<byte>.Shared.Rent(_checkSize);
         try
         {
-            BaseStream.ReadExact(crc, 0, _checkSize);
+            try
+            {
+                BaseStream.ReadExactly(crc.AsSpan(0, _checkSize));
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             VerifyCheck(crc.AsSpan().Slice(0, _checkSize));
             _crcChecked = true;
         }

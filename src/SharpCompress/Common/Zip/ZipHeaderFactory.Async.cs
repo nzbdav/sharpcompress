@@ -123,8 +123,17 @@ internal partial class ZipHeaderFactory
 
                     var salt = new byte[WinzipAesEncryptionData.KeyLengthInBytes(keySize) / 2];
                     var passwordVerifyValue = new byte[2];
-                    await stream.ReadExactAsync(salt, 0, salt.Length).ConfigureAwait(false);
-                    await stream.ReadExactAsync(passwordVerifyValue, 0, 2).ConfigureAwait(false);
+                    try
+                    {
+                        await stream.ReadExactlyAsync(salt).ConfigureAwait(false);
+                        await stream
+                            .ReadExactlyAsync(passwordVerifyValue.AsMemory(0, 2))
+                            .ConfigureAwait(false);
+                    }
+                    catch (EndOfStreamException e)
+                    {
+                        throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                    }
 
                     entryHeader.WinzipAesEncryptionData = new WinzipAesEncryptionData(
                         keySize,

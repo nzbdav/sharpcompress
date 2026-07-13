@@ -36,7 +36,7 @@ public class ArcFactory : Factory, IReaderFactory
         var buffer = ArrayPool<byte>.Shared.Rent(2);
         try
         {
-            if (stream.ReadFully(buffer.AsSpan(0, 2)))
+            if (stream.ReadAtLeast(buffer.AsSpan(0, 2), 2, throwOnEndOfStream: false) == 2)
             {
                 return buffer[0] == 0x1A && buffer[1] < 10; //rather thin, but this is all we have
             }
@@ -76,7 +76,16 @@ public class ArcFactory : Factory, IReaderFactory
         var buffer = ArrayPool<byte>.Shared.Rent(2);
         try
         {
-            await stream.ReadExactAsync(buffer, 0, 2, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await stream
+                    .ReadExactlyAsync(buffer.AsMemory(0, 2), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             return buffer[0] == 0x1A && buffer[1] < 10; //rather thin, but this is all we have
         }
         finally
