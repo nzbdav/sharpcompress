@@ -17,7 +17,7 @@ public class RarReaderEntry : RarEntry
 
     internal RarFilePart Part { get; }
 
-    internal override IEnumerable<FilePart> Parts => Part.AsEnumerable<FilePart>();
+    internal override IEnumerable<FilePart> Parts => [Part];
 
     internal override FileHeader FileHeader => Part.FileHeader;
 

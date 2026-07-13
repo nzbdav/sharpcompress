@@ -20,9 +20,7 @@ internal static class UnpackUtility
         int bits = FindDecodeBits(bitField, decodeLen);
 
         input.AddBits(bits);
-        var N =
-            dec.DecodePos[bits]
-            + (Utility.URShift(((int)bitField - decodeLen[bits - 1]), (16 - bits)));
+        var N = dec.DecodePos[bits] + (((int)bitField - decodeLen[bits - 1]) >>> (16 - bits));
         if (N >= dec.MaxNum)
         {
             N = 0;

@@ -56,9 +56,7 @@ public partial class RarArchive
             return _isSolid.Value;
         }
 
-        _isSolid = await (
-            await VolumesAsync.CastAsync<RarVolume>().FirstAsync().ConfigureAwait(false)
-        )
+        _isSolid = await (await VolumesAsync.Cast<RarVolume>().FirstAsync().ConfigureAwait(false))
             .IsSolidArchiveAsync()
             .ConfigureAwait(false);
         return _isSolid.Value;

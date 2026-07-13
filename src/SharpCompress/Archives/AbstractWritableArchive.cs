@@ -181,7 +181,10 @@ public abstract partial class AbstractWritableArchive<TEntry, TVolume, TOptions>
     public void SaveTo(Stream stream, TOptions options)
     {
         //reset streams of new entries
-        newEntries.Cast<IWritableArchiveEntry>().ForEach(x => x.Stream.Seek(0, SeekOrigin.Begin));
+        foreach (var x in newEntries.Cast<IWritableArchiveEntry>())
+        {
+            x.Stream.Seek(0, SeekOrigin.Begin);
+        }
         SaveTo(stream, options, OldEntries, newEntries);
     }
 
@@ -222,8 +225,17 @@ public abstract partial class AbstractWritableArchive<TEntry, TVolume, TOptions>
     public override void Dispose()
     {
         base.Dispose();
-        newEntries.Cast<Entry>().ForEach(x => x.Close());
-        removedEntries.Cast<Entry>().ForEach(x => x.Close());
-        modifiedEntries.Cast<Entry>().ForEach(x => x.Close());
+        foreach (var x in newEntries.Cast<Entry>())
+        {
+            x.Close();
+        }
+        foreach (var x in removedEntries.Cast<Entry>())
+        {
+            x.Close();
+        }
+        foreach (var x in modifiedEntries.Cast<Entry>())
+        {
+            x.Close();
+        }
     }
 }

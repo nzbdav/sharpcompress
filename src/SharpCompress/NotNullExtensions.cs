@@ -18,7 +18,7 @@ internal static class NotNullExtensions
         {
             return [];
         }
-        return source.AsEnumerable();
+        return [source];
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

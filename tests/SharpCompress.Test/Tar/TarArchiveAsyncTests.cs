@@ -494,7 +494,10 @@ public class TarArchiveAsyncTests : ArchiveTests
             Assert.Equal(4, await archive.EntriesAsync.CountAsync());
         }
 
-        openEntryStreams.ForEach(stream => stream.Dispose());
+        foreach (var stream in openEntryStreams)
+        {
+            stream.Dispose();
+        }
 
         Assert.Equal(
             ["file0.txt", "file1.txt", "folder0/", "folder0/file_in_folder0.txt"],

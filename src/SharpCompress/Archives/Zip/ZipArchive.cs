@@ -61,7 +61,7 @@ public partial class ZipArchive
             }
         }
 
-        return new ZipVolume(sourceStream, ReaderOptions, idx++).AsEnumerable();
+        return [new ZipVolume(sourceStream, ReaderOptions, idx++)];
     }
 
     protected override IEnumerable<ZipArchiveEntry> LoadEntries(IEnumerable<ZipVolume> volumes)

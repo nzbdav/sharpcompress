@@ -411,7 +411,10 @@ public class TarReaderAsyncTests : ReaderTests
             }
         }
 
-        openEntryStreams.ForEach(stream => stream.Dispose());
+        foreach (var stream in openEntryStreams)
+        {
+            stream.Dispose();
+        }
 
         Assert.Equal(
             ["file0.txt", "file1.txt", "folder0/", "folder0/file_in_folder0.txt"],

@@ -23,7 +23,7 @@ internal class FileInfoRarArchiveVolume : RarVolume
         )
     {
         FileInfo = fileInfo;
-        FileParts = GetVolumeFileParts().ToArray().ToReadOnly();
+        FileParts = new ReadOnlyCollection<RarFilePart>(GetVolumeFileParts().ToArray());
     }
 
     internal ReadOnlyCollection<RarFilePart> FileParts { get; }

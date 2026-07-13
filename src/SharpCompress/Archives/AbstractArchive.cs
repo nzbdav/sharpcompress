@@ -44,10 +44,10 @@ public abstract partial class AbstractArchive<TEntry, TVolume> : IArchive, IAsyn
         _lazyVolumes = new LazyReadOnlyCollection<TVolume>(Enumerable.Empty<TVolume>());
         _lazyEntries = new LazyReadOnlyCollection<TEntry>(Enumerable.Empty<TEntry>());
         _lazyVolumesAsync = new LazyAsyncReadOnlyCollection<TVolume>(
-            AsyncEnumerableEx.Empty<TVolume>()
+            AsyncEnumerable.Empty<TVolume>()
         );
         _lazyEntriesAsync = new LazyAsyncReadOnlyCollection<TEntry>(
-            AsyncEnumerableEx.Empty<TEntry>()
+            AsyncEnumerable.Empty<TEntry>()
         );
     }
 
@@ -89,8 +89,14 @@ public abstract partial class AbstractArchive<TEntry, TVolume> : IArchive, IAsyn
     {
         if (!_disposed)
         {
-            _lazyVolumes.ForEach(v => v.Dispose());
-            _lazyEntries.GetLoaded().Cast<Entry>().ForEach(x => x.Close());
+            foreach (var v in _lazyVolumes)
+            {
+                v.Dispose();
+            }
+            foreach (var x in _lazyEntries.GetLoaded().Cast<Entry>())
+            {
+                x.Close();
+            }
             _sourceStream?.Dispose();
 
             _disposed = true;
