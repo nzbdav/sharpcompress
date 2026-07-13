@@ -28,6 +28,7 @@ internal partial class WinzipAesCryptoStream
         {
             ArrayPool<byte>.Shared.Return(authBytes);
             await _stream.DisposeAsync().ConfigureAwait(false);
+            _cipher.Dispose();
         }
         await base.DisposeAsync().ConfigureAwait(false);
     }
@@ -97,12 +98,12 @@ internal partial class WinzipAesCryptoStream
 
     private int ReadTransformOneBlock(Span<byte> buffer, int offset, int remaining)
     {
-        if (_counterOutOffset == BLOCK_SIZE_IN_BYTES)
+        if (_counterOutOffset == KEYSTREAM_SIZE_IN_BYTES)
         {
             FillCounterOut();
         }
 
-        var bytesToXor = Math.Min(BLOCK_SIZE_IN_BYTES - _counterOutOffset, remaining);
+        var bytesToXor = Math.Min(KEYSTREAM_SIZE_IN_BYTES - _counterOutOffset, remaining);
         XorInPlace(buffer, offset, bytesToXor, _counterOutOffset);
         _counterOutOffset += bytesToXor;
         return bytesToXor;
