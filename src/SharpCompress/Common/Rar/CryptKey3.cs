@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using SharpCompress.Common.Rar.Headers;
+using SharpCompress.Crypto;
 
 namespace SharpCompress.Common.Rar;
 
@@ -37,29 +38,31 @@ internal class CryptKey3 : ICryptKey
             rawPassword[i + rawLength] = salt[i];
         }
 
-        const int noOfRounds = (1 << 18);
-        const int iblock = 3;
+        const int noOfRounds = 1 << 18;
+        const int checkpointInterval = noOfRounds / EncryptionConstV5.SIZE_INITV;
 
-        byte[] digest;
-        var data = new byte[(rawPassword.Length + iblock) * noOfRounds];
+        var sha = CopyableSha1.Create();
+        Span<byte> counter3 = stackalloc byte[3];
+        Span<byte> digest = stackalloc byte[20];
 
-        // See #23: O(n²) hashing + large LOH allocation in RAR3 KDF.
         for (var i = 0; i < noOfRounds; i++)
         {
-            rawPassword.CopyTo(data, i * (rawPassword.Length + iblock));
+            sha.Append(rawPassword);
+            counter3[0] = (byte)i;
+            counter3[1] = (byte)(i >> 8);
+            counter3[2] = (byte)(i >> 16);
+            sha.Append(counter3);
 
-            data[(i * (rawPassword.Length + iblock)) + rawPassword.Length + 0] = (byte)i;
-            data[(i * (rawPassword.Length + iblock)) + rawPassword.Length + 1] = (byte)(i >> 8);
-            data[(i * (rawPassword.Length + iblock)) + rawPassword.Length + 2] = (byte)(i >> 16);
-
-            if (i % (noOfRounds / EncryptionConstV5.SIZE_INITV) == 0)
+            // Checkpoint after appending round i (matches prior mega-array prefix hash).
+            if (i % checkpointInterval == 0)
             {
-                digest = SHA1.HashData(data.AsSpan(0, (i + 1) * (rawPassword.Length + iblock)));
-                aesIV[i / (noOfRounds / EncryptionConstV5.SIZE_INITV)] = digest[19];
+                var checkpoint = sha;
+                checkpoint.FinalizeTo(digest);
+                aesIV[i / checkpointInterval] = digest[19];
             }
         }
-        digest = SHA1.HashData(data);
-        //slow code ends
+
+        sha.FinalizeTo(digest);
 
         var aesKey = new byte[EncryptionConstV5.SIZE_INITV];
         for (var i = 0; i < 4; i++)
