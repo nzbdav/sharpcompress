@@ -1,6 +1,7 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,6 +51,7 @@ public sealed partial class XZStream : XZReadOnlyStream
     public XZFooter Footer { get; private set; }
     public bool HeaderIsRead { get; private set; }
     private XZBlock _currentBlock;
+    private readonly List<(ulong UnpaddedSize, ulong UncompressedSize)> _blockSizes = new();
 
     private bool _endOfStream;
 
@@ -83,12 +85,57 @@ public sealed partial class XZStream : XZReadOnlyStream
         HeaderIsRead = true;
     }
 
-    private void ReadIndex() => Index = XZIndex.FromStream(BaseStream, true);
+    private void ReadIndex()
+    {
+        Index = XZIndex.FromStream(BaseStream, true);
+        VerifyIndexRecords();
+    }
 
-    // TODO verify Index
-    private void ReadFooter() => Footer = XZFooter.FromStream(BaseStream);
+    private void ReadFooter()
+    {
+        Footer = XZFooter.FromStream(BaseStream);
+        VerifyFooter();
+    }
 
-    // TODO verify footer
+    private void VerifyIndexRecords()
+    {
+        if ((ulong)_blockSizes.Count != Index.NumberOfRecords)
+        {
+            throw new InvalidFormatException("Index record count does not match decoded blocks");
+        }
+
+        for (var i = 0; i < _blockSizes.Count; i++)
+        {
+            var (observedUnpadded, observedUncompressed) = _blockSizes[i];
+            var record = Index.Records[i];
+            if (
+                record.UnpaddedSize != observedUnpadded
+                || record.UncompressedSize != observedUncompressed
+            )
+            {
+                throw new InvalidFormatException(
+                    "Index record sizes do not match decoded block sizes"
+                );
+            }
+        }
+    }
+
+    private void VerifyFooter()
+    {
+        if (Footer.BackwardSize != Index.IndexSize)
+        {
+            throw new InvalidFormatException("Footer Backward Size does not match Index size");
+        }
+
+        if (
+            Header.StreamFlags is null
+            || Footer.StreamFlags is null
+            || !Header.StreamFlags.AsSpan().SequenceEqual(Footer.StreamFlags)
+        )
+        {
+            throw new InvalidFormatException("Footer Stream Flags do not match Header");
+        }
+    }
 
     private int ReadBlocks(byte[] buffer, int offset, int count)
     {
@@ -125,6 +172,15 @@ public sealed partial class XZStream : XZReadOnlyStream
         return bytesRead;
     }
 
-    private void NextBlock() =>
+    private void NextBlock()
+    {
+        if (_currentBlock is not null && _currentBlock.IsComplete)
+        {
+            _blockSizes.Add(
+                (_currentBlock.ObservedUnpaddedSize, _currentBlock.ObservedUncompressedSize)
+            );
+        }
+
         _currentBlock = new XZBlock(BaseStream, Header.BlockCheckType, Header.BlockCheckSize);
+    }
 }

@@ -35,6 +35,7 @@ public sealed partial class XZBlock
                 .ReadAsync(buffer, offset, count, cancellationToken)
                 .ConfigureAwait(false);
             UpdateCheck(buffer, offset, bytesRead);
+            _observedUncompressedSize += (ulong)bytesRead;
         }
 
         if (bytesRead != count)
@@ -81,6 +82,7 @@ public sealed partial class XZBlock
                         throw new InvalidFormatException("Padding bytes were non-null");
                     }
                 }
+                _paddingLength = size;
             }
             finally
             {
@@ -107,6 +109,8 @@ public sealed partial class XZBlock
             }
             VerifyCheck(crc.AsSpan().Slice(0, _checkSize));
             _crcChecked = true;
+            // Unpadded Size excludes block padding but includes header, compressed data, and check.
+            ObservedUnpaddedSize = (ulong)(BaseStream.Position - _startPosition - _paddingLength);
         }
         finally
         {

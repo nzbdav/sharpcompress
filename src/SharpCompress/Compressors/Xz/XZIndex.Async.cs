@@ -28,41 +28,58 @@ public partial class XZIndex
 
     public async ValueTask ProcessAsync(CancellationToken cancellationToken = default)
     {
-        if (!_indexMarkerAlreadyVerified)
+        using var crcStream = new Crc32TrackingStream(_reader.BaseStream);
+        if (_indexMarkerAlreadyVerified)
         {
-            await VerifyIndexMarkerAsync(cancellationToken).ConfigureAwait(false);
+            // Index indicator byte was already consumed; include it in the CRC.
+            Span<byte> indicator = stackalloc byte[1];
+            indicator[0] = 0;
+            crcStream.Update(indicator);
         }
 
-        NumberOfRecords = await _reader
+        using var reader = new BinaryReader(crcStream, Encoding.UTF8, leaveOpen: true);
+
+        if (!_indexMarkerAlreadyVerified)
+        {
+            await VerifyIndexMarkerAsync(reader, cancellationToken).ConfigureAwait(false);
+        }
+
+        NumberOfRecords = await reader
             .ReadXZIntegerAsync(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         for (ulong i = 0; i < NumberOfRecords; i++)
         {
             Records.Add(
                 await XZIndexRecord
-                    .FromBinaryReaderAsync(_reader, cancellationToken)
+                    .FromBinaryReaderAsync(reader, cancellationToken)
                     .ConfigureAwait(false)
             );
         }
-        await SkipPaddingAsync(cancellationToken).ConfigureAwait(false);
-        await VerifyCrc32Async(cancellationToken).ConfigureAwait(false);
+        await SkipPaddingAsync(reader, cancellationToken).ConfigureAwait(false);
+        await VerifyCrc32Async(crcStream, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask VerifyIndexMarkerAsync(CancellationToken cancellationToken = default)
+    private static async ValueTask VerifyIndexMarkerAsync(
+        BinaryReader reader,
+        CancellationToken cancellationToken = default
+    )
     {
-        var marker = await _reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
+        var marker = await reader.ReadByteAsync(cancellationToken).ConfigureAwait(false);
         if (marker != 0)
         {
             throw new InvalidFormatException("Not an index block");
         }
     }
 
-    private async ValueTask SkipPaddingAsync(CancellationToken cancellationToken = default)
+    private async ValueTask SkipPaddingAsync(
+        BinaryReader reader,
+        CancellationToken cancellationToken = default
+    )
     {
-        var bytes = (int)(_reader.BaseStream.Position - StreamStartPosition) % 4;
+        var bytes = (int)(reader.BaseStream.Position - StreamStartPosition) % 4;
         if (bytes > 0)
         {
-            var paddingBytes = await _reader
+            var paddingBytes = await reader
                 .ReadBytesAsync(4 - bytes, cancellationToken)
                 .ConfigureAwait(false);
             if (paddingBytes.Any(b => b != 0))
@@ -72,11 +89,21 @@ public partial class XZIndex
         }
     }
 
-    private async ValueTask VerifyCrc32Async(CancellationToken cancellationToken = default)
+    private async ValueTask VerifyCrc32Async(
+        Crc32TrackingStream crcStream,
+        CancellationToken cancellationToken = default
+    )
     {
-        var crc = await _reader
-            .BaseStream.ReadLittleEndianUInt32Async(cancellationToken)
+        var expected = crcStream.FinalCrc;
+        // Read the stored CRC from the underlying stream so it is not included in the hash.
+        var crc = await crcStream
+            .WrappedStream.ReadLittleEndianUInt32Async(cancellationToken)
             .ConfigureAwait(false);
-        // TODO verify this matches
+        if (crc != expected)
+        {
+            throw new InvalidFormatException("Index corrupt");
+        }
+
+        IndexSize = crcStream.WrappedStream.Position - StreamStartPosition;
     }
 }

@@ -38,6 +38,7 @@ public partial class XZHeader
             throw new InvalidFormatException("Stream header corrupt");
         }
 
+        StreamFlags = streamFlags;
         BlockCheckType = (CheckType)(streamFlags[1] & 0x0F);
         var futureUse = (byte)(streamFlags[1] & 0xF0);
         if (futureUse != 0 || streamFlags[0] != 0)
