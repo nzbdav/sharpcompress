@@ -39,7 +39,9 @@ public partial class TarArchive
             }
             else
             {
-                using var entryStream = entry.OpenEntryStream();
+                using var entryStream = await entry
+                    .OpenEntryStreamAsync(cancellationToken)
+                    .ConfigureAwait(false);
                 await writer
                     .WriteAsync(
                         entry.Key.NotNull("Entry Key is null"),
@@ -65,7 +67,9 @@ public partial class TarArchive
             }
             else
             {
-                using var entryStream = entry.OpenEntryStream();
+                using var entryStream = await entry
+                    .OpenEntryStreamAsync(cancellationToken)
+                    .ConfigureAwait(false);
                 await writer
                     .WriteAsync(
                         entry.Key.NotNull("Entry Key is null"),
