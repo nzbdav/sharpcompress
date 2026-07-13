@@ -41,6 +41,7 @@
 
 ### 7Zip Format Notes
 
+- **Solid folder reuse (Archive API)**: Sequential `OpenEntryStream()` / `OpenEntryStreamAsync()` calls within the same solid folder reuse the folder decoder and skip only the remaining bytes to the next entry. Opening an earlier entry in the same folder (or otherwise seeking backward) requires a full folder re-decode — inherent to solid 7z. Concurrent entry opens on the same archive bypass the cache and each build a fresh decoder (prefer one active stream, or use `ExtractAllEntries()` for sequential extraction).
 - **Async Extraction Performance**: When using async extraction methods (e.g., `ExtractAllEntries()` with `MoveToNextEntryAsync()`), each file creates its own decompression stream to avoid state corruption in the LZMA decoder. This is less efficient than synchronous extraction, which can reuse a single decompression stream for multiple files in the same folder.
   
   **Performance Impact**: For archives with many small files in the same compression folder, async extraction will be slower than synchronous extraction because it must:

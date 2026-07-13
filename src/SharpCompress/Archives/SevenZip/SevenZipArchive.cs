@@ -103,6 +103,12 @@ public partial class SevenZipArchive : AbstractArchive<SevenZipArchiveEntry, Sev
     public override long TotalSize =>
         _database?._packSizes.Aggregate(0L, (total, packSize) => total + packSize) ?? 0;
 
+    public override void Dispose()
+    {
+        _database?.DisposeFolderStreamCache();
+        base.Dispose();
+    }
+
     internal sealed class SevenZipReader : AbstractReader<SevenZipEntry, SevenZipVolume>
     {
         private readonly SevenZipArchive _archive;

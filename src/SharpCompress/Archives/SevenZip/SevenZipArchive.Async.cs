@@ -77,4 +77,10 @@ public partial class SevenZipArchive
             .ConfigureAwait(false);
         return entries.GroupBy(x => x.FilePart.Folder).Any(folder => folder.Skip(1).Any());
     }
+
+    public override async ValueTask DisposeAsync()
+    {
+        _database?.DisposeFolderStreamCache();
+        await base.DisposeAsync().ConfigureAwait(false);
+    }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using SharpCompress.Archives;
@@ -395,6 +396,89 @@ public class SevenZipArchiveTests : ArchiveTests
 
         // The critical check: within a single folder, the stream should NEVER be recreated
         Assert.Equal(0, streamRecreationsWithinFolder); // Folder stream should remain the same for all entries in the same folder
+    }
+
+    [Fact]
+    public void SevenZipArchive_Solid_ArchiveApi_SequentialMatchesExtractAllEntries()
+    {
+        var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
+        var expected = ReadSolidEntriesViaExtractAllEntries(testArchive);
+
+        using var archive = SevenZipArchive.OpenArchive(testArchive);
+        Assert.True(archive.IsSolid);
+
+        foreach (var entry in archive.Entries.Where(e => !e.IsDirectory))
+        {
+            using var entryStream = entry.OpenEntryStream();
+            using var ms = new MemoryStream();
+            entryStream.CopyTo(ms);
+            Assert.Equal(expected[entry.Key.NotNull()], ms.ToArray());
+        }
+    }
+
+    [Fact]
+    public void SevenZipArchive_Solid_ArchiveApi_OutOfOrderOpen_StillCorrect()
+    {
+        var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
+        var expected = ReadSolidEntriesViaExtractAllEntries(testArchive);
+
+        using var archive = SevenZipArchive.OpenArchive(testArchive);
+        var entries = archive.Entries.Where(e => !e.IsDirectory).ToList();
+        Assert.True(entries.Count >= 2);
+
+        // Backward open within the solid folder forces cache rebuild / re-decode.
+        foreach (var entry in entries.AsEnumerable().Reverse())
+        {
+            using var entryStream = entry.OpenEntryStream();
+            using var ms = new MemoryStream();
+            entryStream.CopyTo(ms);
+            Assert.Equal(expected[entry.Key.NotNull()], ms.ToArray());
+        }
+    }
+
+    [Fact]
+    public void SevenZipArchive_Solid_ArchiveApi_EarlyDispose_ThenNextEntryCorrect()
+    {
+        var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
+        var expected = ReadSolidEntriesViaExtractAllEntries(testArchive);
+
+        using var archive = SevenZipArchive.OpenArchive(testArchive);
+        var entries = archive.Entries.Where(e => !e.IsDirectory && e.Size > 1).ToList();
+        Assert.True(entries.Count >= 2);
+
+        using (var halfRead = entries[0].OpenEntryStream())
+        {
+            var buffer = new byte[1];
+            Assert.Equal(1, halfRead.Read(buffer, 0, 1));
+        }
+
+        using var nextStream = entries[1].OpenEntryStream();
+        using var ms = new MemoryStream();
+        nextStream.CopyTo(ms);
+        Assert.Equal(expected[entries[1].Key.NotNull()], ms.ToArray());
+    }
+
+    private static Dictionary<string, byte[]> ReadSolidEntriesViaExtractAllEntries(
+        string testArchive
+    )
+    {
+        var expected = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        using var archive = SevenZipArchive.OpenArchive(testArchive);
+        using var reader = archive.ExtractAllEntries();
+        while (reader.MoveToNextEntry())
+        {
+            if (reader.Entry.IsDirectory)
+            {
+                continue;
+            }
+
+            using var ms = new MemoryStream();
+            reader.WriteEntryTo(ms);
+            expected[reader.Entry.Key.NotNull()] = ms.ToArray();
+        }
+
+        Assert.NotEmpty(expected);
+        return expected;
     }
 
     [Fact]
