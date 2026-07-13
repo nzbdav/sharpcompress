@@ -31,9 +31,11 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Static literals only — GitHub rejects expressions in permissions.
+    # Push/PR creation steps remain gated by UPDATE_BASELINE.
     permissions:
-      contents: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline && 'write' || 'read' }}
-      pull-requests: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline && 'write' || 'none' }}
+      contents: write
+      pull-requests: write
     steps:
       - name: Check out repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
