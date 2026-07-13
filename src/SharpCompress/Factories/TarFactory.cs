@@ -315,7 +315,17 @@ public class TarFactory
                 );
                 if (TarArchive.IsTarFile(decompressedStream))
                 {
-                    sharpCompressStream.StopRecording();
+                    // Issue #27 allowlist: release the ring buffer only for uncompressed Tar.
+                    // Tar.BZip2/ZStandard/GZip/etc. still need post-detection rewind/over-read
+                    // protection via frozen recording (StopRecording).
+                    if (wrapper.CompressionType == CompressionType.None)
+                    {
+                        sharpCompressStream.FreezeAndReleaseBuffer();
+                    }
+                    else
+                    {
+                        sharpCompressStream.StopRecording();
+                    }
                     return new TarReader(sharpCompressStream, options, wrapper.CompressionType);
                 }
             }
@@ -358,7 +368,17 @@ public class TarFactory
                 )
                 {
                     sharpCompressStream.Rewind();
-                    sharpCompressStream.StopRecording();
+                    // Issue #27 allowlist: release the ring buffer only for uncompressed Tar.
+                    // Tar.BZip2/ZStandard/GZip/etc. still need post-detection rewind/over-read
+                    // protection via frozen recording (StopRecording).
+                    if (wrapper.CompressionType == CompressionType.None)
+                    {
+                        sharpCompressStream.FreezeAndReleaseBuffer();
+                    }
+                    else
+                    {
+                        sharpCompressStream.StopRecording();
+                    }
                     return new TarReader(sharpCompressStream, options, wrapper.CompressionType);
                 }
             }

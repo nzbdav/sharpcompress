@@ -19,7 +19,8 @@ public partial class SharpCompressStream
     /// </para>
     /// <para>
     /// The resulting stream does <b>not</b> support <see cref="StartRecording"/>, <see cref="Rewind()"/>,
-    /// or <see cref="StopRecording"/> (each throws <see cref="ArchiveOperationException"/>). Call
+    /// <see cref="StopRecording"/>, or <see cref="FreezeAndReleaseBuffer"/> (each throws
+    /// <see cref="ArchiveOperationException"/>). Call
     /// <see cref="Create(Stream, int?)"/> on the passthrough stream to obtain a recording-capable
     /// wrapper when needed (that call unwraps this passthrough and rewraps the underlying stream).
     /// </para>

@@ -67,12 +67,14 @@ public class LzwFactory : Factory, IReaderFactory
             {
                 if (TarArchive.IsTarFile(testStream))
                 {
+                    // Tar.Lzw still needs the ring buffer for LZW over-read knock-back.
                     sharpCompressStream.StopRecording();
                     reader = new TarReader(sharpCompressStream, options, CompressionType.Lzw);
                     return true;
                 }
             }
-            sharpCompressStream.StopRecording();
+            // Issue #27 allowlist: LZW single-stream does not need post-detection rewind.
+            sharpCompressStream.FreezeAndReleaseBuffer();
             reader = OpenReader(sharpCompressStream, options);
             return true;
         }
@@ -105,7 +107,8 @@ public class LzwFactory : Factory, IReaderFactory
             return tarReader;
         }
 
-        sharpCompressStream.StopRecording();
+        // Issue #27 allowlist: LZW single-stream does not need post-detection rewind.
+        sharpCompressStream.FreezeAndReleaseBuffer();
         return await OpenAsyncReader(sharpCompressStream, options, cancellationToken)
             .ConfigureAwait(false);
     }

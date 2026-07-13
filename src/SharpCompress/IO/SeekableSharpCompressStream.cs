@@ -91,6 +91,8 @@ internal sealed partial class SeekableSharpCompressStream : SharpCompressStream
 
     public override void StopRecording() => _recordedPosition = null;
 
+    public override void FreezeAndReleaseBuffer() => _recordedPosition = null;
+
     protected override void Dispose(bool disposing)
     {
         if (_isDisposed)

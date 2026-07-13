@@ -64,9 +64,10 @@ namespace SharpCompress.IO;
 /// </item>
 /// <item>
 /// Ring-buffered modes report <c>_logicalPosition</c>, which can lag the underlying read
-/// cursor (<c>streamPosition</c>) after <see cref="Rewind()"/> / <see cref="StopRecording"/>.
+/// cursor (<c>streamPosition</c>) after <see cref="Rewind()"/> / <see cref="StopRecording"/> /
+/// <see cref="FreezeAndReleaseBuffer"/>.
 /// Subsequent reads replay from the ring buffer until the logical cursor catches up, then
-/// continue reading (and recording into the ring) from the underlying stream.
+/// continue reading (and, until buffer release, recording into the ring) from the underlying stream.
 /// </item>
 /// </list>
 ///
@@ -74,8 +75,9 @@ namespace SharpCompress.IO;
 /// <list type="bullet">
 /// <item>
 /// In ring-buffered mode, bytes read from the underlying stream are always written into the
-/// ring (for over-read protection and rewind). <see cref="StartRecording"/> sets the rewind
-/// anchor; recording stays active until <see cref="StopRecording"/> or
+/// ring (for over-read protection and rewind) until <see cref="FreezeAndReleaseBuffer"/>
+/// frees it. <see cref="StartRecording"/> sets the rewind anchor; recording stays active until
+/// <see cref="StopRecording"/>, <see cref="FreezeAndReleaseBuffer"/>, or
 /// <see cref="Rewind(bool)"/> with <c>stopRecording: true</c>.
 /// </item>
 /// <item>
@@ -91,7 +93,14 @@ namespace SharpCompress.IO;
 /// <see langword="false"/> but the recording anchor (<c>_recordingStartPosition</c>) is kept.
 /// Further <see cref="Rewind()"/> calls and seeks within
 /// <c>[anchor, streamPosition]</c> remain legal. The anchor is cleared only when a new
-/// <see cref="StartRecording"/> begins or the stream is disposed.
+/// <see cref="StartRecording"/> begins, <see cref="FreezeAndReleaseBuffer"/> runs, or the
+/// stream is disposed.
+/// </item>
+/// <item>
+/// <b>Released buffer:</b> <see cref="FreezeAndReleaseBuffer"/> clears the recording anchor and
+/// requests ring disposal. The ring is freed once <c>_logicalPosition</c> catches up to
+/// <c>streamPosition</c>; subsequent reads pass straight through. After release,
+/// <see cref="StartRecording"/>, <see cref="Rewind()"/>, and <see cref="StopRecording"/> throw.
 /// </item>
 /// </list>
 ///
@@ -99,15 +108,21 @@ namespace SharpCompress.IO;
 /// <list type="bullet">
 /// <item>
 /// Typical detection flow: <c>StartRecording → (reads) → Rewind</c> (optionally repeated while
-/// still recording) → <c>StopRecording</c> (or <c>Rewind(stopRecording: true)</c>).
+/// still recording) → <c>StopRecording</c> (or <c>Rewind(stopRecording: true)</c>) or
+/// <c>FreezeAndReleaseBuffer</c> for allowlisted formats that no longer need rewind.
 /// </item>
 /// <item>
 /// After freeze: <see cref="Rewind()"/> is still allowed; <see cref="StopRecording"/> throws
 /// because recording is no longer active; <see cref="StartRecording"/> may begin a new session.
 /// </item>
 /// <item>
+/// After <see cref="FreezeAndReleaseBuffer"/>: recording APIs throw; reads are direct once the
+/// ring has been returned to the pool.
+/// </item>
+/// <item>
 /// In <b>passthrough</b> mode, <see cref="StartRecording"/>, <see cref="Rewind()"/> /
-/// <see cref="Rewind(bool)"/>, and <see cref="StopRecording"/> always throw
+/// <see cref="Rewind(bool)"/>, <see cref="StopRecording"/>, and
+/// <see cref="FreezeAndReleaseBuffer"/> always throw
 /// <see cref="ArchiveOperationException"/>.
 /// </item>
 /// <item>
@@ -137,6 +152,9 @@ public partial class SharpCompressStream : Stream, IStreamStack
     // Recording state: anchor position when StartRecording was called
     private long? _recordingStartPosition;
     private bool _isRecording;
+
+    // When true, the ring buffer is disposed once logical position catches up to streamPosition.
+    private bool _bufferReleaseRequested;
 
     // Passthrough mode - no buffering, delegates CanSeek to underlying stream
     private readonly bool _isPassthrough;
@@ -183,6 +201,16 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// </summary>
     internal virtual bool IsRecording => _isRecording;
 
+    /// <summary>
+    /// Gets whether a ring buffer is currently allocated.
+    /// </summary>
+    internal bool HasRingBuffer => _ringBuffer is not null;
+
+    /// <summary>
+    /// Gets whether <see cref="FreezeAndReleaseBuffer"/> has been called.
+    /// </summary>
+    internal bool IsBufferReleaseRequested => _bufferReleaseRequested;
+
     protected override void Dispose(bool disposing)
     {
         if (isDisposed)
@@ -213,6 +241,13 @@ public partial class SharpCompressStream : Stream, IStreamStack
             );
         }
 
+        if (_bufferReleaseRequested)
+        {
+            throw new ArchiveOperationException(
+                "Rewind cannot be called after FreezeAndReleaseBuffer()."
+            );
+        }
+
         if (_recordingStartPosition is null)
         {
             throw new ArchiveOperationException(
@@ -239,7 +274,7 @@ public partial class SharpCompressStream : Stream, IStreamStack
             _isRecording = false;
             // Note: We keep _recordingStartPosition so Rewind() can be called again
             // (frozen recording mode). The anchor is only cleared when a new recording
-            // starts or the stream is disposed.
+            // starts, FreezeAndReleaseBuffer runs, or the stream is disposed.
         }
     }
 
@@ -249,6 +284,12 @@ public partial class SharpCompressStream : Stream, IStreamStack
         {
             throw new ArchiveOperationException(
                 "StopRecording cannot be called on a passthrough stream. Use Create() first."
+            );
+        }
+        if (_bufferReleaseRequested)
+        {
+            throw new ArchiveOperationException(
+                "StopRecording cannot be called after FreezeAndReleaseBuffer()."
             );
         }
         if (!IsRecording)
@@ -266,7 +307,47 @@ public partial class SharpCompressStream : Stream, IStreamStack
 
         // Note: We keep _recordingStartPosition so future Rewind() calls still work
         // (frozen recording mode). The anchor is only cleared when a new recording
-        // starts or the stream is disposed.
+        // starts, FreezeAndReleaseBuffer runs, or the stream is disposed.
+    }
+
+    /// <summary>
+    /// Requests release of the ring buffer once all replayed bytes have been consumed.
+    /// After release, reads pass straight through and Rewind/StartRecording/StopRecording throw.
+    /// </summary>
+    /// <remarks>
+    /// When a recording anchor is present, the logical position is rewound to that anchor
+    /// (same as <see cref="StopRecording"/>) so format-detection call sites can replace
+    /// <see cref="StopRecording"/> with this method. The ring is disposed only after the
+    /// logical cursor catches up to the underlying read cursor.
+    /// </remarks>
+    public virtual void FreezeAndReleaseBuffer()
+    {
+        if (_isPassthrough)
+        {
+            throw new ArchiveOperationException(
+                "FreezeAndReleaseBuffer cannot be called on a passthrough stream. Use Create() first."
+            );
+        }
+
+        if (_bufferReleaseRequested)
+        {
+            throw new ArchiveOperationException(
+                "FreezeAndReleaseBuffer can only be called once before the buffer is released."
+            );
+        }
+
+        // Mirror StopRecording: rewind to the detection anchor when one exists so callers that
+        // previously used StopRecording keep the correct logical position for subsequent reads.
+        if (_recordingStartPosition is not null)
+        {
+            _logicalPosition = _recordingStartPosition.Value;
+        }
+
+        _bufferReleaseRequested = true;
+        _recordingStartPosition = null;
+        _isRecording = false;
+
+        TryReleaseRingBuffer();
     }
 
     /// <summary>
@@ -285,6 +366,12 @@ public partial class SharpCompressStream : Stream, IStreamStack
         {
             throw new ArchiveOperationException(
                 "StartRecording cannot be called on a passthrough stream. Use Create() first."
+            );
+        }
+        if (_bufferReleaseRequested)
+        {
+            throw new ArchiveOperationException(
+                "StartRecording cannot be called after FreezeAndReleaseBuffer()."
             );
         }
         if (IsRecording)
@@ -414,6 +501,15 @@ public partial class SharpCompressStream : Stream, IStreamStack
             return true;
         }
 
+#if DEBUG
+        if (_bufferReleaseRequested && targetPosition < _logicalPosition)
+        {
+            throw new ArchiveOperationException(
+                "Cannot seek backwards after FreezeAndReleaseBuffer() has been called."
+            );
+        }
+#endif
+
         if (_recordingStartPosition is not null)
         {
             if (targetPosition >= _recordingStartPosition.Value && targetPosition <= streamPosition)
@@ -469,7 +565,8 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// <summary>
     /// Reads data using the ring buffer. If logical position is behind stream position,
     /// serves data from the ring buffer first. Handles both recording mode and
-    /// over-read protection uniformly.
+    /// over-read protection uniformly. When buffer release was requested, frees the ring
+    /// once the logical cursor catches up and then reads directly from the underlying stream.
     /// </summary>
     private int ReadWithRingBuffer(byte[] buffer, int offset, int count)
     {
@@ -496,14 +593,17 @@ public partial class SharpCompressStream : Stream, IStreamStack
             _logicalPosition += available;
         }
 
+        // Caught up: free the ring if release was requested (stops further memcpy).
+        TryReleaseRingBuffer();
+
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
-            // Use async read if stream doesn't support sync reads (e.g., AsyncOnlyStream)
             int read = stream.Read(buffer, offset, count);
             if (read > 0)
             {
-                _ringBuffer!.Write(buffer, offset, read);
+                // Only write through the ring while it is still allocated.
+                _ringBuffer?.Write(buffer, offset, read);
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -511,6 +611,22 @@ public partial class SharpCompressStream : Stream, IStreamStack
         }
 
         return totalRead;
+    }
+
+    /// <summary>
+    /// Disposes the ring buffer when release was requested and all replayed bytes have been consumed.
+    /// </summary>
+    private void TryReleaseRingBuffer()
+    {
+        if (
+            _bufferReleaseRequested
+            && _logicalPosition == streamPosition
+            && _ringBuffer is not null
+        )
+        {
+            _ringBuffer.Dispose();
+            _ringBuffer = null;
+        }
     }
 
     public override long Seek(long offset, SeekOrigin origin)

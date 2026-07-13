@@ -77,6 +77,8 @@ public partial class SharpCompressStream
             _logicalPosition += available;
         }
 
+        TryReleaseRingBuffer();
+
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
@@ -85,7 +87,7 @@ public partial class SharpCompressStream
                 .ConfigureAwait(false);
             if (read > 0)
             {
-                _ringBuffer!.Write(buffer, offset, read);
+                _ringBuffer?.Write(buffer, offset, read);
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -169,6 +171,8 @@ public partial class SharpCompressStream
             _logicalPosition += available;
         }
 
+        TryReleaseRingBuffer();
+
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
@@ -177,9 +181,12 @@ public partial class SharpCompressStream
                 .ConfigureAwait(false);
             if (read > 0)
             {
-                // RingBuffer.Write expects byte[], so we need to copy
-                var tempBuffer = buffer.Slice(offset, read).ToArray();
-                _ringBuffer!.Write(tempBuffer, 0, read);
+                if (_ringBuffer is not null)
+                {
+                    // RingBuffer.Write expects byte[], so we need to copy
+                    var tempBuffer = buffer.Slice(offset, read).ToArray();
+                    _ringBuffer.Write(tempBuffer, 0, read);
+                }
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;

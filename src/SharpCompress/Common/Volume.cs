@@ -18,8 +18,10 @@ public abstract partial class Volume : IVolume, IAsyncDisposable
         ReaderOptions = readerOptions;
         _baseStream = stream;
 
-        // Only rewind if it's a buffered SharpCompressStream (not passthrough)
-        if (stream is SharpCompressStream ss && !ss.IsPassthrough)
+        // Only rewind if it's a buffered SharpCompressStream (not passthrough).
+        // Skip when FreezeAndReleaseBuffer already rewound and requested release — further
+        // Rewind() calls throw by contract.
+        if (stream is SharpCompressStream ss && !ss.IsPassthrough && !ss.IsBufferReleaseRequested)
         {
             ss.Rewind();
         }
