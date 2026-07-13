@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.50.1](https://github.com/nzbdav/sharpcompress/compare/v0.50.0...v0.50.1) (2026-07-13)
+
+
+### Bug Fixes
+
+* **io:** finish closed-issue audit gaps for ReadExact and RAR coverage ([896b617](https://github.com/nzbdav/sharpcompress/commit/896b6176d3c02002c18a1a30e7d9f95e106dabee))
+* **io:** finish closed-issue audit gaps for ReadExact and RAR coverage ([556ae0c](https://github.com/nzbdav/sharpcompress/commit/556ae0ce02911765c1cd2109099ccff04be1bd04))
+* **sevenzip:** validate signature and surface header CRC errors ([e29b4b8](https://github.com/nzbdav/sharpcompress/commit/e29b4b85f165105c17b660bc38f63993852d9311))
+* **sevenzip:** validate signature and surface header CRC errors ([be65add](https://github.com/nzbdav/sharpcompress/commit/be65add21f41514bd232854c54d5fef3569dd85a))
+* **stream:** make Rewind report failure for callers to handle ([02611cc](https://github.com/nzbdav/sharpcompress/commit/02611cced311059e037fd6b7bd09f9e6b167e6fc))
+* **stream:** make Rewind report failure for callers to handle ([787eec9](https://github.com/nzbdav/sharpcompress/commit/787eec926d3e319937d8e7fcacbe151d551612b0))
+* **utility:** validate DOS date components without swallowing exceptions ([402036e](https://github.com/nzbdav/sharpcompress/commit/402036eb13e4c267eb970538492f435bc2385efe))
+* **utility:** validate DOS date components without swallowing exceptions ([b2b1a7c](https://github.com/nzbdav/sharpcompress/commit/b2b1a7cf1e182f2487d57dba1d876ed92851abbb))
+* **xz:** verify index records, index CRC32, and footer ([786b6b6](https://github.com/nzbdav/sharpcompress/commit/786b6b6ed8b43686a7d6d2d52a0d2056260fed49))
+* **xz:** verify index records, index CRC32, and footer against decoded blocks ([9d85648](https://github.com/nzbdav/sharpcompress/commit/9d856483d851a99c2cac3fdc2513473393d34781)), closes [#16](https://github.com/nzbdav/sharpcompress/issues/16)
+* **zip:** clear CodeQL ECB alert for WinZip AES-CTR ([eb3be7c](https://github.com/nzbdav/sharpcompress/commit/eb3be7ce530b1ac275a8942cf54d5686b367ce75))
+* **zip:** clear CodeQL ECB alert for WinZip AES-CTR ([e144c71](https://github.com/nzbdav/sharpcompress/commit/e144c715418dc38d2d7c21e69c8389b6a1412238))
+* **zip:** harden ShrinkStream allocation and Stream contract ([347bd0b](https://github.com/nzbdav/sharpcompress/commit/347bd0b05104a6db144dfc0e77096da36213f4c3))
+* **zip:** harden ShrinkStream allocation and Stream contract ([901d9c8](https://github.com/nzbdav/sharpcompress/commit/901d9c8e8beba14b51539eeee9968908e1073cc6))
+* **zstandard:** stop JobThreadPool from swallowing job exceptions ([2c566dd](https://github.com/nzbdav/sharpcompress/commit/2c566dd4a3b1addab1b4cbe6a3ec5d1468ba4df1))
+* **zstandard:** stop JobThreadPool from swallowing job exceptions ([eaeb713](https://github.com/nzbdav/sharpcompress/commit/eaeb7133a20caaea7ac8ab04cef541d4e71ea5fc)), closes [#47](https://github.com/nzbdav/sharpcompress/issues/47)
+
 ## [0.50.0](https://github.com/nzbdav/sharpcompress/compare/v0.49.1...v0.50.0) (2026-07-13)
 
 
