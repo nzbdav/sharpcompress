@@ -15,6 +15,8 @@ namespace SharpCompress.Common.SevenZip;
 
 internal partial class ArchiveReader
 {
+    private static ReadOnlySpan<byte> SignatureMagic => [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C];
+
     internal Stream _stream = null!;
     internal Stack<DataReader> _readerStack = new();
     internal DataReader _currentReader = null!;
@@ -23,6 +25,36 @@ internal partial class ArchiveReader
     internal byte[] _header = null!;
 
     private readonly Dictionary<int, Stream> _cachedStreams = new();
+
+    private static bool HasSevenZipSignature(byte[] header) =>
+        header.AsSpan(0, 6).SequenceEqual(SignatureMagic);
+
+    /// <summary>
+    /// Validates StartHeaderCRC (bytes 8–11) against CRC32 of the 20-byte StartHeader (bytes 12–31).
+    /// </summary>
+    private static void ValidateStartHeaderCrc(byte[] header)
+    {
+        var crcFromArchive = DataReader.Get32(header, 8);
+        var crc = Crc.Finish(Crc.Update(Crc.INIT_CRC, header, 12, 20));
+        if (crc != crcFromArchive)
+        {
+            throw new InvalidFormatException("7z start header CRC mismatch");
+        }
+    }
+
+    /// <summary>
+    /// Reads a 7z UINT64 property size and rejects values that cannot safely be used as a signed length.
+    /// </summary>
+    private long ReadPropertySize()
+    {
+        var sizeNumber = ReadNumber();
+        if (sizeNumber > long.MaxValue)
+        {
+            throw new InvalidFormatException("Invalid 7z property size");
+        }
+
+        return (long)sizeNumber;
+    }
 
     internal void AddByteStream(byte[] buffer, int offset, int length)
     {
@@ -772,7 +804,7 @@ internal partial class ArchiveReader
                     break;
                 }
 
-                var size = checked((long)ReadNumber()); // TODO: throw invalid data on negative
+                var size = ReadPropertySize();
                 var oldPos = _currentReader.Offset;
                 switch (type)
                 {
@@ -946,7 +978,6 @@ internal partial class ArchiveReader
         var canScan = lookForHeader ? 0x80000 - 20 : 0;
         while (true)
         {
-            // TODO: Check Signature!
             _header = new byte[0x20];
             for (var offset = 0; offset < 0x20; )
             {
@@ -959,14 +990,14 @@ internal partial class ArchiveReader
                 offset += delta;
             }
 
-            if (
-                !lookForHeader
-                || _header
-                    .AsSpan(0, length: 6)
-                    .SequenceEqual<byte>([0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])
-            )
+            if (HasSevenZipSignature(_header))
             {
                 break;
+            }
+
+            if (!lookForHeader)
+            {
+                throw new InvalidFormatException("Invalid 7z signature");
             }
 
             if (canScan == 0)
@@ -978,6 +1009,7 @@ internal partial class ArchiveReader
             stream.Position = ++_streamOrigin;
         }
 
+        ValidateStartHeaderCrc(_header);
         _stream = stream;
     }
 
@@ -1008,21 +1040,10 @@ internal partial class ArchiveReader
             throw new ArchiveOperationException();
         }
 
-        var crcFromArchive = DataReader.Get32(_header, 8);
+        // StartHeaderCRC was already verified in Open/OpenAsync.
         var nextHeaderOffset = (long)DataReader.Get64(_header, 0xC);
         var nextHeaderSize = (long)DataReader.Get64(_header, 0x14);
         var nextHeaderCrc = DataReader.Get32(_header, 0x1C);
-
-        var crc = Crc.INIT_CRC;
-        crc = Crc.Update(crc, nextHeaderOffset);
-        crc = Crc.Update(crc, nextHeaderSize);
-        crc = Crc.Update(crc, nextHeaderCrc);
-        crc = Crc.Finish(crc);
-
-        if (crc != crcFromArchive)
-        {
-            throw new ArchiveOperationException();
-        }
 
         db._startPositionAfterHeader = _streamOrigin + 0x20;
 
@@ -1050,7 +1071,7 @@ internal partial class ArchiveReader
 
         if (Crc.Finish(Crc.Update(Crc.INIT_CRC, header, 0, header.Length)) != nextHeaderCrc)
         {
-            throw new ArchiveOperationException();
+            throw new InvalidFormatException("7z next header CRC mismatch");
         }
 
         using (var streamSwitch = new CStreamSwitch())
