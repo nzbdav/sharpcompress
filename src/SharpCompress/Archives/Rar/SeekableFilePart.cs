@@ -28,6 +28,8 @@ internal class SeekableFilePart : RarFilePart
     /// </summary>
     internal Stream VolumeStream => _stream;
 
+    internal string? Password => _password;
+
     internal override Stream GetCompressedStream()
     {
         _stream.Position = FileHeader.DataStartPosition;

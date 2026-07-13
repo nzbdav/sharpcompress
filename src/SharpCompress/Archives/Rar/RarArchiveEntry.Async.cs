@@ -21,8 +21,17 @@ public partial class RarArchiveEntry
         // (corrupt-but-openable archives can fail a second parse).
         var isSolidArchive = archive.IsSolid;
 
+        // Fast path: stored (m0), RAR5 encrypted, non-solid entries over seekable volumes.
+        if (
+            !isSolidArchive
+            && EncryptedStoredRarEntryStream.TryCreate(parts, out var encryptedStoredStream)
+            && encryptedStoredStream is not null
+        )
+        {
+            return encryptedStoredStream;
+        }
+
         // Fast path: stored (m0), non-encrypted, non-solid entries over seekable volumes.
-        // Encrypted stored entries stay on the unpack path (decrypt-in-place is future work).
         if (
             !isSolidArchive
             && StoredRarEntryStream.TryCreate(parts, out var storedStream)

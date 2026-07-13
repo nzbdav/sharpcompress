@@ -161,13 +161,28 @@ internal class CryptKey5 : ICryptKey
     public ICryptoTransform Transformer(byte[] salt)
     {
         var derived = GetOrDeriveKeys(_password, salt, _cryptoInfo.LG2Count);
+        ValidatePasswordCheck(derived.PswCheckValue);
+        return CreateDecryptor(derived.AesKey, _cryptoInfo.InitV);
+    }
 
+    /// <summary>
+    /// Returns the derived AES-256 key after password-check validation.
+    /// Used by seekable stored-entry decryption where IV varies per block/part.
+    /// </summary>
+    internal byte[] GetAesKey(byte[] salt)
+    {
+        var derived = GetOrDeriveKeys(_password, salt, _cryptoInfo.LG2Count);
+        ValidatePasswordCheck(derived.PswCheckValue);
         _hashKey = derived.HashKey;
+        return derived.AesKey;
+    }
 
+    private void ValidatePasswordCheck(byte[] pswCheckValue)
+    {
         _pswCheck = new byte[EncryptionConstV5.SIZE_PSWCHECK];
         for (var i = 0; i < SHA256_DIGEST_SIZE; i++)
         {
-            _pswCheck[i % EncryptionConstV5.SIZE_PSWCHECK] ^= derived.PswCheckValue[i];
+            _pswCheck[i % EncryptionConstV5.SIZE_PSWCHECK] ^= pswCheckValue[i];
         }
 
         if (
@@ -177,13 +192,16 @@ internal class CryptKey5 : ICryptKey
         {
             throw new CryptographicException("The password did not match.");
         }
+    }
 
+    private static ICryptoTransform CreateDecryptor(byte[] aesKey, byte[] iv)
+    {
         var aes = Aes.Create();
         aes.KeySize = AES_256;
         aes.Mode = CipherMode.CBC;
         aes.Padding = PaddingMode.None;
-        aes.Key = derived.AesKey;
-        aes.IV = _cryptoInfo.InitV;
+        aes.Key = aesKey;
+        aes.IV = iv;
         return aes.CreateDecryptor();
     }
 }

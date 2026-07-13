@@ -13,7 +13,8 @@ namespace SharpCompress.Compressors.Rar;
 /// <summary>
 /// Direct positional stream over stored (method 0) RAR entry parts.
 /// Avoids the unpacker / <see cref="RarStream"/> copy path for seekable non-encrypted,
-/// non-solid stored entries. Encrypted stored entries stay on the slow path.
+/// non-solid stored entries. RAR5 encrypted stored entries use
+/// <see cref="EncryptedStoredRarEntryStream"/> instead.
 /// </summary>
 internal sealed partial class StoredRarEntryStream : Stream
 {

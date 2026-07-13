@@ -105,8 +105,17 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
 
     public Stream OpenEntryStream()
     {
+        // Fast path: stored (m0), RAR5 encrypted, non-solid entries over seekable volumes.
+        if (
+            !archive.IsSolid
+            && EncryptedStoredRarEntryStream.TryCreate(parts, out var encryptedStoredStream)
+            && encryptedStoredStream is not null
+        )
+        {
+            return encryptedStoredStream;
+        }
+
         // Fast path: stored (m0), non-encrypted, non-solid entries over seekable volumes.
-        // Encrypted stored entries stay on the unpack path (decrypt-in-place is future work).
         // Solid archives keep the slow path so solid single-stream accounting is unchanged.
         if (
             !archive.IsSolid
