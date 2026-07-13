@@ -5,10 +5,8 @@
       "bump-minor-pre-major": true,
       "extra-files": [
         {
-          "type": "regex",
-          "path": "src/SharpCompress/SharpCompress.csproj",
-          "find": "<Version>.*?</Version>",
-          "replace": "<Version>${version}</Version>"
+          "type": "generic",
+          "path": "src/SharpCompress/SharpCompress.csproj"
         }
       ]
     }
