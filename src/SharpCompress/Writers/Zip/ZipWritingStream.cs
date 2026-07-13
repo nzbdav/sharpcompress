@@ -609,6 +609,7 @@ public partial class ZipWriter
 
         public override async ValueTask DisposeAsync()
         {
+            // IAsyncDisposable has no caller token; footer patching uses CancellationToken.None.
             if (isDisposed)
             {
                 return;

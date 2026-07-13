@@ -108,18 +108,25 @@ public static class IAsyncReaderExtensions
         CancellationToken cancellationToken
     )
     {
-        await using var entryStream = await reader
+        var entryStream = await reader
             .OpenEntryStreamAsync(cancellationToken)
             .ConfigureAwait(false);
-        var checkedStream = IEntryExtensions.WrapWithChecksumValidation(
-            reader.Entry,
-            entryStream,
-            options
-        );
-        var sourceStream = WrapWithProgress(checkedStream, reader.Entry);
-        await sourceStream
-            .CopyToAsync(writableStream, options.BufferSize, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            var checkedStream = IEntryExtensions.WrapWithChecksumValidation(
+                reader.Entry,
+                entryStream,
+                options
+            );
+            var sourceStream = WrapWithProgress(checkedStream, reader.Entry);
+            await sourceStream
+                .CopyToAsync(writableStream, options.BufferSize, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await entryStream.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     private static Stream WrapWithProgress(Stream source, IEntry entry)

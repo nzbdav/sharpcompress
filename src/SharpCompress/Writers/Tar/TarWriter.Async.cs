@@ -25,6 +25,7 @@ public partial class TarWriter
 
         if (_finalizeArchiveOnClose)
         {
+            // DisposeAsync has no caller token; archive finalization must complete.
             await OutputStream
                 .NotNull()
                 .WriteAsync(ZeroBlock, CancellationToken.None)

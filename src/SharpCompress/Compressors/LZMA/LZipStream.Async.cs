@@ -83,8 +83,8 @@ public sealed partial class LZipStream
         _finished = true;
     }
 
+    // Header bytes are fixed metadata; no caller token exists at factory creation time.
     private static async ValueTask WriteHeaderSizeAsync(Stream stream) =>
-        // hard coding the dictionary size encoding
         await stream
             .WriteAsync(headerBytes.AsMemory(0, 6), CancellationToken.None)
             .ConfigureAwait(false);
