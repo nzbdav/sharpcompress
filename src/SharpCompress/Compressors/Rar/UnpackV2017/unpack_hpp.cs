@@ -329,6 +329,14 @@ internal partial class Unpack
     private DecodeTable[] MD = new DecodeTable[4]; // Decode multimedia data, up to 4 channels.
 
     private readonly byte[] UnpOldTable20 = new byte[MC20 * 4];
+
+    private readonly byte[] unpack20BitLength = new byte[checked((int)BC20)];
+
+    private readonly byte[] unpack20Table = new byte[checked((int)MC20 * 4)];
+
+    private readonly byte[] unpack50BitLength = new byte[checked((int)BC)];
+
+    private readonly byte[] unpack50Table = new byte[checked((int)HUFF_TABLE_SIZE)];
     private bool UnpAudioBlock;
     private uint UnpChannels,
         UnpCurChannel;

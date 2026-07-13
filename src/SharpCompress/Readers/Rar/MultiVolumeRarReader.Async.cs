@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,21 +5,22 @@ using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
 using SharpCompress.Common.Rar;
+using SharpCompress.Compressors.Rar;
 
 namespace SharpCompress.Readers.Rar;
 
 internal partial class MultiVolumeRarReader : RarReader
 {
-    protected override IAsyncEnumerable<FilePart> CreateFilePartEnumerableForCurrentEntryAsync()
+    internal override async ValueTask<MultiVolumeReadOnlyAsyncStream> CreateMultiVolumeReadStreamAsync()
     {
-        var enumerator = new MultiVolumeStreamAsyncEnumerator(this, streams, tempStream);
+        var parts = new MultiVolumeStreamAsyncEnumerator(this, streams, tempStream);
         tempStream = null;
-        return enumerator;
+        return await MultiVolumeReadOnlyAsyncStream.Create(parts).ConfigureAwait(false);
     }
 
     private class MultiVolumeStreamAsyncEnumerator
-        : IAsyncEnumerable<FilePart>,
-            IAsyncEnumerator<FilePart>
+        : IAsyncEnumerable<RarFilePart>,
+            IAsyncEnumerator<RarFilePart>
     {
         private readonly MultiVolumeRarReader reader;
         private readonly IEnumerator<Stream> nextReadableStreams;
@@ -38,13 +38,13 @@ internal partial class MultiVolumeRarReader : RarReader
             this.tempStream = tempStream;
         }
 
-        public FilePart Current { get; private set; } = null!;
+        public RarFilePart Current { get; private set; } = null!;
 
         public async ValueTask<bool> MoveNextAsync()
         {
             if (isFirst)
             {
-                Current = reader.Entry.Parts.First();
+                Current = (RarFilePart)reader.Entry.Parts.First();
                 isFirst = false; //first stream already to go
                 return true;
             }
@@ -71,11 +71,11 @@ internal partial class MultiVolumeRarReader : RarReader
                     .ConfigureAwait(false);
             }
 
-            Current = reader.Entry.Parts.First();
+            Current = (RarFilePart)reader.Entry.Parts.First();
             return true;
         }
 
-        public IAsyncEnumerator<FilePart> GetAsyncEnumerator(
+        public IAsyncEnumerator<RarFilePart> GetAsyncEnumerator(
             CancellationToken cancellationToken = new()
         ) => this;
 

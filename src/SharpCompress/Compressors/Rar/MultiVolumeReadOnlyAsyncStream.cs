@@ -20,6 +20,11 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         filePartEnumerator = parts.GetAsyncEnumerator();
     }
 
+    private MultiVolumeReadOnlyAsyncStream(IEnumerator<RarFilePart> parts)
+    {
+        filePartEnumerator = new SyncEnumeratorAsyncAdapter(parts);
+    }
+
     // Async methods moved to MultiVolumeReadOnlyAsyncStream.Async.cs
 
     private void InitializeNextFilePart()
@@ -58,4 +63,18 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
 
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();
+
+    private sealed class SyncEnumeratorAsyncAdapter(IEnumerator<RarFilePart> inner)
+        : IAsyncEnumerator<RarFilePart>
+    {
+        public RarFilePart Current => inner.Current;
+
+        public ValueTask<bool> MoveNextAsync() => new(inner.MoveNext());
+
+        public ValueTask DisposeAsync()
+        {
+            inner.Dispose();
+            return default;
+        }
+    }
 }

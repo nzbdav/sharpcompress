@@ -20,6 +20,20 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
         return stream;
     }
 
+    internal static ValueTask<MultiVolumeReadOnlyAsyncStream> Create(IEnumerable<RarFilePart> parts)
+    {
+        var enumerator = parts.GetEnumerator();
+        if (!enumerator.MoveNext())
+        {
+            enumerator.Dispose();
+            throw new InvalidOperationException("parts must not be empty");
+        }
+
+        var stream = new MultiVolumeReadOnlyAsyncStream(enumerator);
+        stream.InitializeNextFilePart();
+        return new ValueTask<MultiVolumeReadOnlyAsyncStream>(stream);
+    }
+
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync().ConfigureAwait(false);

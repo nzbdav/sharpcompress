@@ -594,7 +594,7 @@ internal partial class Unpack
             }
         }
 
-        var BitLength = new byte[checked((int)BC)];
+        var BitLength = unpack50BitLength;
         for (int I = 0; I < BC; I++)
         {
             uint Length = (byte)(Inp.fgetbits() >> 12);
@@ -626,7 +626,7 @@ internal partial class Unpack
 
         MakeDecodeTables(BitLength, 0, BlockTables.BD, BC);
 
-        var Table = new byte[checked((int)HUFF_TABLE_SIZE)];
+        var Table = unpack50Table;
         const int TableSize = checked((int)HUFF_TABLE_SIZE);
         for (int I = 0; I < TableSize; )
         {

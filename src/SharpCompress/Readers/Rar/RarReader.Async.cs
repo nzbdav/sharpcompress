@@ -13,11 +13,11 @@ namespace SharpCompress.Readers.Rar;
 public abstract partial class RarReader
 {
     /// <summary>
-    /// Returns file parts asynchronously for the current entry.
-    /// Used for async stream operations in solid RAR archives.
+    /// Creates the compressed read stream for the current entry.
+    /// Multi-volume readers override this to load additional volumes asynchronously.
     /// </summary>
-    protected virtual IAsyncEnumerable<FilePart> CreateFilePartEnumerableForCurrentEntryAsync() =>
-        Entry.Parts.ToAsyncEnumerable();
+    internal virtual ValueTask<MultiVolumeReadOnlyAsyncStream> CreateMultiVolumeReadStreamAsync() =>
+        MultiVolumeReadOnlyAsyncStream.Create(Entry.Parts.Cast<RarFilePart>());
 
     /// <summary>
     /// Asynchronously creates an entry stream for the current entry.
@@ -32,9 +32,7 @@ public abstract partial class RarReader
             throw new ArchiveOperationException("no stream for redirect entry");
         }
 
-        var stream = await MultiVolumeReadOnlyAsyncStream
-            .Create(CreateFilePartEnumerableForCurrentEntryAsync().Cast<RarFilePart>())
-            .ConfigureAwait(false);
+        var stream = await CreateMultiVolumeReadStreamAsync().ConfigureAwait(false);
         if (Entry.IsRarV3)
         {
             return CreateEntryStream(
