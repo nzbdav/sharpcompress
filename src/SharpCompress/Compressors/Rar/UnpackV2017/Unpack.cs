@@ -10,6 +10,9 @@ namespace SharpCompress.Compressors.Rar.UnpackV2017;
 
 internal partial class Unpack : IRarUnpack
 {
+    // 64 KB stored-file copy block, inherited from unrar.
+    private const int UnstoreBlockSize = 0x10000;
+
     private FileHeader fileHeader = null!;
     private Stream readStream = null!;
     private Stream writeStream = null!;
@@ -120,28 +123,37 @@ internal partial class Unpack : IRarUnpack
 
     private void UnstoreFile()
     {
-        Span<byte> b = stackalloc byte[(int)Math.Min(0x10000, DestUnpSize)];
-        do
+        var size = (int)Math.Min(UnstoreBlockSize, DestUnpSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(size);
+        try
         {
-            var n = readStream.Read(b);
-            if (n == 0)
+            do
             {
-                break;
-            }
-            writeStream.Write(b.Slice(0, n));
-            DestUnpSize -= n;
-        } while (!Suspended);
+                var n = readStream.Read(buffer, 0, size);
+                if (n == 0)
+                {
+                    break;
+                }
+                writeStream.Write(buffer, 0, n);
+                DestUnpSize -= n;
+            } while (!Suspended);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private async ValueTask UnstoreFileAsync(CancellationToken cancellationToken = default)
     {
-        var buffer = ArrayPool<byte>.Shared.Rent((int)Math.Min(0x10000, DestUnpSize));
+        var size = (int)Math.Min(UnstoreBlockSize, DestUnpSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(size);
         try
         {
             do
             {
                 var n = await readStream
-                    .ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                    .ReadAsync(buffer, 0, size, cancellationToken)
                     .ConfigureAwait(false);
                 if (n == 0)
                 {

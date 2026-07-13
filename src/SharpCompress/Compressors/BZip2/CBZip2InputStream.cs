@@ -105,6 +105,7 @@ internal partial class CBZip2InputStream : Stream
 
     private int bsBuff;
     private int bsLive;
+    private byte[] _singleByteBuffer = new byte[1];
     private readonly CRC mCrc = new();
 
     private readonly bool[] inUse = new bool[256];

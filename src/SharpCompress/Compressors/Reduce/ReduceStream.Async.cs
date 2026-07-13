@@ -30,7 +30,7 @@ public partial class ReduceStream
             return EOF;
         }
 
-        byte[] buffer = new byte[1];
+        byte[] buffer = _singleByteBuffer;
         int bytesRead = await inStream
             .ReadAsync(buffer, 0, 1, cancellationToken)
             .ConfigureAwait(false);

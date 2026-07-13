@@ -14,6 +14,9 @@ namespace SharpCompress.Compressors.Rar.UnpackV1;
 
 internal sealed partial class Unpack : BitInput, IRarUnpack
 {
+    // 64 KB stored-file copy block, inherited from unrar.
+    private const int UnstoreBlockSize = 0x10000;
+
     private readonly BitInput Inp;
     private bool disposed;
 
@@ -197,19 +200,27 @@ internal sealed partial class Unpack : BitInput, IRarUnpack
 
     private void UnstoreFile()
     {
-        Span<byte> buffer = stackalloc byte[(int)Math.Min(0x10000, destUnpSize)];
-        do
+        var size = (int)Math.Min(UnstoreBlockSize, destUnpSize);
+        var buffer = ArrayPool<byte>.Shared.Rent(size);
+        try
         {
-            var code = readStream.Read(buffer);
-            if (code == 0 || code == -1)
+            do
             {
-                break;
-            }
+                var code = readStream.Read(buffer, 0, size);
+                if (code == 0 || code == -1)
+                {
+                    break;
+                }
 
-            code = code < destUnpSize ? code : (int)destUnpSize;
-            writeStream.Write(buffer.Slice(0, code));
-            destUnpSize -= code;
-        } while (!suspended && destUnpSize > 0);
+                code = code < destUnpSize ? code : (int)destUnpSize;
+                writeStream.Write(buffer, 0, code);
+                destUnpSize -= code;
+            } while (!suspended && destUnpSize > 0);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private void Unpack29(bool solid)

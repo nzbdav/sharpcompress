@@ -14,9 +14,13 @@ namespace SharpCompress.Archives.Rar;
 
 public partial class RarArchiveEntry : RarEntry, IArchiveEntry
 {
-    private readonly ICollection<RarFilePart> parts;
+    private readonly List<RarFilePart> parts;
     private readonly RarArchive archive;
     private readonly ReaderOptions readerOptions;
+    private readonly FileHeader _fileHeader;
+    private long? _crc;
+    private long? _compressedSize;
+    private bool? _isComplete;
 
     internal RarArchiveEntry(
         RarArchive archive,
@@ -28,7 +32,8 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
         this.parts = parts.ToList();
         this.archive = archive;
         this.readerOptions = readerOptions;
-        IsSolid = FileHeader.IsSolid;
+        _fileHeader = this.parts[0].FileHeader;
+        IsSolid = _fileHeader.IsSolid;
     }
 
     public override CompressionType CompressionType => CompressionType.Rar;
@@ -37,17 +42,37 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
 
     internal override IEnumerable<FilePart> Parts => parts.Cast<FilePart>();
 
-    internal override FileHeader FileHeader => parts.First().FileHeader;
+    internal override FileHeader FileHeader => _fileHeader;
 
     public override long Crc
     {
         get
         {
             CheckIncomplete();
-            return BitConverter.ToUInt32(
-                parts.Select(fp => fp.FileHeader).Single(fh => !fh.IsSplitAfter).FileCrc.NotNull(),
-                0
-            );
+            if (_crc is null)
+            {
+                FileHeader? match = null;
+                foreach (var part in parts)
+                {
+                    var header = part.FileHeader;
+                    if (!header.IsSplitAfter)
+                    {
+                        if (match is not null)
+                        {
+                            throw new InvalidOperationException(
+                                "Sequence contains more than one matching element"
+                            );
+                        }
+                        match = header;
+                    }
+                }
+                if (match is null)
+                {
+                    throw new InvalidOperationException("Sequence contains no matching element");
+                }
+                _crc = BitConverter.ToUInt32(match.FileCrc.NotNull(), 0);
+            }
+            return _crc.Value;
         }
     }
 
@@ -56,7 +81,7 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
         get
         {
             CheckIncomplete();
-            return parts.First().FileHeader.UncompressedSize;
+            return _fileHeader.UncompressedSize;
         }
     }
 
@@ -65,7 +90,16 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
         get
         {
             CheckIncomplete();
-            return parts.Aggregate(0L, (total, fp) => total + fp.FileHeader.CompressedSize);
+            if (_compressedSize is null)
+            {
+                long total = 0;
+                foreach (var part in parts)
+                {
+                    total += part.FileHeader.CompressedSize;
+                }
+                _compressedSize = total;
+            }
+            return _compressedSize.Value;
         }
     }
 
@@ -137,8 +171,9 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
     {
         get
         {
-            var headers = parts.Select(x => x.FileHeader);
-            return !headers.First().IsSplitBefore && !headers.Last().IsSplitAfter;
+            _isComplete ??=
+                !parts[0].FileHeader.IsSplitBefore && !parts[^1].FileHeader.IsSplitAfter;
+            return _isComplete.Value;
         }
     }
 

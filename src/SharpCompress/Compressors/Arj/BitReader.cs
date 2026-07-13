@@ -10,6 +10,7 @@ public partial class BitReader
     private readonly Stream _input;
     private int _bitBuffer; // currently buffered bits
     private int _bitCount; // number of bits in buffer
+    private byte[] _singleByteBuffer = new byte[1];
 
     public BitReader(Stream input)
     {

@@ -15,6 +15,7 @@ public partial class ExplodeStream : Stream
     private readonly int compressedSize;
     private readonly HeaderFlags generalPurposeBitFlag;
     private readonly Stream inStream;
+    private byte[] _singleByteBuffer = new byte[1];
 
     private huftNode[]? hufLiteralCodeTable; /* literal code table */
     private huftNode[] hufLengthCodeTable = []; /* length code table */

@@ -8,6 +8,9 @@ namespace SharpCompress.Compressors.Rar;
 
 internal partial class RarStream : Stream
 {
+    // 64 KB matches RAR unpack write-block granularity; oversizing wastes pool memory per open entry.
+    private const int TmpBufferSize = 65536;
+
     private readonly IRarUnpack unpack;
     private readonly FileHeader fileHeader;
     private readonly Stream readStream;
@@ -16,7 +19,7 @@ internal partial class RarStream : Stream
 
     private bool fetch;
 
-    private byte[] tmpBuffer = ArrayPool<byte>.Shared.Rent(65536);
+    private byte[] tmpBuffer = null!;
     private int tmpOffset;
     private int tmpCount;
 
@@ -41,6 +44,7 @@ internal partial class RarStream : Stream
         this.readStream = readStream;
         this.ownsUnpack = ownsUnpack;
         this.onDispose = onDispose;
+        tmpBuffer = ArrayPool<byte>.Shared.Rent(TmpBufferSize);
     }
 
     public void Initialize()
@@ -177,10 +181,21 @@ internal partial class RarStream : Stream
                     ? this.tmpBuffer.Length * 2
                     : this.tmpCount + count;
             var newBuffer = ArrayPool<byte>.Shared.Rent(newLength);
-            Buffer.BlockCopy(this.tmpBuffer, 0, newBuffer, 0, this.tmpCount);
-            var oldBuffer = this.tmpBuffer;
-            this.tmpBuffer = newBuffer;
-            ArrayPool<byte>.Shared.Return(oldBuffer);
+            try
+            {
+                Buffer.BlockCopy(this.tmpBuffer, 0, newBuffer, 0, this.tmpCount);
+                var oldBuffer = this.tmpBuffer;
+                this.tmpBuffer = newBuffer;
+                newBuffer = null!;
+                ArrayPool<byte>.Shared.Return(oldBuffer);
+            }
+            finally
+            {
+                if (newBuffer is not null)
+                {
+                    ArrayPool<byte>.Shared.Return(newBuffer);
+                }
+            }
         }
     }
 }

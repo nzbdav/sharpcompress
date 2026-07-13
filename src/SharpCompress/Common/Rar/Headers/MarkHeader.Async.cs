@@ -9,10 +9,10 @@ internal partial class MarkHeader
 {
     private static async ValueTask<byte> GetByteAsync(
         Stream stream,
+        byte[] buffer,
         CancellationToken cancellationToken
     )
     {
-        var buffer = new byte[1];
         var bytesRead = await stream
             .ReadAsync(buffer, 0, 1, cancellationToken)
             .ConfigureAwait(false);
@@ -31,52 +31,59 @@ internal partial class MarkHeader
     )
     {
         var maxScanIndex = lookForHeader ? MAX_SFX_SIZE : 0;
+        var buffer = new byte[1];
         try
         {
             var start = -1;
-            var b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+            var b = await GetByteAsync(stream, buffer, cancellationToken).ConfigureAwait(false);
             start++;
             while (start <= maxScanIndex)
             {
                 if (b == 0x52)
                 {
-                    b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                    b = await GetByteAsync(stream, buffer, cancellationToken).ConfigureAwait(false);
                     start++;
                     if (b == 0x61)
                     {
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x72)
                         {
                             continue;
                         }
 
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x21)
                         {
                             continue;
                         }
 
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x1a)
                         {
                             continue;
                         }
 
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x07)
                         {
                             continue;
                         }
 
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b == 1)
                         {
-                            b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                            b = await GetByteAsync(stream, buffer, cancellationToken)
+                                .ConfigureAwait(false);
                             start++;
                             if (b != 0)
                             {
@@ -92,14 +99,16 @@ internal partial class MarkHeader
                     }
                     else if (b == 0x45)
                     {
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x7e)
                         {
                             continue;
                         }
 
-                        b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                        b = await GetByteAsync(stream, buffer, cancellationToken)
+                            .ConfigureAwait(false);
                         start++;
                         if (b != 0x5e)
                         {
@@ -113,7 +122,7 @@ internal partial class MarkHeader
                 }
                 else
                 {
-                    b = await GetByteAsync(stream, cancellationToken).ConfigureAwait(false);
+                    b = await GetByteAsync(stream, buffer, cancellationToken).ConfigureAwait(false);
                     start++;
                 }
             }

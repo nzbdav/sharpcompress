@@ -110,6 +110,18 @@ var options2 = new WriterOptions(CompressionType.Deflate)
 
 `WriterOptions.BufferSize` controls stream copy buffers used while writing archive entries. If it is not set, SharpCompress falls back to `Constants.BufferSize`.
 
+### Breaking change: `Constants.BufferSize` is read-only
+
+`Constants.BufferSize` no longer has a public setter. Configure buffer sizes per operation instead:
+
+```csharp
+var readerOptions = new ReaderOptions { BufferSize = 131072 };
+var extractionOptions = new ExtractionOptions { BufferSize = 131072 };
+var writerOptions = WriterOptions.ForZip().WithBufferSize(131072);
+```
+
+`Constants.BufferSize` remains the default seed for those options properties.
+
 ---
 
 ## Archive API Methods

@@ -8,6 +8,9 @@ namespace SharpCompress.IO;
 
 internal partial class BufferedSubStream : Stream, IStreamStack
 {
+    // Mirrors Stream.CopyTo / Constants.BufferSize default; independent so subsystem tuning stays local.
+    private const int CacheSize = 81920;
+
     Stream IStreamStack.BaseStream() => _stream;
 
     private readonly Stream _stream;
@@ -17,6 +20,7 @@ internal partial class BufferedSubStream : Stream, IStreamStack
         _stream = stream ?? throw new ArgumentNullException(nameof(stream));
         this.origin = origin;
         this.BytesLeftToRead = bytesToRead;
+        _cache = ArrayPool<byte>.Shared.Rent(CacheSize);
     }
 
     protected override void Dispose(bool disposing)
@@ -37,7 +41,7 @@ internal partial class BufferedSubStream : Stream, IStreamStack
 
     private int _cacheOffset;
     private int _cacheLength;
-    private byte[]? _cache = ArrayPool<byte>.Shared.Rent(81920);
+    private byte[]? _cache;
     private long origin;
     private bool _isDisposed;
 
