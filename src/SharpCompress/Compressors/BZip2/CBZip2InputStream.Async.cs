@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,7 +47,7 @@ internal partial class CBZip2InputStream
         CancellationToken cancellationToken
     )
     {
-        var singleByte = new byte[1];
+        var singleByte = _singleByteBuffer;
         var read0 = await bsStream
             .ReadAsync(singleByte, 0, 1, cancellationToken)
             .ConfigureAwait(false);
@@ -898,7 +897,7 @@ internal partial class CBZip2InputStream
             }
             int zzi;
             int thech = '\0';
-            var b = ArrayPool<byte>.Shared.Rent(1);
+            var b = _singleByteBuffer;
             try
             {
                 try
@@ -921,10 +920,6 @@ internal partial class CBZip2InputStream
                 {
                     return 0;
                 }
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(b);
             }
             if (thech == '\uffff')
             {

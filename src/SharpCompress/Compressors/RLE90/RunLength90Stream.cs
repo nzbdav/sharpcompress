@@ -19,6 +19,7 @@ public partial class RunLength90Stream : Stream
     private int _repeatCount;
 
     private bool _endOfCompressedData;
+    private byte[] _singleByteBuffer = new byte[1];
 
     public RunLength90Stream(Stream stream, int compressedSize)
     {

@@ -15,7 +15,7 @@ public partial class BitReader
     {
         if (_bitCount == 0)
         {
-            var buffer = new byte[1];
+            var buffer = _singleByteBuffer;
             int bytesRead = await _input
                 .ReadAsync(buffer, 0, 1, cancellationToken)
                 .ConfigureAwait(false);

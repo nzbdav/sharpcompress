@@ -9,6 +9,7 @@ public partial class ReduceStream : Stream
     private readonly long unCompressedSize;
     private readonly long compressedSize;
     private readonly Stream inStream;
+    private byte[] _singleByteBuffer = new byte[1];
 
     private long inByteCount;
     private const int EOF = 1234;

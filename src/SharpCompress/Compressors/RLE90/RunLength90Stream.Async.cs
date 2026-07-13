@@ -44,7 +44,7 @@ public partial class RunLength90Stream
                 break;
             }
 
-            byte[] singleByte = new byte[1];
+            byte[] singleByte = _singleByteBuffer;
             int bytesRead = await _stream
                 .ReadAsync(singleByte, 0, 1, cancellationToken)
                 .ConfigureAwait(false);

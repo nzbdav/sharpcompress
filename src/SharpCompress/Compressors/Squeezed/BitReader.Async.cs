@@ -12,7 +12,7 @@ public partial class BitReader
     {
         if (_bitCount == 0)
         {
-            byte[] buffer = new byte[1];
+            byte[] buffer = _singleByteBuffer;
             int bytesRead = await _stream
                 .ReadAsync(buffer, 0, 1, cancellationToken)
                 .ConfigureAwait(false);

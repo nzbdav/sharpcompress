@@ -57,7 +57,7 @@ public partial class ExplodeStream
 
     private async ValueTask<int> ReadSingleByteAsync(CancellationToken cancellationToken)
     {
-        var buffer = new byte[1];
+        var buffer = _singleByteBuffer;
         int bytesRead = await inStream
             .ReadAsync(buffer, 0, 1, cancellationToken)
             .ConfigureAwait(false);
