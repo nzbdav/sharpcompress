@@ -5,9 +5,10 @@
       "bump-minor-pre-major": true,
       "extra-files": [
         {
-          "type": "xml",
+          "type": "regex",
           "path": "src/SharpCompress/SharpCompress.csproj",
-          "xpath": "//Project/PropertyGroup/Version"
+          "find": "<Version>.*?</Version>",
+          "replace": "<Version>${version}</Version>"
         }
       ]
     }
