@@ -45,16 +45,19 @@ internal static partial class Utility
             hour = minute = second = 0;
         }
 
-        DateTime dt;
-        try
+        if (
+            month is < 1 or > 12
+            || day < 1
+            || day > DateTime.DaysInMonth(year, month)
+            || hour > 23
+            || minute > 59
+            || second > 59
+        )
         {
-            dt = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Local);
+            return new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Local);
         }
-        catch
-        {
-            dt = new DateTime();
-        }
-        return dt;
+
+        return new DateTime(year, month, day, hour, minute, second, DateTimeKind.Local);
     }
 
     public static uint DateTimeToDosTime(this DateTime? dateTime)
