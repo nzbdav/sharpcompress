@@ -687,6 +687,53 @@ baseStream.Dispose();  // Manual disposal
 
 ---
 
+## Sync vs Async Partial-Class Duplication
+
+SharpCompress ships parallel sync and async APIs. Most I/O-heavy types are `partial` classes split across `Foo.cs` and `Foo.Async.cs`.
+
+### Current scale (July 2026)
+
+| Metric | Value |
+|--------|-------|
+| `.Async.cs` partial files | 127 |
+| Paired with a sync base file | 126 |
+| Lines in sync halves of pairs | ~30 000 |
+| Lines in async halves of pairs | ~17 400 |
+| Pairs with >85 % normalized structural similarity | 2 |
+| Pairs with <60 % similarity (async is mostly I/O glue) | 112 |
+
+Async partials are not near-duplicates of their sync siblings: they re-express the same algorithms with `ReadAsync`/`WriteAsync`, `ValueTask`, and `CancellationToken` wiring. The largest async files (`CBZip2InputStream.Async.cs`, `Unpack.Async.cs`, etc.) mirror complex sync logic but are not copy-paste safe.
+
+### Options evaluated
+
+| Option | Sync-path performance | Binary size | Review burden | Verdict |
+|--------|----------------------|-------------|---------------|---------|
+| **A. Status quo + CI pair-drift lint** | Unchanged (no indirection) | Current (~17k async lines) | Caught by lint when only one half of a pair changes | **Recommended** |
+| **B. Async-only core + sync `GetAwaiter().GetResult()` facade** | Regression on hot paths (see below) | Smaller source, similar IL if inlined poorly | Single implementation | Rejected for perf-critical streams |
+| **C. Source generation from annotated templates** | Unchanged if gen emits both | Similar | Up-front generator cost; drift moves to schema | Defer — low similarity ratio limits ROI |
+
+**Sync-facade cost (RAR Archive API extract-all, Release benchmark on `Rar.rar`):**
+
+| API | Mean |
+|-----|------|
+| Sync | ~1 220 μs |
+| Async | ~904 μs |
+
+Async is already competitive on this workload; forcing sync through async would add blocking overhead on every stream read in decompressors without reducing the ~17k lines meaningfully (most async code is not identical to sync).
+
+### Decision
+
+**Keep the partial-class split (option A)** and add a CI pair-drift check: any PR that modifies a `*.cs` file with a paired `*.Async.cs` must touch both, unless the PR body includes an `[async-pair-skip]` marker with justification. This preserves zero-overhead sync I/O in hot decompressors while preventing the halves from diverging silently.
+
+Follow-up issues to file:
+
+1. **CI:** `scripts/check-async-pairs.sh` (or Nuke target) enforcing the pair-drift rule.
+2. **Optional:** audit the single orphan async partial (`Compressors/LZMA/DecoderRegistry.Async.cs` has no sync base — confirm intentional).
+
+Do **not** pursue a repo-wide async-only rewrite or Roslyn generator unless the pair count or duplication ratio increases substantially.
+
+---
+
 ## Performance Considerations
 
 ### Memory Efficiency
