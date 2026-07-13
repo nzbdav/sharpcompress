@@ -111,7 +111,8 @@ internal partial class Unpack : IRarUnpack
         }
         else
         {
-            // See #67: call async compression methods when available; sync fallback for now.
+            // Async dispatch is complete for methods 15/20/26/50; method 29 is
+            // intentionally not implemented here (RAR3 routes to UnpackV1).
             await DoUnpackAsync(
                     fileHeader.CompressionAlgorithm,
                     fileHeader.IsSolid,
