@@ -903,7 +903,16 @@ internal partial class CBZip2InputStream
             var b = ArrayPool<byte>.Shared.Rent(1);
             try
             {
-                await bsStream.ReadExactAsync(b, 0, 1, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await bsStream
+                        .ReadExactlyAsync(b.AsMemory(0, 1), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (EndOfStreamException e)
+                {
+                    throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                }
                 thech = (char)b[0];
             }
             catch (IOException)

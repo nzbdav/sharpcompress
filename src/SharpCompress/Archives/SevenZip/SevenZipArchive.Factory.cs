@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common;
 using SharpCompress.IO;
 using SharpCompress.Readers;
 
@@ -195,7 +196,14 @@ public partial class SevenZipArchive
             var maxScanOffset = lookForHeader ? 0x80000 - 20 : 0;
             for (var offset = 0; offset <= maxScanOffset; offset++)
             {
-                stream.ReadExact(buffer, 0, 6);
+                try
+                {
+                    stream.ReadExactly(buffer.AsSpan(0, 6));
+                }
+                catch (EndOfStreamException e)
+                {
+                    throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                }
                 if (buffer.AsSpan().Slice(0, 6).SequenceEqual(Signature))
                 {
                     return true;
@@ -230,9 +238,14 @@ public partial class SevenZipArchive
             for (var offset = 0; offset <= maxScanOffset; offset++)
             {
                 if (
-                    !await stream
-                        .ReadFullyAsync(buffer, 0, 6, cancellationToken)
-                        .ConfigureAwait(false)
+                    await stream
+                        .ReadAtLeastAsync(
+                            buffer.AsMemory(0, 6),
+                            6,
+                            throwOnEndOfStream: false,
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false) != 6
                 )
                 {
                     return false;

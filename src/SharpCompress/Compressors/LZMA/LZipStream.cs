@@ -59,9 +59,13 @@ public sealed partial class LZipStream : Stream, IFinishable
             if (trailerStream is not null)
             {
                 var position = trailerStream.Position;
-                trailerStream.Position = trailerStream.Length - 16;
+                stream.Position = trailerStream.Length - 16;
                 Span<byte> sizeTrailer = stackalloc byte[16];
-                trailerStream.ReadFully(sizeTrailer);
+                trailerStream.ReadAtLeast(
+                    sizeTrailer,
+                    sizeTrailer.Length,
+                    throwOnEndOfStream: false
+                );
                 _expectedDataSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer);
                 _expectedMemberSize = BinaryPrimitives.ReadUInt64LittleEndian(sizeTrailer[8..]);
                 if (_expectedDataSize > long.MaxValue)
@@ -383,13 +387,13 @@ public sealed partial class LZipStream : Stream, IFinishable
         {
             compressedDataSize = _expectedMemberSize.Value - 26;
             countingStream.Position = _compressedDataStartPosition + (long)compressedDataSize.Value;
-            countingStream.ReadFully(trailer);
+            countingStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
         }
         else if (GetPhysicalSeekableStream(countingStream.WrappedStream) is { } trailerStream)
         {
             var position = trailerStream.Position;
             trailerStream.Position = trailerStream.Length - 20;
-            trailerStream.ReadFully(trailer);
+            trailerStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
             trailerStream.Position = position;
         }
         else
@@ -402,7 +406,7 @@ public sealed partial class LZipStream : Stream, IFinishable
                 countingStream.Position =
                     _compressedDataStartPosition + (long)compressedDataSize.Value;
             }
-            countingStream.ReadFully(trailer);
+            countingStream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
         }
 
         var expectedCrc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);

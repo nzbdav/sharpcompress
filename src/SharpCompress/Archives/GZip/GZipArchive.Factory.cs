@@ -159,7 +159,7 @@ public partial class GZipArchive
     {
         Span<byte> header = stackalloc byte[10];
 
-        if (!stream.ReadFully(header))
+        if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) != header.Length)
         {
             return false;
         }
@@ -180,7 +180,19 @@ public partial class GZipArchive
         var header = ArrayPool<byte>.Shared.Rent(10);
         try
         {
-            await stream.ReadFullyAsync(header, 0, 10, cancellationToken).ConfigureAwait(false);
+            if (
+                await stream
+                    .ReadAtLeastAsync(
+                        header.AsMemory(0, 10),
+                        10,
+                        throwOnEndOfStream: false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false) != 10
+            )
+            {
+                return false;
+            }
 
             if (header[0] != 0x1F || header[1] != 0x8B || header[2] != 8)
             {

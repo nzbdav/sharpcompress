@@ -20,7 +20,9 @@ internal partial class WinzipAesCryptoStream
         byte[] authBytes = ArrayPool<byte>.Shared.Rent(10);
         try
         {
-            await _stream.ReadFullyAsync(authBytes, 0, 10).ConfigureAwait(false);
+            await _stream
+                .ReadAtLeastAsync(authBytes.AsMemory(0, 10), 10, throwOnEndOfStream: false)
+                .ConfigureAwait(false);
         }
         finally
         {

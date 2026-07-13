@@ -162,11 +162,23 @@ internal abstract partial class ZipFilePart
                     return Stream.Null;
                 }
                 var buffer = new byte[4];
-                await stream.ReadFullyAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+                await stream
+                    .ReadAtLeastAsync(
+                        buffer.AsMemory(0, 4),
+                        4,
+                        throwOnEndOfStream: false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 var propsSize = BinaryPrimitives.ReadUInt16LittleEndian(buffer.AsSpan(2, 2));
                 var props = new byte[propsSize];
                 await stream
-                    .ReadFullyAsync(props, 0, propsSize, cancellationToken)
+                    .ReadAtLeastAsync(
+                        props.AsMemory(0, propsSize),
+                        propsSize,
+                        throwOnEndOfStream: false,
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
 
                 // When the uncompressed size is known to be zero, skip remaining compressed
@@ -205,7 +217,14 @@ internal abstract partial class ZipFilePart
             case ZipCompressionMethod.PPMd:
             {
                 var props = new byte[2];
-                await stream.ReadFullyAsync(props, 0, 2, cancellationToken).ConfigureAwait(false);
+                await stream
+                    .ReadAtLeastAsync(
+                        props.AsMemory(0, 2),
+                        2,
+                        throwOnEndOfStream: false,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 context = context with { Properties = props };
                 return await providers
                     .CreateDecompressStreamAsync(

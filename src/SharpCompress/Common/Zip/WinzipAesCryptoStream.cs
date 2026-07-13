@@ -70,7 +70,7 @@ internal partial class WinzipAesCryptoStream : Stream
         {
             // Read out last 10 auth bytes
             Span<byte> ten = stackalloc byte[10];
-            _stream.ReadFully(ten);
+            _stream.ReadAtLeast(ten, ten.Length, throwOnEndOfStream: false);
             _stream.Dispose();
         }
         base.Dispose(disposing);
@@ -79,7 +79,9 @@ internal partial class WinzipAesCryptoStream : Stream
     private async ValueTask ReadAuthBytesAsync()
     {
         byte[] authBytes = new byte[10];
-        await _stream.ReadFullyAsync(authBytes, 0, 10).ConfigureAwait(false);
+        await _stream
+            .ReadAtLeastAsync(authBytes.AsMemory(0, 10), 10, throwOnEndOfStream: false)
+            .ConfigureAwait(false);
     }
 
     public override void Flush() { }

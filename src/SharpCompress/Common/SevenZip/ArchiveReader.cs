@@ -692,7 +692,14 @@ internal partial class ArchiveReader
 
                 var unpackSize = checked((int)folder.GetUnpackSize());
                 var data = new byte[unpackSize];
-                outStream.ReadExact(data, 0, data.Length);
+                try
+                {
+                    outStream.ReadExactly(data);
+                }
+                catch (EndOfStreamException e)
+                {
+                    throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                }
                 if (outStream.ReadByte() >= 0)
                 {
                     throw new InvalidFormatException("Decoded stream is longer than expected.");
@@ -1067,7 +1074,14 @@ internal partial class ArchiveReader
         _stream.Seek(nextHeaderOffset, SeekOrigin.Current);
 
         var header = new byte[nextHeaderSize];
-        _stream.ReadExact(header, 0, header.Length);
+        try
+        {
+            _stream.ReadExactly(header);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
+        }
 
         if (Crc.Finish(Crc.Update(Crc.INIT_CRC, header, 0, header.Length)) != nextHeaderCrc)
         {

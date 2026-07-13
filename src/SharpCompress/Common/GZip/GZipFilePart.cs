@@ -76,7 +76,7 @@ internal sealed partial class GZipFilePart : FilePart
     {
         // Read and potentially verify the GZIP trailer: CRC32 and  size mod 2^32
         Span<byte> trailer = stackalloc byte[8];
-        _stream.ReadFully(trailer);
+        _stream.ReadAtLeast(trailer, trailer.Length, throwOnEndOfStream: false);
 
         Crc = BinaryPrimitives.ReadUInt32LittleEndian(trailer);
         UncompressedSize = BinaryPrimitives.ReadUInt32LittleEndian(trailer.Slice(4));
@@ -114,7 +114,7 @@ internal sealed partial class GZipFilePart : FilePart
             var extraLength = (short)(header[0] + (header[1] * 256));
             var extra = new byte[extraLength];
 
-            if (!_stream.ReadFully(extra))
+            if (_stream.ReadAtLeast(extra, extra.Length, throwOnEndOfStream: false) != extra.Length)
             {
                 throw new ZlibException("Unexpected end-of-file reading GZIP header.");
             }

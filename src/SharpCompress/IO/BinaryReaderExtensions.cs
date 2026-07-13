@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common;
 
 namespace SharpCompress;
 
@@ -12,9 +13,16 @@ public static class BinaryReaderExtensions
         public async ValueTask<byte> ReadByteAsync(CancellationToken cancellationToken = default)
         {
             var buffer = new byte[1];
-            await reader
-                .BaseStream.ReadExactAsync(buffer, 0, 1, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await reader
+                    .BaseStream.ReadExactlyAsync(buffer.AsMemory(0, 1), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             return buffer[0];
         }
 
@@ -34,9 +42,16 @@ public static class BinaryReaderExtensions
             }
 
             var bytes = new byte[count];
-            await reader
-                .BaseStream.ReadExactAsync(bytes, 0, count, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await reader
+                    .BaseStream.ReadExactlyAsync(bytes.AsMemory(0, count), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
             return bytes;
         }
     }

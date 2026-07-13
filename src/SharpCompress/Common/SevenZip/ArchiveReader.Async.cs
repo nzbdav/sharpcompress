@@ -28,7 +28,16 @@ internal sealed partial class ArchiveReader
         while (true)
         {
             _header = new byte[0x20];
-            await stream.ReadExactAsync(_header, 0, 0x20, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await stream
+                    .ReadExactlyAsync(_header.AsMemory(0, 0x20), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (EndOfStreamException e)
+            {
+                throw new IncompleteArchiveException("Unexpected end of stream.", e);
+            }
 
             if (HasSevenZipSignature(_header))
             {
@@ -96,9 +105,16 @@ internal sealed partial class ArchiveReader
         _stream.Seek(nextHeaderOffset, SeekOrigin.Current);
 
         var header = new byte[nextHeaderSize];
-        await _stream
-            .ReadExactAsync(header, 0, header.Length, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            await _stream
+                .ReadExactlyAsync(header.AsMemory(0, header.Length), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
+        }
 
         if (Crc.Finish(Crc.Update(Crc.INIT_CRC, header, 0, header.Length)) != nextHeaderCrc)
         {
@@ -197,9 +213,16 @@ internal sealed partial class ArchiveReader
 
                 var unpackSize = checked((int)folder.GetUnpackSize());
                 var data = new byte[unpackSize];
-                await outStream
-                    .ReadExactAsync(data, 0, data.Length, cancellationToken)
-                    .ConfigureAwait(false);
+                try
+                {
+                    await outStream
+                        .ReadExactlyAsync(data.AsMemory(0, data.Length), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (EndOfStreamException e)
+                {
+                    throw new IncompleteArchiveException("Unexpected end of stream.", e);
+                }
                 if (outStream.ReadByte() >= 0)
                 {
                     throw new InvalidFormatException("Decoded stream is longer than expected.");

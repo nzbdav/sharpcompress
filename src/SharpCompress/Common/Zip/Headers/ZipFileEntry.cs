@@ -47,7 +47,7 @@ internal abstract partial class ZipFileEntry(ZipHeaderType type, IArchiveEncodin
         ThrowHelper.ThrowIfNull(archiveStream);
 
         var buffer = new byte[12];
-        archiveStream.ReadFully(buffer);
+        archiveStream.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
 
         var encryptionData = PkwareTraditionalEncryptionData.ForRead(Password!, this, buffer);
 

@@ -13,7 +13,14 @@ public class SharpCompressException : Exception
         : base(message, inner) { }
 }
 
-public class ArchiveException(string message) : SharpCompressException(message);
+public class ArchiveException : SharpCompressException
+{
+    public ArchiveException(string message)
+        : base(message) { }
+
+    public ArchiveException(string message, Exception inner)
+        : base(message, inner) { }
+}
 
 public class ArchiveOperationException : SharpCompressException
 {
@@ -26,7 +33,14 @@ public class ArchiveOperationException : SharpCompressException
         : base(message, inner) { }
 }
 
-public class IncompleteArchiveException(string message) : ArchiveException(message);
+public class IncompleteArchiveException : ArchiveException
+{
+    public IncompleteArchiveException(string message)
+        : base(message) { }
+
+    public IncompleteArchiveException(string message, Exception inner)
+        : base(message, inner) { }
+}
 
 public class CryptographicException(string message) : SharpCompressException(message);
 

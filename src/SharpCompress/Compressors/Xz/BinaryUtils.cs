@@ -22,10 +22,13 @@ public static partial class BinaryUtils
     public static int ReadLittleEndianInt32(this Stream stream)
     {
         Span<byte> bytes = stackalloc byte[4];
-        var read = stream.ReadFully(bytes);
-        if (!read)
+        try
         {
-            throw new IncompleteArchiveException("Unexpected end of stream.");
+            stream.ReadExactly(bytes);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
         }
         return BinaryPrimitives.ReadInt32LittleEndian(bytes);
     }

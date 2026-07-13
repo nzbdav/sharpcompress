@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common;
 
 namespace SharpCompress.IO;
 
@@ -30,25 +31,25 @@ public sealed class AsyncBinaryReader : IDisposable, IAsyncDisposable
 
     public async ValueTask<byte> ReadByteAsync(CancellationToken ct = default)
     {
-        await _stream.ReadExactAsync(_buffer, 0, 1, ct).ConfigureAwait(false);
+        await ReadExactlyOrThrowAsync(_buffer, 0, 1, ct).ConfigureAwait(false);
         return _buffer[0];
     }
 
     public async ValueTask<ushort> ReadUInt16Async(CancellationToken ct = default)
     {
-        await _stream.ReadExactAsync(_buffer, 0, 2, ct).ConfigureAwait(false);
+        await ReadExactlyOrThrowAsync(_buffer, 0, 2, ct).ConfigureAwait(false);
         return BinaryPrimitives.ReadUInt16LittleEndian(_buffer);
     }
 
     public async ValueTask<uint> ReadUInt32Async(CancellationToken ct = default)
     {
-        await _stream.ReadExactAsync(_buffer, 0, 4, ct).ConfigureAwait(false);
+        await ReadExactlyOrThrowAsync(_buffer, 0, 4, ct).ConfigureAwait(false);
         return BinaryPrimitives.ReadUInt32LittleEndian(_buffer);
     }
 
     public async ValueTask<ulong> ReadUInt64Async(CancellationToken ct = default)
     {
-        await _stream.ReadExactAsync(_buffer, 0, 8, ct).ConfigureAwait(false);
+        await ReadExactlyOrThrowAsync(_buffer, 0, 8, ct).ConfigureAwait(false);
         return BinaryPrimitives.ReadUInt64LittleEndian(_buffer);
     }
 
@@ -57,10 +58,29 @@ public sealed class AsyncBinaryReader : IDisposable, IAsyncDisposable
         int offset,
         int count,
         CancellationToken ct = default
-    ) => await _stream.ReadExactAsync(bytes, offset, count, ct).ConfigureAwait(false);
+    ) => await ReadExactlyOrThrowAsync(bytes, offset, count, ct).ConfigureAwait(false);
 
     public async ValueTask SkipAsync(int count, CancellationToken ct = default) =>
         await _stream.SkipAsync(count, ct).ConfigureAwait(false);
+
+    private async ValueTask ReadExactlyOrThrowAsync(
+        byte[] buffer,
+        int offset,
+        int count,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            await _stream
+                .ReadExactlyAsync(buffer.AsMemory(offset, count), ct)
+                .ConfigureAwait(false);
+        }
+        catch (EndOfStreamException e)
+        {
+            throw new IncompleteArchiveException("Unexpected end of stream.", e);
+        }
+    }
 
     public void Dispose()
     {

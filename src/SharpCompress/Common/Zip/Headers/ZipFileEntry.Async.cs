@@ -15,7 +15,14 @@ internal abstract partial class ZipFileEntry
         ThrowHelper.ThrowIfNull(archiveStream);
 
         var buffer = new byte[12];
-        await archiveStream.ReadFullyAsync(buffer, 0, 12, cancellationToken).ConfigureAwait(false);
+        await archiveStream
+            .ReadAtLeastAsync(
+                buffer.AsMemory(0, 12),
+                12,
+                throwOnEndOfStream: false,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
 
         var encryptionData = PkwareTraditionalEncryptionData.ForRead(Password!, this, buffer);
 

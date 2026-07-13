@@ -178,7 +178,7 @@ internal abstract partial class ZipFilePart : FilePart
             case ZipCompressionMethod.PPMd:
             {
                 Span<byte> props = stackalloc byte[2];
-                stream.ReadFully(props);
+                stream.ReadAtLeast(props, props.Length, throwOnEndOfStream: false);
                 context = context with { Properties = props.ToArray() };
                 return providers.CreateDecompressStream(compressionType, stream, context);
             }

@@ -10,32 +10,6 @@ internal static partial class Utility
 {
     extension(Stream source)
     {
-        /// <summary>
-        /// Read exactly the requested number of bytes from a stream asynchronously.
-        /// Throws <see cref="IncompleteArchiveException"/> if not enough data is available.
-        /// </summary>
-        public async ValueTask ReadExactAsync(
-            byte[] buffer,
-            int offset,
-            int length,
-            CancellationToken cancellationToken = default
-        )
-        {
-            ThrowHelper.ThrowIfNull(source);
-            ThrowHelper.ThrowIfNull(buffer);
-
-            try
-            {
-                await source
-                    .ReadExactlyAsync(buffer.AsMemory(offset, length), cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (EndOfStreamException)
-            {
-                throw new IncompleteArchiveException("Unexpected end of stream.");
-            }
-        }
-
         public async ValueTask<long> TransferToAsync(
             Stream destination,
             long maxLength,
@@ -49,42 +23,6 @@ internal static partial class Utility
                 .CopyToAsync(destination, bufferSize ?? Constants.BufferSize, cancellationToken)
                 .ConfigureAwait(false);
             return limitedStream.Position;
-        }
-
-        public async ValueTask<bool> ReadFullyAsync(
-            byte[] buffer,
-            CancellationToken cancellationToken = default
-        )
-        {
-            try
-            {
-                await source.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-                return true;
-            }
-            catch (EndOfStreamException)
-            {
-                return false;
-            }
-        }
-
-        public async ValueTask<bool> ReadFullyAsync(
-            byte[] buffer,
-            int offset,
-            int count,
-            CancellationToken cancellationToken = default
-        )
-        {
-            try
-            {
-                await source
-                    .ReadExactlyAsync(buffer.AsMemory(offset, count), cancellationToken)
-                    .ConfigureAwait(false);
-                return true;
-            }
-            catch (EndOfStreamException)
-            {
-                return false;
-            }
         }
     }
 

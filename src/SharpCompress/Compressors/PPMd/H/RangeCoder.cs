@@ -1,5 +1,6 @@
 #nullable disable
 
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -74,7 +75,14 @@ internal class RangeCoder
         _range = 0xFFFFffffL;
 
         byte[] buffer = new byte[4];
-        await stream.ReadFullyAsync(buffer, 0, 4, cancellationToken).ConfigureAwait(false);
+        await stream
+            .ReadAtLeastAsync(
+                buffer.AsMemory(0, 4),
+                4,
+                throwOnEndOfStream: false,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
 
         for (var i = 0; i < 4; i++)
         {
@@ -151,7 +159,14 @@ internal class RangeCoder
         if (_stream != null)
         {
             byte[] buffer = new byte[1];
-            await _stream.ReadFullyAsync(buffer, 0, 1, cancellationToken).ConfigureAwait(false);
+            await _stream
+                .ReadAtLeastAsync(
+                    buffer.AsMemory(0, 1),
+                    1,
+                    throwOnEndOfStream: false,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
             return buffer[0];
         }
         return -1;
