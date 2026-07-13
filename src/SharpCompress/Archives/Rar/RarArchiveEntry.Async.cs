@@ -21,6 +21,18 @@ public partial class RarArchiveEntry
         // async OpenEntryStream must not re-parse headers via a second async volume set
         // (corrupt-but-openable archives can fail a second parse).
         var isSolidArchive = archive.IsSolid;
+
+        // Fast path: stored (m0), non-encrypted, non-solid entries over seekable volumes.
+        // Encrypted stored entries stay on the unpack path (decrypt-in-place is future work).
+        if (
+            !isSolidArchive
+            && StoredRarEntryStream.TryCreate(parts, out var storedStream)
+            && storedStream is not null
+        )
+        {
+            return storedStream;
+        }
+
         var unpack = archive.AcquireUnpackForEntry(IsRarV3, isSolidArchive, out var ownsUnpack);
         Action? onDispose = isSolidArchive ? archive.ReleaseSolidEntryStream : null;
         MultiVolumeReadOnlyAsyncStream? readStream = null;

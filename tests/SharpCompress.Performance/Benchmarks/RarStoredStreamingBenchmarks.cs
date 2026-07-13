@@ -23,12 +23,9 @@ public class RarStoredStreamingBenchmarks : ArchiveBenchmarkBase
         _rar5NoneBytes = File.ReadAllBytes(GetArchivePath("Rar5.none.rar"));
         _multiVolumeBytes =
         [
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part01.rar")),
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part02.rar")),
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part03.rar")),
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part04.rar")),
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part05.rar")),
-            File.ReadAllBytes(GetArchivePath("Rar.multi.part06.rar")),
+            File.ReadAllBytes(GetArchivePath("Rar5.multi.none.part01.rar")),
+            File.ReadAllBytes(GetArchivePath("Rar5.multi.none.part02.rar")),
+            File.ReadAllBytes(GetArchivePath("Rar5.multi.none.part03.rar")),
         ];
     }
 
