@@ -23,21 +23,35 @@ public abstract partial class RarReader : AbstractReader<RarReaderEntry, RarVolu
     internal RarReader(ReaderOptions options)
         : base(options, ArchiveType.Rar) { }
 
+    internal bool IsUnpackV1Disposed =>
+        UnpackV1.IsValueCreated
+        && UnpackV1.Value is Compressors.Rar.UnpackV1.Unpack unpackV1
+        && unpackV1.IsDisposed;
+
+    internal bool IsUnpackV2017Disposed =>
+        UnpackV2017.IsValueCreated
+        && UnpackV2017.Value is Compressors.Rar.UnpackV2017.Unpack unpackV2017
+        && unpackV2017.IsDisposed;
+
     public override void Dispose()
     {
         if (!_disposed)
         {
-            if (UnpackV1.IsValueCreated && UnpackV1.Value is IDisposable unpackV1)
-            {
-                unpackV1.Dispose();
-            }
-            if (UnpackV2017.IsValueCreated && UnpackV2017.Value is IDisposable unpackV2017)
-            {
-                unpackV2017.Dispose();
-            }
-
+            DisposeUnpackInstances();
             _disposed = true;
             base.Dispose();
+        }
+    }
+
+    private void DisposeUnpackInstances()
+    {
+        if (UnpackV1.IsValueCreated && UnpackV1.Value is IDisposable unpackV1)
+        {
+            unpackV1.Dispose();
+        }
+        if (UnpackV2017.IsValueCreated && UnpackV2017.Value is IDisposable unpackV2017)
+        {
+            unpackV2017.Dispose();
         }
     }
 

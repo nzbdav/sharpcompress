@@ -58,6 +58,15 @@ public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncR
     public virtual void Dispose()
     {
         _entriesForCurrentReadStream?.Dispose();
+        _entriesForCurrentReadStream = null;
+        if (_entriesForCurrentReadStreamAsync is not null)
+        {
+            // Sync dispose must release async enumerator state when callers mixed APIs.
+#pragma warning disable VSTHRD002 // Dispose() must fully release async enumerator resources.
+            _entriesForCurrentReadStreamAsync.DisposeAsync().AsTask().GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
+            _entriesForCurrentReadStreamAsync = null;
+        }
         if (_disposeVolume)
         {
             Volume?.Dispose();
