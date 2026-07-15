@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Algorithms;
 using SharpCompress.Crypto;
 
 namespace SharpCompress.Common.GZip;
@@ -14,7 +15,6 @@ internal sealed class GZipChecksumValidationStream : Stream
     private readonly string _entryName;
     private readonly uint? _expectedCrc;
     private readonly uint? _expectedSize;
-    private readonly uint[] _crc32Table;
     private uint _seed = Crc32Stream.DEFAULT_SEED;
     private uint _size;
     private bool _validated;
@@ -32,7 +32,6 @@ internal sealed class GZipChecksumValidationStream : Stream
         _entryName = string.IsNullOrEmpty(entryName) ? "Entry" : entryName!;
         _expectedCrc = expectedCrc;
         _expectedSize = expectedSize;
-        _crc32Table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
     }
 
     public override bool CanRead => _source.CanRead;
@@ -74,7 +73,7 @@ internal sealed class GZipChecksumValidationStream : Stream
         }
         else
         {
-            _seed = Crc32Stream.CalculateCrc(_crc32Table, _seed, (byte)value);
+            _seed = Crc32Helper.Append(_seed, (byte)value);
             _size++;
         }
 
@@ -116,7 +115,7 @@ internal sealed class GZipChecksumValidationStream : Stream
     {
         if (read > 0)
         {
-            _seed = Crc32Stream.CalculateCrc(_crc32Table, _seed, buffer);
+            _seed = Crc32Helper.Append(_seed, buffer);
             _size += unchecked((uint)read);
             return;
         }

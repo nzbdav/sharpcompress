@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Algorithms;
 using SharpCompress.Common;
 using SharpCompress.Crypto;
 using SharpCompress.IO;
@@ -20,7 +21,6 @@ public sealed partial class LZipStream : Stream, IFinishable
     private Stream _stream;
     private readonly CountingStream? _countingWritableSubStream;
     private readonly CountingStream? _countingReadableSubStream;
-    private readonly uint[]? _crc32Table;
 
     // Only populated (and only trusted) when the stream is a verified single member;
     // the trailer size fields at the very end of a multimember stream describe the
@@ -102,7 +102,6 @@ public sealed partial class LZipStream : Stream, IFinishable
             _countingReadableSubStream = new CountingStream(
                 SharpCompressStream.CreateNonDisposing(stream)
             );
-            _crc32Table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
             // leaveOpen: true keeps the counting substream alive so it can be reused when
             // reinitializing the LzmaStream for a subsequent member. LZipStream.Dispose
             // owns disposal of the counting substream.
@@ -396,7 +395,7 @@ public sealed partial class LZipStream : Stream, IFinishable
 
     private void UpdateChecksum(ReadOnlySpan<byte> buffer)
     {
-        _seed = Crc32Stream.CalculateCrc(_crc32Table.NotNull(), _seed, buffer);
+        _seed = Crc32Helper.Append(_seed, buffer);
         _readCount += (ulong)buffer.Length;
         _memberReadCount += (ulong)buffer.Length;
     }

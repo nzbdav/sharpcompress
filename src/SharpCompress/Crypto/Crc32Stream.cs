@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Algorithms;
 
 namespace SharpCompress.Crypto;
 
@@ -9,7 +10,8 @@ namespace SharpCompress.Crypto;
 public sealed class Crc32Stream : Stream
 {
     private readonly Stream stream;
-    private readonly uint[] _table;
+    private readonly uint _polynomial;
+    private uint[]? _table;
     private uint seed;
 
     public const uint DEFAULT_POLYNOMIAL = 0xedb88320u;
@@ -23,7 +25,7 @@ public sealed class Crc32Stream : Stream
     public Crc32Stream(Stream stream, uint polynomial, uint seed)
     {
         this.stream = stream;
-        _table = InitializeTable(polynomial);
+        _polynomial = polynomial;
         this.seed = seed;
     }
 
@@ -57,13 +59,13 @@ public sealed class Crc32Stream : Stream
     {
         stream.Write(buffer);
 
-        seed = CalculateCrc(_table, seed, buffer);
+        seed = AppendCrc(buffer);
     }
 
     public override void Write(byte[] buffer, int offset, int count)
     {
         stream.Write(buffer, offset, count);
-        seed = CalculateCrc(_table, seed, buffer.AsSpan(offset, count));
+        seed = AppendCrc(buffer.AsSpan(offset, count));
     }
 
     public override async Task WriteAsync(
@@ -76,7 +78,7 @@ public sealed class Crc32Stream : Stream
         await stream
             .WriteAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
-        seed = CalculateCrc(_table, seed, buffer.AsSpan(offset, count));
+        seed = AppendCrc(buffer.AsSpan(offset, count));
     }
 
     public override async ValueTask WriteAsync(
@@ -85,13 +87,13 @@ public sealed class Crc32Stream : Stream
     )
     {
         await stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-        seed = CalculateCrc(_table, seed, buffer.Span);
+        seed = AppendCrc(buffer.Span);
     }
 
     public override void WriteByte(byte value)
     {
         stream.WriteByte(value);
-        seed = CalculateCrc(_table, seed, value);
+        seed = AppendCrc(value);
     }
 
     public override bool CanRead => stream.CanRead;
@@ -112,7 +114,21 @@ public sealed class Crc32Stream : Stream
         Compute(DEFAULT_POLYNOMIAL, seed, buffer);
 
     public static uint Compute(uint polynomial, uint seed, ReadOnlySpan<byte> buffer) =>
-        ~CalculateCrc(InitializeTable(polynomial), seed, buffer);
+        polynomial == DEFAULT_POLYNOMIAL
+            ? ~Crc32Helper.Append(seed, buffer)
+            : ~CalculateCrc(InitializeTable(polynomial), seed, buffer);
+
+    private uint AppendCrc(ReadOnlySpan<byte> buffer) =>
+        _polynomial == DEFAULT_POLYNOMIAL
+            ? Crc32Helper.Append(seed, buffer)
+            : CalculateCrc(GetTable(), seed, buffer);
+
+    private uint AppendCrc(byte b) =>
+        _polynomial == DEFAULT_POLYNOMIAL
+            ? Crc32Helper.Append(seed, b)
+            : CalculateCrc(GetTable(), seed, b);
+
+    private uint[] GetTable() => _table ??= InitializeTable(_polynomial);
 
     internal static uint[] InitializeTable(uint polynomial)
     {
