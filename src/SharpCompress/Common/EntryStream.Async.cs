@@ -73,7 +73,7 @@ public partial class EntryStream
         var read = await _stream
             .ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
             .ConfigureAwait(false);
-        if (read <= 0)
+        if (read <= 0 && count > 0)
         {
             _completed = true;
         }
@@ -86,7 +86,7 @@ public partial class EntryStream
     )
     {
         var read = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-        if (read <= 0)
+        if (read <= 0 && buffer.Length > 0)
         {
             _completed = true;
         }
