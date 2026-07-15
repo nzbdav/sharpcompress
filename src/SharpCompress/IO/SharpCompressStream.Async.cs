@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -133,7 +134,6 @@ public partial class SharpCompressStream
         int offset = 0;
 
         // If logical position is behind stream position, read from ring buffer first
-        // Note: We need to use a temporary byte array because RingBuffer.ReadFromEnd expects byte[]
         while (count > 0 && _logicalPosition < streamPosition)
         {
             long bytesFromEnd = streamPosition - _logicalPosition;
@@ -147,9 +147,7 @@ public partial class SharpCompressStream
                 );
             }
 
-            var tempBuffer = new byte[Math.Min(count, (int)bytesFromEnd)];
-            int available = _ringBuffer.ReadFromEnd(bytesFromEnd, tempBuffer, 0, tempBuffer.Length);
-            tempBuffer.AsSpan(0, available).CopyTo(buffer.Span.Slice(offset));
+            int available = _ringBuffer.ReadFromEnd(bytesFromEnd, buffer.Span.Slice(offset, count));
 
             totalRead += available;
             offset += available;
@@ -167,12 +165,8 @@ public partial class SharpCompressStream
                 .ConfigureAwait(false);
             if (read > 0)
             {
-                if (_ringBuffer is not null)
-                {
-                    // RingBuffer.Write expects byte[], so we need to copy
-                    var tempBuffer = buffer.Slice(offset, read).ToArray();
-                    _ringBuffer.Write(tempBuffer, 0, read);
-                }
+                // Span must be re-acquired after await (cannot cross await boundary).
+                _ringBuffer?.Write(buffer.Span.Slice(offset, read));
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -203,18 +197,25 @@ public partial class SharpCompressStream
         CancellationToken cancellationToken
     )
     {
-        byte[] buffer = new byte[bufferSize];
-        int bytesRead;
-        while (
-            (
-                bytesRead = await ReadAsync(buffer, 0, buffer.Length, cancellationToken)
-                    .ConfigureAwait(false)
-            ) != 0
-        )
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+        try
         {
-            await destination
-                .WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken)
-                .ConfigureAwait(false);
+            int bytesRead;
+            while (
+                (
+                    bytesRead = await ReadAsync(buffer, 0, bufferSize, cancellationToken)
+                        .ConfigureAwait(false)
+                ) != 0
+            )
+            {
+                await destination
+                    .WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
