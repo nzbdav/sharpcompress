@@ -495,4 +495,27 @@ internal partial class RarBLAKE2spStream : RarStream
 
         return result;
     }
+
+    public override int Read(Span<byte> buffer)
+    {
+        var result = base.Read(buffer);
+        if (result != 0)
+        {
+            Update(this._blake2sp!, buffer.Slice(0, result));
+        }
+        else
+        {
+            EnsureHash();
+            if (
+                !disableCRCCheck
+                && !GetCrc().SequenceEqual(readStream.CurrentCrc)
+                && buffer.Length != 0
+            )
+            {
+                throw new InvalidFormatException("file crc mismatch");
+            }
+        }
+
+        return result;
+    }
 }

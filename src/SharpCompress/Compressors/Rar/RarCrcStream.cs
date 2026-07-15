@@ -69,4 +69,23 @@ internal partial class RarCrcStream : RarStream
 
         return result;
     }
+
+    public override int Read(Span<byte> buffer)
+    {
+        var result = base.Read(buffer);
+        if (result != 0)
+        {
+            currentCrc = RarCRC.CheckCrc(currentCrc, buffer, 0, result);
+        }
+        else if (
+            !disableCRC
+            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && buffer.Length != 0
+        )
+        {
+            throw new InvalidFormatException("file crc mismatch");
+        }
+
+        return result;
+    }
 }

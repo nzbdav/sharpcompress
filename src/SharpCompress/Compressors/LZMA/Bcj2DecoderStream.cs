@@ -161,6 +161,27 @@ internal class Bcj2DecoderStream : DecoderStream2
         return count;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty || _mFinished)
+        {
+            return 0;
+        }
+
+        for (var i = 0; i < buffer.Length; i++)
+        {
+            if (!_mIter.MoveNext())
+            {
+                _mFinished = true;
+                return i;
+            }
+
+            buffer[i] = _mIter.Current;
+        }
+
+        return buffer.Length;
+    }
+
     public override Task<int> ReadAsync(
         byte[] buffer,
         int offset,
@@ -171,6 +192,15 @@ internal class Bcj2DecoderStream : DecoderStream2
         cancellationToken.ThrowIfCancellationRequested();
         // Bcj2DecoderStream uses complex state machine with multiple streams
         return Task.FromResult(Read(buffer, offset, count));
+    }
+
+    public override ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    )
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return new ValueTask<int>(Read(buffer.Span));
     }
 
     public override int ReadByte()

@@ -179,6 +179,41 @@ public partial class SourceStream : Stream, IStreamStack
         return total - count;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return 0;
+        }
+
+        var total = buffer.Length;
+        var r = -1;
+
+        while (buffer.Length != 0 && r != 0)
+        {
+            r = Current.Read(
+                buffer.Slice(0, (int)Math.Min(buffer.Length, Current.Length - Current.Position))
+            );
+            buffer = buffer.Slice(r);
+
+            if (!IsVolumes && buffer.Length != 0 && Current.Position == Current.Length)
+            {
+                var length = Current.Length;
+
+                if (!SetStream(_stream + 1))
+                {
+                    break;
+                }
+
+                _prevSize += length;
+                Current.Seek(0, SeekOrigin.Begin);
+                r = -1;
+            }
+        }
+
+        return total - buffer.Length;
+    }
+
     public override long Seek(long offset, SeekOrigin origin)
     {
         var pos = Position;

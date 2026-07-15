@@ -106,6 +106,16 @@ public partial class EntryStream : Stream
         return read;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        var read = _stream.Read(buffer);
+        if (read <= 0)
+        {
+            _completed = true;
+        }
+        return read;
+    }
+
     public override int ReadByte()
     {
         var value = _stream.ReadByte();

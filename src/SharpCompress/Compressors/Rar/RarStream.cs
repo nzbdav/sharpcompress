@@ -137,6 +137,53 @@ internal partial class RarStream : Stream
         return outTotal;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return 0;
+        }
+
+        Initialize();
+        outTotal = 0;
+        if (tmpCount > 0)
+        {
+            var toCopy = tmpCount < buffer.Length ? tmpCount : buffer.Length;
+            tmpBuffer.AsSpan(tmpOffset, toCopy).CopyTo(buffer);
+            tmpOffset += toCopy;
+            tmpCount -= toCopy;
+            buffer = buffer.Slice(toCopy);
+            outTotal += toCopy;
+        }
+
+        if (buffer.Length > 0 && unpack.DestSize > 0)
+        {
+            var rented = ArrayPool<byte>.Shared.Rent(buffer.Length);
+            try
+            {
+                outBuffer = rented.AsMemory(0, buffer.Length);
+                fetch = true;
+                unpack.DoUnpack();
+                fetch = false;
+                var written = buffer.Length - outBuffer.Length;
+                rented.AsSpan(0, written).CopyTo(buffer);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+
+        _position += outTotal;
+        if (buffer.Length > 0 && outTotal == 0 && _position < Length)
+        {
+            throw new ArchiveOperationException(
+                $"unpacked file size does not match header: expected {Length} found {_position}"
+            );
+        }
+        return outTotal;
+    }
+
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
     public override void SetLength(long value) => throw new NotSupportedException();

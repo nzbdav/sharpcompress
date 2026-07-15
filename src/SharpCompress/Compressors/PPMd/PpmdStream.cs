@@ -246,6 +246,49 @@ public class PpmdStream : Stream, IAsyncDisposable
         return size;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        if (_compress)
+        {
+            return 0;
+        }
+
+        var size = 0;
+        if (_properties.Version == PpmdVersion.I1)
+        {
+            var tempBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length);
+            try
+            {
+                size = _model.NotNull().DecodeBlock(_stream, tempBuffer, 0, buffer.Length);
+                tempBuffer.AsSpan(0, size).CopyTo(buffer);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(tempBuffer);
+            }
+        }
+        if (_properties.Version == PpmdVersion.H)
+        {
+            int c;
+            while (size < buffer.Length && (c = _modelH.NotNull().DecodeChar()) >= 0)
+            {
+                buffer[size++] = (byte)c;
+            }
+        }
+        if (_properties.Version == PpmdVersion.H7Z)
+        {
+            int c;
+            while (
+                size < buffer.Length && (c = _modelH.NotNull().DecodeChar(_decoder.NotNull())) >= 0
+            )
+            {
+                buffer[size++] = (byte)c;
+            }
+        }
+        _position += size;
+        return size;
+    }
+
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
     public override void SetLength(long value) => throw new NotSupportedException();
