@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.51.0](https://github.com/nzbdav/sharpcompress/compare/v0.50.1...v0.51.0) (2026-07-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **stream:** Constants.BufferSize no longer has a public setter. Configure buffer sizes per operation via ReaderOptions.BufferSize, ExtractionOptions.BufferSize, or WriterOptions.BufferSize.
+
+### Features
+
+* **core:** use System.IO.Hashing for CRC32 ([3571898](https://github.com/nzbdav/sharpcompress/commit/3571898a791cd6ec3467a8dc5ac11953f2cf7007)), closes [#78](https://github.com/nzbdav/sharpcompress/issues/78)
+* **lzip:** Length/Position and multimember reads ([913616a](https://github.com/nzbdav/sharpcompress/commit/913616a545c396ab155ed154ca5f5da92239909b)), closes [#61](https://github.com/nzbdav/sharpcompress/issues/61)
+* **rar:** positional reads for encrypted stored entries ([4a9294a](https://github.com/nzbdav/sharpcompress/commit/4a9294a9097f117a4b7d26d34fd288f4ba7da155)), closes [#86](https://github.com/nzbdav/sharpcompress/issues/86)
+* **reader:** add ReaderOptions.CancelOnEntryStreamDispose ([51f5f9d](https://github.com/nzbdav/sharpcompress/commit/51f5f9d1aca97b3491dc7a2dd02021a577c22cbe))
+* **sevenzip:** IWritableArchive support ([2e05fb9](https://github.com/nzbdav/sharpcompress/commit/2e05fb987d84c6250d9542af2b7c9ecd59a4bfb7)), closes [#63](https://github.com/nzbdav/sharpcompress/issues/63)
+* **sevenzip:** solid archive writing ([1ff2019](https://github.com/nzbdav/sharpcompress/commit/1ff201977a5572e49abf94e49f313a0f53d41d64))
+* **stream:** make Constants.BufferSize read-only ([858998f](https://github.com/nzbdav/sharpcompress/commit/858998f1eb903945c3882e0006737e2c25b3bc0c))
+
+
+### Bug Fixes
+
+* **ci:** place release-please markers on their own lines ([9df046a](https://github.com/nzbdav/sharpcompress/commit/9df046ae8ecb7526d0ea6899e5dc8f7dc33ea0aa))
+* **ci:** use generic updater for csproj Version bumps ([989b410](https://github.com/nzbdav/sharpcompress/commit/989b410659ed85af8eb00d9ef79c992958687dba))
+* **ci:** use generic updater for csproj Version bumps ([984af57](https://github.com/nzbdav/sharpcompress/commit/984af570d1a957ea5a43de94de6e7a6a2af16b6c))
+* **core:** ArrayPool usage audit ([6cd1c59](https://github.com/nzbdav/sharpcompress/commit/6cd1c59db069714974d84d0ef8957451017e3ce4)), closes [#96](https://github.com/nzbdav/sharpcompress/issues/96)
+* **core:** lazy collection thread safety ([6680dc6](https://github.com/nzbdav/sharpcompress/commit/6680dc6bc06920252233d8206095f329dffd7998)), closes [#100](https://github.com/nzbdav/sharpcompress/issues/100)
+* **core:** synchronize LazyReadOnlyCollection enumeration ([bd12baa](https://github.com/nzbdav/sharpcompress/commit/bd12baa24f136231326f87eeeea101a6d7ac5ce9)), closes [#64](https://github.com/nzbdav/sharpcompress/issues/64)
+* **deflate64:** tighten InflaterManaged literal decode ([d03b9a9](https://github.com/nzbdav/sharpcompress/commit/d03b9a95d2c42fab91b5ba2ebfbe43eaa53e2ca7)), closes [#62](https://github.com/nzbdav/sharpcompress/issues/62)
+* eliminate hot-path allocations ([#28](https://github.com/nzbdav/sharpcompress/issues/28)–[#32](https://github.com/nzbdav/sharpcompress/issues/32)) ([ffe9766](https://github.com/nzbdav/sharpcompress/commit/ffe9766374b23de368178bed4b4f7e0a81fa7522))
+* **lzma:** buffer async range coder input ([585a339](https://github.com/nzbdav/sharpcompress/commit/585a339c61d846d6daa416b633469dea37d0ba5b)), closes [#82](https://github.com/nzbdav/sharpcompress/issues/82)
+* **rar:** add seekable fast path for stored (m0) entries ([f4d8aa5](https://github.com/nzbdav/sharpcompress/commit/f4d8aa5556bcd62ba84543409f3020711bd6c2fc)), closes [#20](https://github.com/nzbdav/sharpcompress/issues/20)
+* **rar:** batch AES decryption and remove per-byte queues ([0b1e181](https://github.com/nzbdav/sharpcompress/commit/0b1e181f6ece3ac344ed2f09723b290c833be96b))
+* **rar:** cache entry/archive metadata instead of re-running LINQ per access ([b6e96b3](https://github.com/nzbdav/sharpcompress/commit/b6e96b3b14d9ddd6a81cc5492a2a0a523d759ded))
+* **rar:** cache RAR5 KDF results across header blocks and file parts ([6c2aa34](https://github.com/nzbdav/sharpcompress/commit/6c2aa34c1d665b9466e06eb67cd023da08f760a4)), closes [#77](https://github.com/nzbdav/sharpcompress/issues/77)
+* **rar:** clarify UnpackV2017 method-29 routing ([91f9360](https://github.com/nzbdav/sharpcompress/commit/91f9360daa888c3c7d677ab45fed8efe467a64eb)), closes [#67](https://github.com/nzbdav/sharpcompress/issues/67)
+* **rar:** hoist per-call allocations out of async unpack ([980ae94](https://github.com/nzbdav/sharpcompress/commit/980ae94438f6a4f1b9336f9c44f761e6ef88c5df)), closes [#83](https://github.com/nzbdav/sharpcompress/issues/83)
+* **rar:** optimize BLAKE2sp hashing ([ed4618c](https://github.com/nzbdav/sharpcompress/commit/ed4618cd4e3d498fd7c915b2eed65a49c196f113)), closes [#79](https://github.com/nzbdav/sharpcompress/issues/79)
+* **rar:** reduce multi-volume stream overhead ([bedefb3](https://github.com/nzbdav/sharpcompress/commit/bedefb36cf1edffb133daf3e6630dc9e153a3a75)), closes [#88](https://github.com/nzbdav/sharpcompress/issues/88)
+* **rar:** replace 64KB stackalloc with pooled buffers and harden ArrayPool rent/return guarantees ([d34dcb0](https://github.com/nzbdav/sharpcompress/commit/d34dcb0f587c78382350145b0242959b68ac5171))
+* **rar:** seekable fast path for stored (m0) entries ([8ba2a5a](https://github.com/nzbdav/sharpcompress/commit/8ba2a5a84e6c3d29ad18c9a01f01e844347e0605))
+* **rar:** single-pass RAR3 key derivation with copyable SHA-1 ([76d2fc8](https://github.com/nzbdav/sharpcompress/commit/76d2fc8294f0ba948fd9d7d34fff844b1b3f3c37))
+* **rar:** speed up UnpackV2017 CopyString fast path ([9c3aa26](https://github.com/nzbdav/sharpcompress/commit/9c3aa265afb512d35c20cbe82ae4ffed1e31d9ca)), closes [#68](https://github.com/nzbdav/sharpcompress/issues/68)
+* **rar:** use UTF-16LE password bytes in RAR3 KDF ([8dea618](https://github.com/nzbdav/sharpcompress/commit/8dea618a4b75a7e1bd99bd2953a7eaf3a4bff42a))
+* resolve all open issues ([#10](https://github.com/nzbdav/sharpcompress/issues/10)–[#68](https://github.com/nzbdav/sharpcompress/issues/68)) ([c871ff9](https://github.com/nzbdav/sharpcompress/commit/c871ff917e905b5a2b779efe4a04b603e3c07c5e))
+* **sevenzip:** cache folder stream for Archive API entry opens ([cc99d8b](https://github.com/nzbdav/sharpcompress/commit/cc99d8bfd8beb6c3613dcc2771826f1f74f8cd23))
+* **sevenzip:** use real async folder streams for ExtractAllEntries ([a6662b6](https://github.com/nzbdav/sharpcompress/commit/a6662b6f36c735013ef1ff0a72011918c4a87675))
+* **stream:** cache single-byte buffers in async decoders instead of per-call allocations ([c200bd2](https://github.com/nzbdav/sharpcompress/commit/c200bd24d9d83f6a2067c51d71c88ddd5e992269))
+* **stream:** EntryStream over-read via IOverreadingStream ([247b1fa](https://github.com/nzbdav/sharpcompress/commit/247b1fa5b2f1bb1efebda7521b5045aafee95953)), closes [#42](https://github.com/nzbdav/sharpcompress/issues/42)
+* **streaming:** improve RAR, 7z, and reader performance ([74bcc4d](https://github.com/nzbdav/sharpcompress/commit/74bcc4ddb875a74b0d4ce803350c149ee262d225))
+* **stream:** never wrap SharpCompressStream as natively seekable ([dd30c94](https://github.com/nzbdav/sharpcompress/commit/dd30c94814a88e9fd127025cceb56a1f9091e7dc))
+* **stream:** reduce ring-buffer copies ([ca49f6f](https://github.com/nzbdav/sharpcompress/commit/ca49f6fae7a134764bd159e855aed1439762e121)), closes [#91](https://github.com/nzbdav/sharpcompress/issues/91)
+* **stream:** release ring buffer after format detection ([a20c2ab](https://github.com/nzbdav/sharpcompress/commit/a20c2aba25502436bbd3401016d566e56094f3cc))
+* **stream:** seek past skipped bytes on seekable sources ([42f70fd](https://github.com/nzbdav/sharpcompress/commit/42f70fd53bbea5eaeb3f32fc1a8d85820f558a25))
+* **tar:** preserve detection buffering for async-only sources ([48d1b4e](https://github.com/nzbdav/sharpcompress/commit/48d1b4e12f90034d52de252cd1c2e2d0a7770818))
+* **zip:** eliminate per-read allocations in PKWare crypto and PPMd async streams ([7f21d32](https://github.com/nzbdav/sharpcompress/commit/7f21d32879e259c29098632f8ba84678408b5084))
+* **zip:** track ZipWriter entry counts as ulong ([f85e928](https://github.com/nzbdav/sharpcompress/commit/f85e9283ae87acf0f9a572f9738953e9a0dc77e1)), closes [#65](https://github.com/nzbdav/sharpcompress/issues/65)
+* **zlib:** cross-platform SIMD Adler32 ([aa2da9f](https://github.com/nzbdav/sharpcompress/commit/aa2da9fab53595da7f0561761954701110ea3e2a)), closes [#81](https://github.com/nzbdav/sharpcompress/issues/81)
+
+
+### Performance Improvements
+
+* pass2 performance and quality audit ([#77](https://github.com/nzbdav/sharpcompress/issues/77)–[#100](https://github.com/nzbdav/sharpcompress/issues/100)) ([c664ae5](https://github.com/nzbdav/sharpcompress/commit/c664ae5b66cf119e3d79c060474a76a53ab589a1))
+
 ## [0.50.1](https://github.com/nzbdav/sharpcompress/compare/v0.50.0...v0.50.1) (2026-07-13)
 
 
