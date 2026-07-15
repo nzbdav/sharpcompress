@@ -552,7 +552,7 @@ public partial class LzmaStream : Stream, IStreamStack, IAsyncDisposable
                 Properties[0] = (byte)_inputStream.ReadByte();
                 _inputPosition++;
 
-                _decoder = new Decoder();
+                _decoder ??= new Decoder();
                 _decoder.SetDecoderProperties(Properties);
             }
             else if (_needProps)
@@ -561,7 +561,7 @@ public partial class LzmaStream : Stream, IStreamStack, IAsyncDisposable
             }
             else if (control >= 0xA0)
             {
-                _decoder = new Decoder();
+                _decoder ??= new Decoder();
                 _decoder.SetDecoderProperties(Properties);
             }
 
