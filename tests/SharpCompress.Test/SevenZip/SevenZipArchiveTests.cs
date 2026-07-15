@@ -547,4 +547,53 @@ public class SevenZipArchiveTests : ArchiveTests
             Assert.Equal(0, fileInfo.Length);
         }
     }
+
+    [Fact]
+    public void SevenZipArchive_LookForHeader_FindsSignatureAfterLargeStub()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z"));
+        const int stubSize = 5 * 1024;
+        using var stream = new MemoryStream(stubSize + archiveBytes.Length);
+        stream.Write(new byte[stubSize]);
+        stream.Write(archiveBytes);
+        stream.Position = 0;
+
+        using var archive = SevenZipArchive.OpenArchive(
+            stream,
+            ReaderOptions.ForExternalStream.WithLookForHeader(true)
+        );
+
+        Assert.NotEmpty(archive.Entries);
+    }
+
+    [Fact]
+    public void SevenZipArchive_LookForHeader_ThrowsWhenSignatureMissing()
+    {
+        using var stream = new MemoryStream(new byte[1024]);
+
+        var ex = Assert.Throws<InvalidFormatException>(() =>
+        {
+            using var archive = SevenZipArchive.OpenArchive(
+                stream,
+                ReaderOptions.ForExternalStream.WithLookForHeader(true)
+            );
+            _ = archive.Entries.ToList();
+        });
+
+        Assert.Equal("Unable to find 7z signature", ex.Message);
+    }
+
+    [Fact]
+    public void SevenZipArchive_NoLookForHeader_ThrowsWhenSignatureMissing()
+    {
+        using var stream = new MemoryStream(new byte[1024]);
+
+        var ex = Assert.Throws<InvalidFormatException>(() =>
+        {
+            using var archive = SevenZipArchive.OpenArchive(stream);
+            _ = archive.Entries.ToList();
+        });
+
+        Assert.Equal("Invalid 7z signature", ex.Message);
+    }
 }
