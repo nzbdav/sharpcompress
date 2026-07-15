@@ -242,11 +242,14 @@ public class RarArchiveTests : ArchiveTests
         //process all entries in solid archive until the one we want to test
         foreach (var entry in archive.Entries.Where(entry => !entry.IsDirectory))
         {
+#pragma warning disable CS0618 // CrcCheckStream is intentionally used for CRC validation in this test.
             using (var crcStream = new CrcCheckStream((uint)entry.Crc)) //use the 7zip CRC stream for convenience (required a bug fix)
             {
                 using var eStream = entry.OpenEntryStream(); //bug fix in RarStream to report the correct Position
                 eStream.CopyTo(crcStream);
+                crcStream.Finish();
             } //throws if not valid
+#pragma warning restore CS0618
             if (entry == testEntry)
             {
                 break;

@@ -233,11 +233,14 @@ public class RarArchiveAsyncTests : ArchiveTests
 
         foreach (var entry in archive.Entries.Where(entry => !entry.IsDirectory))
         {
+#pragma warning disable CS0618 // CrcCheckStream is intentionally used for CRC validation in this test.
             using (var crcStream = new CrcCheckStream((uint)entry.Crc))
             {
                 using var eStream = await entry.OpenEntryStreamAsync();
                 await eStream.CopyToAsync(crcStream);
+                crcStream.Finish();
             }
+#pragma warning restore CS0618
             if (entry == testEntry)
             {
                 break;

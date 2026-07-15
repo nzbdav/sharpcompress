@@ -6,6 +6,7 @@ using SharpCompress.Common;
 
 namespace SharpCompress.Compressors.LZMA.Utilities;
 
+[Obsolete("Unused by SharpCompress; will be removed in a future major version.")]
 internal partial class CrcBuilderStream : Stream
 {
     private readonly Stream _mTarget;
