@@ -240,17 +240,10 @@ public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncR
 
     private static long? GetEntrySizeSafe(Entry entry)
     {
-        try
-        {
-            var size = entry.Size;
-            // Return the actual size (including 0 for empty entries)
-            // Negative values indicate unknown size
-            return size >= 0 ? size : null;
-        }
-        catch (NotImplementedException)
-        {
-            return null;
-        }
+        var size = entry.Size;
+        // Return the actual size (including 0 for empty entries)
+        // Negative values indicate unknown size
+        return size >= 0 ? size : null;
     }
 
     public EntryStream OpenEntryStream()

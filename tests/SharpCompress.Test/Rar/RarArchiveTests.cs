@@ -39,6 +39,23 @@ public class RarArchiveTests : ArchiveTests
         Assert.True(extractedEntries > 0);
     }
 
+    [Theory]
+    [InlineData("Rar.rar")]
+    [InlineData("Rar5.rar")]
+    public void RarArchive_Entry_Attrib_ReturnsValueWithoutThrowing(string filename)
+    {
+        using var archive = RarArchive.OpenArchive(
+            Path.Combine(TEST_ARCHIVES_PATH, filename),
+            ReaderOptions.ForExternalStream
+        );
+
+        Assert.NotEmpty(archive.Entries);
+        foreach (var entry in archive.Entries)
+        {
+            Assert.True(entry.Attrib.HasValue);
+        }
+    }
+
     [Fact]
     public void Rar_EncryptedFileAndHeader_Archive() =>
         ReadRarPassword("Rar.encrypted_filesAndHeader.rar", "test");

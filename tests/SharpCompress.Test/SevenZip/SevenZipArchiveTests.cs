@@ -135,6 +135,24 @@ public class SevenZipArchiveTests : ArchiveTests
         ArchiveFileReadEx("7Zip.LZMA.7z");
 
     [Fact]
+    public void SevenZipArchive_Entry_Attrib_ReturnsNullOrValueWithoutThrowing()
+    {
+        using var archive = ArchiveFactory.OpenArchive(
+            Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z")
+        );
+
+        Assert.NotEmpty(archive.Entries);
+        foreach (var entry in archive.Entries)
+        {
+            var attrib = entry.Attrib;
+            if (attrib.HasValue)
+            {
+                Assert.True(attrib.Value >= 0);
+            }
+        }
+    }
+
+    [Fact]
     public void SevenZipArchive_BZip2_Split() =>
         Assert.Throws<ArchiveOperationException>(() =>
             ArchiveStreamRead(

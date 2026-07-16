@@ -150,14 +150,7 @@ public static class IAsyncReaderExtensions
 
     private static long? GetEntrySizeSafe(IEntry entry)
     {
-        try
-        {
-            var size = entry.Size;
-            return size >= 0 ? size : null;
-        }
-        catch (NotImplementedException)
-        {
-            return null;
-        }
+        var size = entry.Size;
+        return size >= 0 ? size : null;
     }
 }
