@@ -518,9 +518,14 @@ public partial class SharpCompressStream : Stream, IStreamStack
     /// over-read protection uniformly. When buffer release was requested, frees the ring
     /// once the logical cursor catches up and then reads directly from the underlying stream.
     /// </summary>
-    private int ReadWithRingBuffer(byte[] buffer, int offset, int count)
+    private int ReadWithRingBuffer(byte[] buffer, int offset, int count) =>
+        ReadWithRingBuffer(buffer.AsSpan(offset, count));
+
+    private int ReadWithRingBuffer(Span<byte> buffer)
     {
         int totalRead = 0;
+        int offset = 0;
+        int count = buffer.Length;
 
         // If logical position is behind stream position, read from ring buffer first
         while (count > 0 && _logicalPosition < streamPosition)
@@ -536,7 +541,7 @@ public partial class SharpCompressStream : Stream, IStreamStack
                 );
             }
 
-            int available = _ringBuffer.ReadFromEnd(bytesFromEnd, buffer, offset, count);
+            int available = _ringBuffer.ReadFromEnd(bytesFromEnd, buffer.Slice(offset, count));
             totalRead += available;
             offset += available;
             count -= available;
@@ -549,11 +554,11 @@ public partial class SharpCompressStream : Stream, IStreamStack
         // If more data needed and we're caught up, read from underlying stream
         if (count > 0 && _logicalPosition == streamPosition)
         {
-            int read = stream.Read(buffer, offset, count);
+            int read = stream.Read(buffer.Slice(offset, count));
             if (read > 0)
             {
                 // Only write through the ring while it is still allocated.
-                _ringBuffer?.Write(buffer, offset, read);
+                _ringBuffer?.Write(buffer.Slice(offset, read));
                 streamPosition += read;
                 _logicalPosition += read;
                 totalRead += read;
@@ -598,7 +603,23 @@ public partial class SharpCompressStream : Stream, IStreamStack
     public override void Write(byte[] buffer, int offset, int count) =>
         throw new NotSupportedException();
 
-    public override int Read(Span<byte> buffer) => base.Read(buffer);
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return 0;
+        }
+
+        if (_ringBuffer is not null)
+        {
+            return ReadWithRingBuffer(buffer);
+        }
+
+        int read = stream.Read(buffer);
+        streamPosition += read;
+        _logicalPosition = streamPosition;
+        return read;
+    }
 
     public override void Write(ReadOnlySpan<byte> buffer) => throw new NotSupportedException();
 }

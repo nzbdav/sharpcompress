@@ -10,7 +10,7 @@ using SharpCompress.IO;
 namespace SharpCompress.Readers;
 
 /// <summary>
-/// A generic push reader that reads unseekable comrpessed streams.
+/// A generic push reader that reads unseekable compressed streams.
 /// </summary>
 public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncReader
     where TEntry : Entry
@@ -58,6 +58,15 @@ public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncR
     public virtual void Dispose()
     {
         _entriesForCurrentReadStream?.Dispose();
+        _entriesForCurrentReadStream = null;
+        if (_entriesForCurrentReadStreamAsync is not null)
+        {
+            // Sync dispose must release async enumerator state when callers mixed APIs.
+#pragma warning disable VSTHRD002 // Dispose() must fully release async enumerator resources.
+            _entriesForCurrentReadStreamAsync.DisposeAsync().AsTask().GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
+            _entriesForCurrentReadStreamAsync = null;
+        }
         if (_disposeVolume)
         {
             Volume?.Dispose();
@@ -231,17 +240,10 @@ public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncR
 
     private static long? GetEntrySizeSafe(Entry entry)
     {
-        try
-        {
-            var size = entry.Size;
-            // Return the actual size (including 0 for empty entries)
-            // Negative values indicate unknown size
-            return size >= 0 ? size : null;
-        }
-        catch (NotImplementedException)
-        {
-            return null;
-        }
+        var size = entry.Size;
+        // Return the actual size (including 0 for empty entries)
+        // Negative values indicate unknown size
+        return size >= 0 ? size : null;
     }
 
     public EntryStream OpenEntryStream()

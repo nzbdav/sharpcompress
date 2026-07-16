@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SharpCompress.IO;
 
@@ -80,18 +82,21 @@ public class DataDescriptorStream : Stream, IStreamStack
         return false;
     }
 
-    public override int Read(byte[] buffer, int offset, int count)
+    public override int Read(byte[] buffer, int offset, int count) =>
+        Read(buffer.AsSpan(offset, count));
+
+    public override int Read(Span<byte> buffer)
     {
-        if (count == 0 || _done)
+        if (buffer.IsEmpty || _done)
         {
             return 0;
         }
 
-        var read = _stream.Read(buffer, offset, count);
+        var read = _stream.Read(buffer);
 
         for (var i = 0; i < read; i++)
         {
-            if (buffer[offset + i] == _dataDescriptorMarker[_searchPosition])
+            if (buffer[i] == _dataDescriptorMarker[_searchPosition])
             {
                 _searchPosition++;
 
@@ -102,9 +107,73 @@ public class DataDescriptorStream : Stream, IStreamStack
                     if (read - i > _dataDescriptorSize)
                     {
                         var check = new MemoryStream(
-                            buffer,
-                            offset + i - 3,
-                            (int)_dataDescriptorSize
+                            buffer.Slice(i - 3, (int)_dataDescriptorSize).ToArray()
+                        );
+                        _done = validate_data_descriptor(
+                            check,
+                            _stream.Position - read + i - 3 - _start
+                        );
+
+                        if (_done)
+                        {
+                            _stream.Position = _stream.Position - read + i - 3;
+
+                            return i - 3;
+                        }
+                    }
+                    else
+                    {
+                        _stream.Position = _stream.Position - read + i - 3;
+
+                        _done = validate_data_descriptor(_stream, _stream.Position - _start);
+
+                        return i - 3;
+                    }
+                }
+            }
+            else
+            {
+                _searchPosition = 0;
+            }
+        }
+
+        if (_searchPosition > 0)
+        {
+            read -= _searchPosition;
+            _stream.Position -= _searchPosition;
+            _searchPosition = 0;
+        }
+
+        return read;
+    }
+
+    public override async ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    )
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (buffer.IsEmpty || _done)
+        {
+            return 0;
+        }
+
+        var read = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        for (var i = 0; i < read; i++)
+        {
+            if (buffer.Span[i] == _dataDescriptorMarker[_searchPosition])
+            {
+                _searchPosition++;
+
+                if (_searchPosition == 4)
+                {
+                    _searchPosition = 0;
+
+                    if (read - i > _dataDescriptorSize)
+                    {
+                        var check = new MemoryStream(
+                            buffer.Slice(i - 3, (int)_dataDescriptorSize).ToArray()
                         );
                         _done = validate_data_descriptor(
                             check,

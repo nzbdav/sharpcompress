@@ -22,6 +22,8 @@ public partial class SevenZipArchive
     : AbstractWritableArchive<SevenZipArchiveEntry, SevenZipVolume, SevenZipWriterOptions>
 {
     private ArchiveDatabase? _database;
+    private bool? _isSolid;
+    private bool? _isEncrypted;
 
     /// <summary>
     /// Constructor with a SourceStream able to handle FileInfo and Streams.
@@ -149,16 +151,96 @@ public partial class SevenZipArchive
     protected override SevenZipArchiveEntry CreateDirectoryEntry(string key, DateTime? modified) =>
         new SevenZipWritableArchiveEntry(this, key, modified);
 
-    public override bool IsSolid =>
-        Entries
-            .Where(x => !x.IsDirectory)
-            .GroupBy(x => x.FilePart.Folder)
-            .Any(folder => folder.Skip(1).Any());
+    public override bool IsSolid
+    {
+        get
+        {
+            InvalidatePropertyCacheIfNeeded();
+            if (_isSolid is null || HasPendingWritableEntries())
+            {
+                _isSolid = ComputeIsSolid();
+            }
 
-    public override bool IsEncrypted => Entries.First(x => !x.IsDirectory).IsEncrypted;
+            return _isSolid.Value;
+        }
+    }
 
-    public override long TotalSize =>
-        _database?._packSizes.Aggregate(0L, (total, packSize) => total + packSize) ?? 0;
+    public override bool IsEncrypted
+    {
+        get
+        {
+            InvalidatePropertyCacheIfNeeded();
+            if (_isEncrypted is null || HasPendingWritableEntries())
+            {
+                var firstFile = Entries.FirstOrDefault(x => !x.IsDirectory);
+                _isEncrypted = firstFile?.IsEncrypted ?? false;
+            }
+
+            return _isEncrypted.Value;
+        }
+    }
+
+    public override long TotalSize
+    {
+        get
+        {
+            if (_database?._packSizes is not { } packSizes)
+            {
+                return 0;
+            }
+
+            long total = 0;
+            foreach (var packSize in packSizes)
+            {
+                total += packSize;
+            }
+
+            return total;
+        }
+    }
+
+    private void InvalidatePropertyCacheIfNeeded()
+    {
+        if (!HasPendingWritableEntries())
+        {
+            return;
+        }
+
+        _isSolid = null;
+        _isEncrypted = null;
+    }
+
+    private static bool HasPendingWritableEntries(IEnumerable<SevenZipArchiveEntry> entries) =>
+        entries.Any(entry => entry is SevenZipWritableArchiveEntry);
+
+    private bool HasPendingWritableEntries() => HasPendingWritableEntries(Entries);
+
+    private bool ComputeIsSolid() => ComputeIsSolid(Entries);
+
+    private static bool ComputeIsSolid(IEnumerable<SevenZipArchiveEntry> entries)
+    {
+        var seenFolders = new HashSet<CFolder>();
+        foreach (var entry in entries)
+        {
+            if (entry.IsDirectory)
+            {
+                continue;
+            }
+
+            var folder = entry.FilePart.Folder;
+            if (folder is null)
+            {
+                continue;
+            }
+
+            if (!seenFolders.Add(folder))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public override void Dispose()
     {
@@ -169,6 +251,7 @@ public partial class SevenZipArchive
     internal sealed class SevenZipReader : AbstractReader<SevenZipEntry, SevenZipVolume>
     {
         private readonly SevenZipArchive _archive;
+        private readonly SevenZipVolume _volume;
         private SevenZipEntry? _currentEntry;
         private Stream? _currentFolderStream;
         private CFolder? _currentFolder;
@@ -193,9 +276,13 @@ public partial class SevenZipArchive
             DiagnosticsEnabled ? _currentFolderStream : null;
 
         internal SevenZipReader(ReaderOptions readerOptions, SevenZipArchive archive)
-            : base(readerOptions, ArchiveType.SevenZip, false) => this._archive = archive;
+            : base(readerOptions, ArchiveType.SevenZip, false)
+        {
+            _archive = archive;
+            _volume = archive.Volumes.Single();
+        }
 
-        public override SevenZipVolume Volume => _archive.Volumes.Single();
+        public override SevenZipVolume Volume => _volume;
 
         protected override IEnumerable<SevenZipEntry> GetEntries(Stream stream)
         {
@@ -245,7 +332,7 @@ public partial class SevenZipArchive
             if (_currentFolderStream is null)
             {
                 _currentFolderStream = _archive._database!.GetFolderStream(
-                    _archive.Volumes.Single().Stream,
+                    _volume.Stream,
                     folder!,
                     _archive._database.PasswordProvider
                 );
@@ -290,7 +377,7 @@ public partial class SevenZipArchive
             {
                 _currentFolderStream = await _archive
                     ._database!.GetFolderStreamAsync(
-                        _archive.Volumes.Single().Stream,
+                        _volume.Stream,
                         folder!,
                         _archive._database.PasswordProvider,
                         cancellationToken

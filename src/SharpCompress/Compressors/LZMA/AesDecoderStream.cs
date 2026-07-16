@@ -1,7 +1,7 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
@@ -44,12 +44,7 @@ internal sealed partial class AesDecoderStream : DecoderStream2
 
         Init(info, out var numCyclesPower, out var salt, out var seed);
 
-        var passwordBytes = Encoding.Unicode.GetBytes(password);
-        var key = InitKey(numCyclesPower, salt, passwordBytes);
-        if (key == null)
-        {
-            throw new ArchiveOperationException("Initialized with null key");
-        }
+        var key = Aes7zKeyCache.DeriveKey(password, numCyclesPower, salt);
 
         using (var aes = Aes.Create())
         {
@@ -86,19 +81,21 @@ internal sealed partial class AesDecoderStream : DecoderStream2
 
     public override long Length => mLimit;
 
-    public override int Read(byte[] buffer, int offset, int count)
+    public override int Read(byte[] buffer, int offset, int count) =>
+        Read(buffer.AsSpan(offset, count));
+
+    public override int Read(Span<byte> buffer)
     {
-        if (count == 0 || mWritten == mLimit)
+        if (buffer.IsEmpty || mWritten == mLimit)
         {
             return 0;
         }
 
         if (mUnderflow > 0)
         {
-            return HandleUnderflow(buffer, offset, count);
+            return HandleUnderflow(buffer);
         }
 
-        // Need at least 16 bytes to proceed.
         if (mEnding - mOffset < 16)
         {
             Buffer.BlockCopy(mBuffer, mOffset, mBuffer, 0, mEnding - mOffset);
@@ -107,10 +104,9 @@ internal sealed partial class AesDecoderStream : DecoderStream2
 
             do
             {
-                var read = mStream.Read(mBuffer, mEnding, mBuffer.Length - mEnding);
+                var read = mStream.Read(mBuffer.AsSpan(mEnding, mBuffer.Length - mEnding));
                 if (read == 0)
                 {
-                    // We are not done decoding and have less than 16 bytes.
                     throw new IncompleteArchiveException("Unexpected end of stream.");
                 }
 
@@ -118,20 +114,15 @@ internal sealed partial class AesDecoderStream : DecoderStream2
             } while (mEnding - mOffset < 16);
         }
 
-        // We shouldn't return more data than we are limited to.
-        // Currently this is handled by forcing an underflow if
-        // the stream length is not a multiple of the block size.
+        var count = buffer.Length;
         if (count > mLimit - mWritten)
         {
             count = (int)(mLimit - mWritten);
         }
 
-        // We cannot transform less than 16 bytes into the target buffer,
-        // but we also cannot return zero, so we need to handle this.
-        // We transform the data locally and use our own buffer as cache.
         if (count < 16)
         {
-            return HandleUnderflow(buffer, offset, count);
+            return HandleUnderflow(buffer.Slice(0, count));
         }
 
         if (count > mEnding - mOffset)
@@ -139,8 +130,7 @@ internal sealed partial class AesDecoderStream : DecoderStream2
             count = mEnding - mOffset;
         }
 
-        // Otherwise we transform directly into the target buffer.
-        var processed = mDecoder.TransformBlock(mBuffer, mOffset, count & ~15, buffer, offset);
+        var processed = TransformBlockToSpan(mBuffer, mOffset, count & ~15, buffer);
         mOffset += processed;
         mWritten += processed;
         return processed;
@@ -193,72 +183,48 @@ internal sealed partial class AesDecoderStream : DecoderStream2
         }
     }
 
-    private byte[]? InitKey(int mNumCyclesPower, byte[] salt, byte[] pass)
+    private int HandleUnderflow(byte[] buffer, int offset, int count) =>
+        HandleUnderflow(buffer.AsSpan(offset, count));
+
+    private int HandleUnderflow(Span<byte> buffer)
     {
-        if (mNumCyclesPower == 0x3F)
-        {
-            var key = new byte[32];
-
-            int pos;
-            for (pos = 0; pos < salt.Length; pos++)
-            {
-                key[pos] = salt[pos];
-            }
-
-            for (var i = 0; i < pass.Length && pos < 32; i++)
-            {
-                key[pos++] = pass[i];
-            }
-
-            return key;
-        }
-        else
-        {
-            using var sha = SHA256.Create();
-            var counter = new byte[8];
-            var numRounds = 1L << mNumCyclesPower;
-            for (long round = 0; round < numRounds; round++)
-            {
-                sha.TransformBlock(salt, 0, salt.Length, null, 0);
-                sha.TransformBlock(pass, 0, pass.Length, null, 0);
-                sha.TransformBlock(counter, 0, 8, null, 0);
-
-                // This mirrors the counter so we don't have to convert long to byte[] each round.
-                // (It also ensures the counter is little endian, which BitConverter does not.)
-                for (var i = 0; i < 8; i++)
-                {
-                    if (++counter[i] != 0)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            sha.TransformFinalBlock(counter, 0, 0);
-            return sha.Hash;
-        }
-    }
-
-    private int HandleUnderflow(byte[] buffer, int offset, int count)
-    {
-        // If this is zero we were called to create a new underflow buffer.
-        // Just transform as much as possible so we can feed from it as long as possible.
         if (mUnderflow == 0)
         {
             var blockSize = (mEnding - mOffset) & ~15;
             mUnderflow = mDecoder.TransformBlock(mBuffer, mOffset, blockSize, mBuffer, mOffset);
         }
 
+        var count = buffer.Length;
         if (count > mUnderflow)
         {
             count = mUnderflow;
         }
 
-        Buffer.BlockCopy(mBuffer, mOffset, buffer, offset, count);
+        mBuffer.AsSpan(mOffset, count).CopyTo(buffer);
         mWritten += count;
         mOffset += count;
         mUnderflow -= count;
         return count;
+    }
+
+    private int TransformBlockToSpan(
+        byte[] input,
+        int inputOffset,
+        int inputCount,
+        Span<byte> destination
+    )
+    {
+        var temp = ArrayPool<byte>.Shared.Rent(inputCount);
+        try
+        {
+            var processed = mDecoder.TransformBlock(input, inputOffset, inputCount, temp, 0);
+            temp.AsSpan(0, processed).CopyTo(destination);
+            return processed;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(temp);
+        }
     }
 
     #endregion

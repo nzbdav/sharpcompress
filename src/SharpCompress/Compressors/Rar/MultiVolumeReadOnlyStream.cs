@@ -96,6 +96,55 @@ internal sealed partial class MultiVolumeReadOnlyStream : MultiVolumeReadOnlyStr
         return totalRead;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return 0;
+        }
+
+        var totalRead = 0;
+        while (buffer.Length > 0)
+        {
+            var readSize = GetReadSize(buffer.Length);
+            if (readSize == 0)
+            {
+                break;
+            }
+
+            var read = currentStream.NotNull().Read(buffer.Slice(0, readSize));
+            ValidateVolumeRead(read, currentPosition, maxPosition);
+
+            AdvanceAfterRead(read);
+            buffer = buffer.Slice(read);
+            totalRead += read;
+
+            if (!ShouldSwitchPart)
+            {
+                break;
+            }
+
+            if (filePartEnumerator.Current.FileHeader.R4Salt != null)
+            {
+                throw new InvalidFormatException(
+                    "Sharpcompress currently does not support multi-volume decryption."
+                );
+            }
+
+            var fileName = filePartEnumerator.Current.FileHeader.FileName;
+            if (!filePartEnumerator.MoveNext())
+            {
+                throw new InvalidFormatException(
+                    "Multi-part rar file is incomplete.  Entry expects a new volume: " + fileName
+                );
+            }
+
+            InitializeNextFilePart();
+        }
+
+        return totalRead;
+    }
+
     public override bool CanRead => true;
 
     public override bool CanSeek => false;

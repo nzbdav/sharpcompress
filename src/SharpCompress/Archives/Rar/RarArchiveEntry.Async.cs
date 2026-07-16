@@ -25,18 +25,13 @@ public partial class RarArchiveEntry
         if (
             !isSolidArchive
             && EncryptedStoredRarEntryStream.TryCreate(parts, out var encryptedStoredStream)
-            && encryptedStoredStream is not null
         )
         {
             return encryptedStoredStream;
         }
 
         // Fast path: stored (m0), non-encrypted, non-solid entries over seekable volumes.
-        if (
-            !isSolidArchive
-            && StoredRarEntryStream.TryCreate(parts, out var storedStream)
-            && storedStream is not null
-        )
+        if (!isSolidArchive && StoredRarEntryStream.TryCreate(parts, out var storedStream))
         {
             return storedStream;
         }

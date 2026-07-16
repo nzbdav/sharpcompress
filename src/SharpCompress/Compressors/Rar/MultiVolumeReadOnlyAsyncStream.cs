@@ -37,6 +37,11 @@ internal sealed partial class MultiVolumeReadOnlyAsyncStream : MultiVolumeReadOn
             "Synchronous read is not supported in MultiVolumeReadOnlyAsyncStream."
         );
 
+    public override int Read(Span<byte> buffer) =>
+        throw new NotSupportedException(
+            "Synchronous read is not supported in MultiVolumeReadOnlyAsyncStream."
+        );
+
     public override bool CanRead => true;
 
     public override bool CanSeek => false;

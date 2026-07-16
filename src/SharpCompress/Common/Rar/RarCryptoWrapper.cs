@@ -26,17 +26,19 @@ internal sealed class RarCryptoWrapper : Stream
     public override void SetLength(long value) => throw new NotSupportedException();
 
     public override int Read(byte[] buffer, int offset, int count) =>
-        ReadAndDecrypt(buffer, offset, count);
+        ReadAndDecrypt(buffer.AsSpan(offset, count));
 
-    public int ReadAndDecrypt(byte[] buffer, int offset, int count)
+    public override int Read(Span<byte> buffer) => ReadAndDecrypt(buffer);
+
+    public int ReadAndDecrypt(Span<byte> buffer)
     {
-        if (count == 0)
+        if (buffer.IsEmpty)
         {
             return 0;
         }
 
-        _decryptor.Fill(_actualStream, buffer.AsSpan(offset, count));
-        return count;
+        _decryptor.Fill(_actualStream, buffer);
+        return buffer.Length;
     }
 
     public override Task<int> ReadAsync(

@@ -112,6 +112,30 @@ internal partial class BufferedSubStream : Stream, IStreamStack
         return count;
     }
 
+    public override int Read(Span<byte> buffer)
+    {
+        var count = buffer.Length;
+        if (count > Length)
+        {
+            count = (int)Length;
+            buffer = buffer.Slice(0, count);
+        }
+
+        if (count > 0)
+        {
+            if (_cacheOffset == _cacheLength)
+            {
+                RefillCache();
+            }
+
+            count = Math.Min(count, _cacheLength - _cacheOffset);
+            _cache!.AsSpan(_cacheOffset, count).CopyTo(buffer);
+            _cacheOffset += count;
+        }
+
+        return count;
+    }
+
     public override int ReadByte()
     {
         if (_cacheOffset == _cacheLength)

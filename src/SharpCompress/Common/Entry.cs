@@ -101,7 +101,7 @@ public abstract class Entry : IEntry
     /// <summary>
     /// Entry file attribute.
     /// </summary>
-    public virtual int? Attrib => throw new NotImplementedException();
+    public virtual int? Attrib => null;
 
     /// <summary>
     /// The options used when opening this entry's source (reader or archive).

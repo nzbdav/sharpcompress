@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -30,28 +28,22 @@ public partial class SourceStream
                 .ReadAsync(
                     buffer,
                     offset,
-                    (int)Math.Min(count, Current.Length - Current.Position),
+                    (int)Math.Min(count, RemainingInCurrentPart()),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
             count -= r;
             offset += r;
 
-            if (!IsVolumes && count != 0 && Current.Position == Current.Length)
+            if (!IsVolumes && count != 0 && Current.Position == _partLengths[_stream])
             {
-                var length = Current.Length;
-
-                // Load next file if present
                 if (!SetStream(_stream + 1))
                 {
                     break;
                 }
 
-                // Current stream switched
-                // Add length of previous stream
-                _prevSize += length;
                 Current.Seek(0, SeekOrigin.Begin);
-                r = -1; //BugFix: reset to allow loop if count is still not 0 - was breaking split zipx (lzma xz etc)
+                r = -1;
             }
         }
 
@@ -77,31 +69,47 @@ public partial class SourceStream
         {
             r = await Current
                 .ReadAsync(
-                    buffer.Slice(offset, (int)Math.Min(count, Current.Length - Current.Position)),
+                    buffer.Slice(offset, (int)Math.Min(count, RemainingInCurrentPart())),
                     cancellationToken
                 )
                 .ConfigureAwait(false);
             count -= r;
             offset += r;
 
-            if (!IsVolumes && count != 0 && Current.Position == Current.Length)
+            if (!IsVolumes && count != 0 && Current.Position == _partLengths[_stream])
             {
-                var length = Current.Length;
-
-                // Load next file if present
                 if (!SetStream(_stream + 1))
                 {
                     break;
                 }
 
-                // Current stream switched
-                // Add length of previous stream
-                _prevSize += length;
                 Current.Seek(0, SeekOrigin.Begin);
                 r = -1;
             }
         }
 
         return total - count;
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        if (!ReaderOptions.LeaveStreamOpen)
+        {
+            foreach (var stream in _streams)
+            {
+                await stream.DisposeAsync().ConfigureAwait(false);
+            }
+
+            _streams.Clear();
+            _files.Clear();
+        }
+
+        _isDisposed = true;
+        await base.DisposeAsync().ConfigureAwait(false);
     }
 }

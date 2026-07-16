@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,32 +7,37 @@ using SharpCompress.Common;
 namespace SharpCompress.Compressors.LZMA.Utilities;
 
 [CLSCompliant(false)]
+[Obsolete("Unused by SharpCompress; will be removed in a future major version.")]
 public class CrcCheckStream(uint crc) : Stream
 {
     private uint _mCurrentCrc = Crc.INIT_CRC;
     private bool _mClosed;
-
-    private readonly long[] _mBytes = ArrayPool<long>.Shared.Rent(256);
+    private bool _mFinished;
 
     protected override void Dispose(bool disposing)
     {
-        try
+        if (_mClosed)
         {
-            if (disposing && !_mClosed)
-            {
-                _mClosed = true;
-                _mCurrentCrc = Crc.Finish(_mCurrentCrc); //now becomes equal
-
-                if (_mCurrentCrc != crc) //moved test to here
-                {
-                    throw new ArchiveOperationException();
-                }
-            }
+            return;
         }
-        finally
+
+        _mClosed = true;
+        base.Dispose(disposing);
+    }
+
+    public void Finish()
+    {
+        if (_mFinished)
         {
-            base.Dispose(disposing);
-            ArrayPool<long>.Shared.Return(_mBytes);
+            return;
+        }
+
+        _mFinished = true;
+        _mCurrentCrc = Crc.Finish(_mCurrentCrc);
+
+        if (_mCurrentCrc != crc)
+        {
+            throw new ArchiveOperationException();
         }
     }
 
@@ -62,11 +66,6 @@ public class CrcCheckStream(uint crc) : Stream
 
     public override void Write(byte[] buffer, int offset, int count)
     {
-        for (var i = 0; i < count; i++)
-        {
-            _mBytes[buffer[offset + i]]++;
-        }
-
         _mCurrentCrc = Crc.Update(_mCurrentCrc, buffer, offset, count);
     }
 

@@ -135,6 +135,24 @@ public class SevenZipArchiveTests : ArchiveTests
         ArchiveFileReadEx("7Zip.LZMA.7z");
 
     [Fact]
+    public void SevenZipArchive_Entry_Attrib_ReturnsNullOrValueWithoutThrowing()
+    {
+        using var archive = ArchiveFactory.OpenArchive(
+            Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z")
+        );
+
+        Assert.NotEmpty(archive.Entries);
+        foreach (var entry in archive.Entries)
+        {
+            var attrib = entry.Attrib;
+            if (attrib.HasValue)
+            {
+                Assert.True(attrib.Value >= 0);
+            }
+        }
+    }
+
+    [Fact]
     public void SevenZipArchive_BZip2_Split() =>
         Assert.Throws<ArchiveOperationException>(() =>
             ArchiveStreamRead(
@@ -286,6 +304,26 @@ public class SevenZipArchiveTests : ArchiveTests
             Path.Combine(TEST_ARCHIVES_PATH, "7Zip.encryptedFiles.7z")
         );
         Assert.True(passwordProtectedFilesArchive.IsEncrypted);
+    }
+
+    [Fact]
+    public void SevenZipArchive_DirectoryOnly_IsEncryptedAndIsSolid_ReturnFalse()
+    {
+        using var archive = SevenZipArchive.CreateArchive();
+        archive.AddDirectoryEntry("dir1", DateTime.UtcNow);
+        archive.AddDirectoryEntry("dir2/sub", DateTime.UtcNow);
+
+        Assert.False(archive.IsEncrypted);
+        Assert.False(archive.IsSolid);
+    }
+
+    [Fact]
+    public void SevenZipArchive_Empty_IsEncryptedAndIsSolid_ReturnFalse()
+    {
+        using var archive = SevenZipArchive.CreateArchive();
+
+        Assert.False(archive.IsEncrypted);
+        Assert.False(archive.IsSolid);
     }
 
     [Fact]
@@ -546,5 +584,54 @@ public class SevenZipArchiveTests : ArchiveTests
             var fileInfo = new FileInfo(file);
             Assert.Equal(0, fileInfo.Length);
         }
+    }
+
+    [Fact]
+    public void SevenZipArchive_LookForHeader_FindsSignatureAfterLargeStub()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "7Zip.LZMA.7z"));
+        const int stubSize = 5 * 1024;
+        using var stream = new MemoryStream(stubSize + archiveBytes.Length);
+        stream.Write(new byte[stubSize]);
+        stream.Write(archiveBytes);
+        stream.Position = 0;
+
+        using var archive = SevenZipArchive.OpenArchive(
+            stream,
+            ReaderOptions.ForExternalStream.WithLookForHeader(true)
+        );
+
+        Assert.NotEmpty(archive.Entries);
+    }
+
+    [Fact]
+    public void SevenZipArchive_LookForHeader_ThrowsWhenSignatureMissing()
+    {
+        using var stream = new MemoryStream(new byte[1024]);
+
+        var ex = Assert.Throws<InvalidFormatException>(() =>
+        {
+            using var archive = SevenZipArchive.OpenArchive(
+                stream,
+                ReaderOptions.ForExternalStream.WithLookForHeader(true)
+            );
+            _ = archive.Entries.ToList();
+        });
+
+        Assert.Equal("Unable to find 7z signature", ex.Message);
+    }
+
+    [Fact]
+    public void SevenZipArchive_NoLookForHeader_ThrowsWhenSignatureMissing()
+    {
+        using var stream = new MemoryStream(new byte[1024]);
+
+        var ex = Assert.Throws<InvalidFormatException>(() =>
+        {
+            using var archive = SevenZipArchive.OpenArchive(stream);
+            _ = archive.Entries.ToList();
+        });
+
+        Assert.Equal("Invalid 7z signature", ex.Message);
     }
 }

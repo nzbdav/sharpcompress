@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,7 +46,10 @@ internal sealed partial class StoredRarEntryStream : Stream
         }
     }
 
-    internal static bool TryCreate(ICollection<RarFilePart> parts, out StoredRarEntryStream? stream)
+    internal static bool TryCreate(
+        ICollection<RarFilePart> parts,
+        [NotNullWhen(true)] out StoredRarEntryStream? stream
+    )
     {
         stream = null;
         if (parts.Count == 0)

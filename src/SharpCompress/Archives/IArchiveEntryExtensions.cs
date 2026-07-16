@@ -145,15 +145,8 @@ public static class IArchiveEntryExtensions
 
     private static long? GetEntrySizeSafe(IArchiveEntry entry)
     {
-        try
-        {
-            var size = entry.Size;
-            return size >= 0 ? size : null;
-        }
-        catch (NotImplementedException)
-        {
-            return null;
-        }
+        var size = entry.Size;
+        return size >= 0 ? size : null;
     }
 
     extension(IArchiveEntry entry)

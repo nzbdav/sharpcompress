@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using SharpCompress.Common;
@@ -10,6 +12,154 @@ namespace SharpCompress.Test.Readers;
 
 public class EntryStreamDisposeTests : TestBase
 {
+    private static void MoveToFirstFileEntry(IReader reader)
+    {
+        reader.MoveToNextEntry().Should().BeTrue();
+        while (reader.Entry.IsDirectory)
+        {
+            reader.MoveToNextEntry().Should().BeTrue();
+        }
+    }
+
+    private static async Task MoveToFirstFileEntryAsync(IAsyncReader reader)
+    {
+        (await reader.MoveToNextEntryAsync()).Should().BeTrue();
+        while (reader.Entry.IsDirectory)
+        {
+            (await reader.MoveToNextEntryAsync()).Should().BeTrue();
+        }
+    }
+
+    private static string ReadEntryFully(Stream entryStream)
+    {
+        using var memory = new MemoryStream();
+        var buffer = new byte[256];
+        int read;
+        while ((read = entryStream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            memory.Write(buffer, 0, read);
+        }
+
+        return Encoding.UTF8.GetString(memory.ToArray());
+    }
+
+    private static async Task<string> ReadEntryFullyAsync(Stream entryStream)
+    {
+        await using var memory = new MemoryStream();
+        var buffer = new byte[256];
+        int read;
+        while ((read = await entryStream.ReadAsync(buffer)) > 0)
+        {
+            await memory.WriteAsync(buffer.AsMemory(0, read));
+        }
+
+        return Encoding.UTF8.GetString(memory.ToArray());
+    }
+
+    [Fact]
+    public void ZeroLengthRead_DoesNotMarkEntryCompleted()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        string expectedContent;
+        using (
+            var reader = ReaderFactory.OpenReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            MoveToFirstFileEntry(reader);
+            expectedContent = ReadEntryFully(reader.OpenEntryStream());
+        }
+
+        using (
+            var reader = ReaderFactory.OpenReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            MoveToFirstFileEntry(reader);
+            using (var entryStream = reader.OpenEntryStream())
+            {
+                entryStream.Read(Array.Empty<byte>(), 0, 0).Should().Be(0);
+                entryStream.Read(new byte[16], 0, 0).Should().Be(0);
+                ReadEntryFully(entryStream).Should().Be(expectedContent);
+            }
+
+            reader.MoveToNextEntry().Should().BeTrue();
+        }
+    }
+
+    [Fact]
+    public void ZeroLengthSpanRead_DoesNotMarkEntryCompleted()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        string expectedContent;
+        using (
+            var reader = ReaderFactory.OpenReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            MoveToFirstFileEntry(reader);
+            expectedContent = ReadEntryFully(reader.OpenEntryStream());
+        }
+
+        using (
+            var reader = ReaderFactory.OpenReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            MoveToFirstFileEntry(reader);
+            using (var entryStream = reader.OpenEntryStream())
+            {
+                entryStream.Read(Span<byte>.Empty).Should().Be(0);
+                ReadEntryFully(entryStream).Should().Be(expectedContent);
+            }
+
+            reader.MoveToNextEntry().Should().BeTrue();
+        }
+    }
+
+    [Fact]
+    public async Task ZeroLengthReadAsync_DoesNotMarkEntryCompleted()
+    {
+        var archiveBytes = File.ReadAllBytes(Path.Combine(TEST_ARCHIVES_PATH, "Tar.tar"));
+        string expectedContent;
+        await using (
+            var reader = await ReaderFactory.OpenAsyncReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            await MoveToFirstFileEntryAsync(reader);
+            expectedContent = await ReadEntryFullyAsync(await reader.OpenEntryStreamAsync());
+        }
+
+        await using (
+            var reader = await ReaderFactory.OpenAsyncReader(
+                new MemoryStream(archiveBytes),
+                ReaderOptions.ForExternalStream
+            )
+        )
+        {
+            await MoveToFirstFileEntryAsync(reader);
+            await using (var entryStream = await reader.OpenEntryStreamAsync())
+            {
+                (await entryStream.ReadAsync(Array.Empty<byte>(), 0, 0)).Should().Be(0);
+                (await entryStream.ReadAsync(Memory<byte>.Empty)).Should().Be(0);
+                (await ReadEntryFullyAsync(entryStream)).Should().Be(expectedContent);
+            }
+
+            (await reader.MoveToNextEntryAsync()).Should().BeTrue();
+        }
+    }
+
     [Fact]
     public void Dispose_Default_DrainsRemainingEntryBytes()
     {

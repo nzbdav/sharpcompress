@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,19 +16,23 @@ internal sealed partial class AesDecoderStream
         int offset,
         int count,
         CancellationToken cancellationToken = default
+    ) => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
+
+    public override async ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
     )
     {
-        if (count == 0 || mWritten == mLimit)
+        if (buffer.Length == 0 || mWritten == mLimit)
         {
             return 0;
         }
 
         if (mUnderflow > 0)
         {
-            return HandleUnderflow(buffer, offset, count);
+            return HandleUnderflow(buffer.Span);
         }
 
-        // Need at least 16 bytes to proceed.
         if (mEnding - mOffset < 16)
         {
             Buffer.BlockCopy(mBuffer, mOffset, mBuffer, 0, mEnding - mOffset);
@@ -44,7 +50,6 @@ internal sealed partial class AesDecoderStream
                     .ConfigureAwait(false);
                 if (read == 0)
                 {
-                    // We are not done decoding and have less than 16 bytes.
                     throw new IncompleteArchiveException("Unexpected end of stream.");
                 }
 
@@ -52,17 +57,15 @@ internal sealed partial class AesDecoderStream
             } while (mEnding - mOffset < 16);
         }
 
-        // We shouldn't return more data than we are limited to.
+        var count = buffer.Length;
         if (count > mLimit - mWritten)
         {
             count = (int)(mLimit - mWritten);
         }
 
-        // We cannot transform less than 16 bytes into the target buffer,
-        // but we also cannot return zero, so we need to handle this.
         if (count < 16)
         {
-            return HandleUnderflow(buffer, offset, count);
+            return HandleUnderflow(buffer.Span.Slice(0, count));
         }
 
         if (count > mEnding - mOffset)
@@ -70,8 +73,7 @@ internal sealed partial class AesDecoderStream
             count = mEnding - mOffset;
         }
 
-        // Otherwise we transform directly into the target buffer.
-        var processed = mDecoder.TransformBlock(mBuffer, mOffset, count & ~15, buffer, offset);
+        var processed = TransformBlockToSpan(mBuffer, mOffset, count & ~15, buffer.Span);
         mOffset += processed;
         mWritten += processed;
         return processed;

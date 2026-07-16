@@ -1,6 +1,7 @@
 using System;
 using AwesomeAssertions;
 using SharpCompress.Algorithms;
+using SharpCompress.Crypto;
 using Xunit;
 
 namespace SharpCompress.Test;
@@ -92,5 +93,67 @@ public class Crc32HelperTest
         state = Crc32Helper.Append(state, data.AsSpan(100, 400));
         state = Crc32Helper.Append(state, data.AsSpan(500));
         state.Should().Be(full);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(63)]
+    [InlineData(64)]
+    [InlineData(255)]
+    [InlineData(256)]
+    [InlineData(1024)]
+    [InlineData(4093)]
+    public void Crc32Stream_Compute_MatchesCrc32Helper(int length)
+    {
+        var data = new byte[length];
+        new Random(length).NextBytes(data);
+        const uint seed = 0xFFFFFFFF;
+
+        var helperState = Crc32Helper.Append(seed, data);
+        var computeResult = Crc32Stream.Compute(Crc32Stream.DEFAULT_POLYNOMIAL, seed, data);
+
+        computeResult.Should().Be(~helperState);
+        Crc32Stream.Compute(seed, data).Should().Be(~helperState);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(63)]
+    [InlineData(64)]
+    [InlineData(255)]
+    [InlineData(256)]
+    [InlineData(1024)]
+    [InlineData(4093)]
+    public void Crc32Stream_CalculateCrc_MatchesCrc32Helper(int length)
+    {
+        var data = new byte[length];
+        new Random(length + 13).NextBytes(data);
+        const uint seed = 0xFFFFFFFF;
+        var table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
+
+        var tableResult = Crc32Stream.CalculateCrc(table, seed, data);
+        var helperResult = Crc32Helper.Append(seed, data);
+
+        tableResult.Should().Be(helperResult);
+    }
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x01)]
+    [InlineData(0x42)]
+    [InlineData(0xFF)]
+    public void Crc32Stream_CalculateCrc_SingleByte_MatchesCrc32Helper(byte value)
+    {
+        const uint seed = 0xABCDEF01;
+        var table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
+
+        var tableResult = Crc32Stream.CalculateCrc(table, seed, value);
+        var helperResult = Crc32Helper.Append(seed, value);
+
+        tableResult.Should().Be(helperResult);
     }
 }

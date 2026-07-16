@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Security.Cryptography;
 using SharpCompress.Archives.Rar;
@@ -41,7 +42,7 @@ internal sealed partial class EncryptedStoredRarEntryStream : Stream
 
     internal static bool TryCreate(
         ICollection<RarFilePart> parts,
-        out EncryptedStoredRarEntryStream? stream
+        [NotNullWhen(true)] out EncryptedStoredRarEntryStream? stream
     )
     {
         stream = null;

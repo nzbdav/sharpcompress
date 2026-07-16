@@ -9,6 +9,53 @@ namespace SharpCompress.Test.Streams;
 public class LzmaStreamTests
 {
     [Fact]
+    public void TestLzma2MultiChunkStateResetRoundTrip()
+    {
+        // 3MB forces multiple LZMA2 chunks (0xE0/0xA0 state resets) through LzmaStream.
+        var content = new byte[3 * 1024 * 1024];
+        var pattern = System.Text.Encoding.UTF8.GetBytes(
+            "LZMA2 multi-chunk state-reset coverage for decoder reuse. "
+        );
+        for (var i = 0; i < content.Length; i++)
+        {
+            content[i] = pattern[i % pattern.Length];
+        }
+
+        using var compressed = new MemoryStream();
+        byte[] properties;
+        using (var encoder = new Lzma2EncoderStream(compressed, 1 << 20, 32))
+        {
+            encoder.Write(content, 0, content.Length);
+            encoder.Flush();
+            properties = encoder.Properties;
+        }
+
+        compressed.Position = 0;
+        using var decompressor = LzmaStream.Create(
+            properties,
+            compressed,
+            compressed.Length,
+            content.Length
+        );
+
+        var output = new byte[content.Length];
+        var totalRead = 0;
+        while (totalRead < output.Length)
+        {
+            var read = decompressor.Read(output, totalRead, output.Length - totalRead);
+            if (read <= 0)
+            {
+                break;
+            }
+
+            totalRead += read;
+        }
+
+        Assert.Equal(content.Length, totalRead);
+        Assert.Equal(content, output);
+    }
+
+    [Fact]
     public void TestLzma2Decompress1Byte()
     {
         var properties = new byte[] { 0x01 };

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using SharpCompress.Archives;
 using SharpCompress.Archives.SevenZip;
 using SharpCompress.Common;
+using SharpCompress.Common.SevenZip;
 using SharpCompress.Readers;
 using SharpCompress.Test.Mocks;
 using Xunit;
@@ -276,6 +277,32 @@ public class SevenZipArchiveAsyncTests : ArchiveTests
 
         // The critical check: within a single folder, the stream should NEVER be recreated
         Assert.Equal(0, streamRecreationsWithinFolder); // Folder stream should remain the same for all entries in the same folder
+    }
+
+    [Fact]
+    public async Task SevenZipArchive_ExtractAllEntriesAsync_Dispose_DoesNotDisposeVolumeStream()
+    {
+        var testArchive = Path.Combine(TEST_ARCHIVES_PATH, "7Zip.solid.7z");
+        await using var archive = (SevenZipArchive)
+            await SevenZipArchive.OpenAsyncArchive(testArchive);
+        var volumeStream = ((SevenZipVolume)archive.Volumes.Single()).Stream;
+
+        await using (var reader = await archive.ExtractAllEntriesAsync())
+        {
+            while (await reader.MoveToNextEntryAsync())
+            {
+                if (!reader.Entry.IsDirectory)
+                {
+                    await using var entryStream = await reader.OpenEntryStreamAsync();
+                    var buffer = new byte[1];
+                    Assert.True(await entryStream.ReadAsync(buffer) > 0);
+                    break;
+                }
+            }
+        }
+
+        Assert.True(volumeStream.CanRead);
+        volumeStream.Position = 0;
     }
 
     private sealed class SynchronousProgress<T> : IProgress<T>

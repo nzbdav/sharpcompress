@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,11 +42,6 @@ internal partial class RarCrcStream : RarStream
 
     // Async methods moved to RarCrcStream.Async.cs
 
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-    }
-
     public uint GetCrc() => ~currentCrc;
 
     public void ResetCrc() => currentCrc = 0xffffffff;
@@ -59,11 +55,36 @@ internal partial class RarCrcStream : RarStream
         }
         else if (
             !disableCRC
-            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
             && count != 0
         )
         {
             // NOTE: we use the last FileHeader in a multipart volume to check CRC
+            throw new InvalidFormatException("file crc mismatch");
+        }
+
+        return result;
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        var result = base.Read(buffer);
+        if (result != 0)
+        {
+            currentCrc = RarCRC.CheckCrc(currentCrc, buffer, 0, result);
+        }
+        else if (
+            !disableCRC
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
+            && buffer.Length != 0
+        )
+        {
             throw new InvalidFormatException("file crc mismatch");
         }
 

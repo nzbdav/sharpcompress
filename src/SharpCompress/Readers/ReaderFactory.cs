@@ -9,6 +9,10 @@ namespace SharpCompress.Readers;
 
 public static partial class ReaderFactory
 {
+    private static readonly Factory[] DetectionFactories = Factory
+        .Factories.OfType<Factory>()
+        .ToArray();
+
     public static IReader OpenReader(string filePath, ReaderOptions? options = null)
     {
         filePath.NotNullOrEmpty(nameof(filePath));
@@ -38,7 +42,7 @@ public static partial class ReaderFactory
         );
         sharpCompressStream.StartRecording();
 
-        var factories = Factories.Factory.Factories.OfType<Factories.Factory>().ToArray();
+        var factories = DetectionFactories;
 
         Factory? testedFactory = null;
 

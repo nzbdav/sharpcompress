@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SharpCompress.Common;
@@ -13,7 +12,11 @@ public partial class SourceStream : Stream, IStreamStack
 {
     Stream IStreamStack.BaseStream() => _streams[_stream];
 
-    private long _prevSize;
+    private readonly List<long> _partStartOffsets = [0];
+    private readonly List<long> _partLengths = [];
+    private long _knownTotalLength;
+    private bool _isDisposed;
+
     private readonly List<FileInfo> _files;
     private readonly List<Stream> _streams;
     private readonly Func<int, FileInfo?>? _getFilePart;
@@ -58,7 +61,7 @@ public partial class SourceStream : Stream, IStreamStack
             _getStreamPart = _ => null;
         }
         _stream = 0;
-        _prevSize = 0;
+        AppendPartCache(0);
     }
 
     public void LoadAllParts()
@@ -77,6 +80,85 @@ public partial class SourceStream : Stream, IStreamStack
 
     private Stream Current => _streams[_stream];
 
+    private long CurrentPartStartOffset => IsVolumes ? 0 : _partStartOffsets[_stream];
+
+    private long RemainingInCurrentPart()
+    {
+        if (IsVolumes)
+        {
+            return Current.Length - Current.Position;
+        }
+
+        return _partLengths[_stream] - Current.Position;
+    }
+
+    private void AppendPartCache(int partIndex)
+    {
+        var length = _streams[partIndex].Length;
+        if (partIndex == _partLengths.Count)
+        {
+            if (partIndex > 0)
+            {
+                _partStartOffsets.Add(_knownTotalLength);
+            }
+
+            _partLengths.Add(length);
+            _knownTotalLength += length;
+        }
+    }
+
+    private long GetPartEndOffset(int partIndex) =>
+        _partStartOffsets[partIndex] + _partLengths[partIndex];
+
+    private void EnsurePartsLoadedForPosition(long position)
+    {
+        while (GetPartEndOffset(_streams.Count - 1) < position)
+        {
+            var previousEnd = GetPartEndOffset(_streams.Count - 1);
+            if (!LoadStream(_streams.Count))
+            {
+                break;
+            }
+
+            if (GetPartEndOffset(_streams.Count - 1) <= previousEnd)
+            {
+                throw new ArchiveOperationException(
+                    $"Cannot seek to position {position}. Encountered zero-length streams at position {previousEnd}."
+                );
+            }
+        }
+    }
+
+    private int FindPartIndexForOffset(long offset)
+    {
+        for (var i = _partStartOffsets.Count - 1; i >= 0; i--)
+        {
+            var start = _partStartOffsets[i];
+            var length = _partLengths[i];
+            if (offset >= start && (length > 0 ? offset < start + length : offset == start))
+            {
+                return i;
+            }
+        }
+
+        var lo = 0;
+        var hi = _partStartOffsets.Count - 1;
+        while (lo < hi)
+        {
+            var mid = lo + ((hi - lo + 1) / 2);
+            if (_partStartOffsets[mid] <= offset)
+            {
+                lo = mid;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        return lo;
+    }
+
     public bool LoadStream(int index) //ensure all parts to id are loaded
     {
         while (_streams.Count <= index)
@@ -89,9 +171,8 @@ public partial class SourceStream : Stream, IStreamStack
                     _stream = _streams.Count - 1;
                     return false;
                 }
-                //throw new Exception($"File part {idx} not available.");
                 _files.Add(f);
-                _streams.Add(_files.Last().OpenRead());
+                _streams.Add(_files[^1].OpenRead());
             }
             else
             {
@@ -101,13 +182,14 @@ public partial class SourceStream : Stream, IStreamStack
                     _stream = _streams.Count - 1;
                     return false;
                 }
-                //throw new Exception($"Stream part {idx} not available.");
                 _streams.Add(s);
                 if (s is FileStream stream)
                 {
                     _files.Add(new FileInfo(stream.Name));
                 }
             }
+
+            AppendPartCache(_streams.Count - 1);
         }
         return true;
     }
@@ -128,11 +210,11 @@ public partial class SourceStream : Stream, IStreamStack
 
     public override bool CanWrite => false;
 
-    public override long Length => !IsVolumes ? _streams.Sum(a => a.Length) : Current.Length;
+    public override long Length => IsVolumes ? Current.Length : _knownTotalLength;
 
     public override long Position
     {
-        get => _prevSize + Current.Position; //_prevSize is 0 for multi-volume
+        get => CurrentPartStartOffset + Current.Position;
         set => Seek(value, SeekOrigin.Begin);
     }
 
@@ -150,33 +232,55 @@ public partial class SourceStream : Stream, IStreamStack
 
         while (count != 0 && r != 0)
         {
-            r = Current.Read(
-                buffer,
-                offset,
-                (int)Math.Min(count, Current.Length - Current.Position)
-            );
+            r = Current.Read(buffer, offset, (int)Math.Min(count, RemainingInCurrentPart()));
             count -= r;
             offset += r;
 
-            if (!IsVolumes && count != 0 && Current.Position == Current.Length)
+            if (!IsVolumes && count != 0 && Current.Position == _partLengths[_stream])
             {
-                var length = Current.Length;
-
-                // Load next file if present
                 if (!SetStream(_stream + 1))
                 {
                     break;
                 }
 
-                // Current stream switched
-                // Add length of previous stream
-                _prevSize += length;
                 Current.Seek(0, SeekOrigin.Begin);
-                r = -1; //BugFix: reset to allow loop if count is still not 0 - was breaking split zipx (lzma xz etc)
+                r = -1;
             }
         }
 
         return total - count;
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        if (buffer.IsEmpty)
+        {
+            return 0;
+        }
+
+        var total = buffer.Length;
+        var r = -1;
+
+        while (buffer.Length != 0 && r != 0)
+        {
+            r = Current.Read(
+                buffer.Slice(0, (int)Math.Min(buffer.Length, RemainingInCurrentPart()))
+            );
+            buffer = buffer.Slice(r);
+
+            if (!IsVolumes && buffer.Length != 0 && Current.Position == _partLengths[_stream])
+            {
+                if (!SetStream(_stream + 1))
+                {
+                    break;
+                }
+
+                Current.Seek(0, SeekOrigin.Begin);
+                r = -1;
+            }
+        }
+
+        return total - buffer.Length;
     }
 
     public override long Seek(long offset, SeekOrigin origin)
@@ -195,71 +299,57 @@ public partial class SourceStream : Stream, IStreamStack
                 break;
         }
 
-        _prevSize = 0;
-        if (!IsVolumes)
+        if (IsVolumes)
         {
-            SetStream(0);
-            while (_prevSize + Current.Length < pos)
-            {
-                var currentLength = Current.Length;
-                _prevSize += currentLength;
-
-                if (!SetStream(_stream + 1))
-                {
-                    // No more streams available, cannot seek to requested position
-                    throw new ArchiveOperationException(
-                        $"Cannot seek to position {pos}. End of stream reached at position {_prevSize}."
-                    );
-                }
-
-                // Safety check: if we have a zero-length stream and we're still not
-                // making progress toward the target position, we're in an invalid state
-                if (currentLength <= 0 && Current.Length <= 0)
-                {
-                    // Both old and new stream have zero length - cannot make progress
-                    throw new ArchiveOperationException(
-                        $"Cannot seek to position {pos}. Encountered zero-length streams at position {_prevSize}."
-                    );
-                }
-            }
+            Current.Seek(pos, SeekOrigin.Begin);
+            return pos;
         }
 
-        if (pos != _prevSize + Current.Position)
+        EnsurePartsLoadedForPosition(pos);
+
+        if (pos > _knownTotalLength)
         {
-            Current.Seek(pos - _prevSize, SeekOrigin.Begin);
+            throw new ArchiveOperationException(
+                $"Cannot seek to position {pos}. End of stream reached at position {_knownTotalLength}."
+            );
+        }
+
+        var partIndex = FindPartIndexForOffset(pos);
+        SetStream(partIndex);
+
+        var localPos = pos - _partStartOffsets[partIndex];
+        if (localPos != Current.Position)
+        {
+            Current.Seek(localPos, SeekOrigin.Begin);
         }
 
         return pos;
     }
 
-    public override void SetLength(long value) => throw new NotImplementedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
 
     public override void Write(byte[] buffer, int offset, int count) =>
-        throw new NotImplementedException();
-
-    public override void Close()
-    {
-        if (!ReaderOptions.LeaveStreamOpen) //close if file mode or options specify it
-        {
-            foreach (var stream in _streams)
-            {
-                try
-                {
-                    stream.Dispose();
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-            _streams.Clear();
-            _files.Clear();
-        }
-    }
+        throw new NotSupportedException();
 
     protected override void Dispose(bool disposing)
     {
-        Close();
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        if (disposing && !ReaderOptions.LeaveStreamOpen)
+        {
+            foreach (var stream in _streams)
+            {
+                stream.Dispose();
+            }
+
+            _streams.Clear();
+            _files.Clear();
+        }
+
+        _isDisposed = true;
         base.Dispose(disposing);
     }
 }

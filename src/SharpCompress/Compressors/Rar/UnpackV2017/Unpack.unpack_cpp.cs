@@ -13,6 +13,8 @@ internal sealed partial class Unpack : BitInput
 {
     private bool disposed;
 
+    internal bool IsDisposed => disposed;
+
     public Unpack( /* ComprDataIO *DataIO */
     )
         //:Inp(true),VMCodeInp(true)

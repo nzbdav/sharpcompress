@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Algorithms;
 using SharpCompress.Crypto;
 
 namespace SharpCompress.Common;
@@ -11,7 +12,6 @@ internal sealed class ChecksumValidationStream : Stream
     private readonly Stream _stream;
     private readonly ChecksumDescriptor _checksum;
     private readonly string _entryName;
-    private readonly uint[] _crc32Table;
     private uint _seed = Crc32Stream.DEFAULT_SEED;
     private ushort _crc16;
     private bool _validated;
@@ -21,7 +21,6 @@ internal sealed class ChecksumValidationStream : Stream
         _stream = stream;
         _checksum = checksum;
         _entryName = string.IsNullOrEmpty(entryName) ? "Entry" : entryName!;
-        _crc32Table = Crc32Stream.InitializeTable(Crc32Stream.DEFAULT_POLYNOMIAL);
     }
 
     public override bool CanRead => _stream.CanRead;
@@ -104,7 +103,7 @@ internal sealed class ChecksumValidationStream : Stream
         {
             case ChecksumKind.Crc32:
             case ChecksumKind.Crc32NoFinalXor:
-                _seed = Crc32Stream.CalculateCrc(_crc32Table, _seed, buffer);
+                _seed = Crc32Helper.Append(_seed, buffer);
                 break;
             case ChecksumKind.Crc16Arc:
                 _crc16 = CalculateCrc16Arc(_crc16, buffer);

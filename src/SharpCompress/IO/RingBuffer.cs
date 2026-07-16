@@ -48,19 +48,27 @@ internal sealed class RingBuffer : IDisposable
     /// <param name="data">Source data array.</param>
     /// <param name="offset">Offset in source array.</param>
     /// <param name="count">Number of bytes to write.</param>
-    public void Write(byte[] data, int offset, int count)
+    public void Write(byte[] data, int offset, int count) => Write(data.AsSpan(offset, count));
+
+    /// <summary>
+    /// Writes data to the buffer. If the data exceeds capacity,
+    /// only the last <see cref="Capacity"/> bytes are kept.
+    /// </summary>
+    public void Write(ReadOnlySpan<byte> data)
     {
         ThrowIfDisposed();
 
-        if (count == 0)
+        if (data.IsEmpty)
         {
             return;
         }
 
+        int count = data.Length;
+
         // If data is larger than buffer, only keep the last _capacity bytes
         if (count >= _capacity)
         {
-            Array.Copy(data, offset + count - _capacity, _buffer!, 0, _capacity);
+            data.Slice(count - _capacity).CopyTo(_buffer.AsSpan(0, _capacity));
             _writePos = 0;
             _length = _capacity;
             return;
@@ -68,11 +76,11 @@ internal sealed class RingBuffer : IDisposable
 
         // Write data to circular buffer (may wrap around)
         int firstPart = Math.Min(count, _capacity - _writePos);
-        Array.Copy(data, offset, _buffer!, _writePos, firstPart);
+        data.Slice(0, firstPart).CopyTo(_buffer.AsSpan(_writePos, firstPart));
         if (firstPart < count)
         {
             // Wrap around
-            Array.Copy(data, offset + firstPart, _buffer!, 0, count - firstPart);
+            data.Slice(firstPart).CopyTo(_buffer.AsSpan(0, count - firstPart));
         }
 
         _writePos = (_writePos + count) % _capacity;
@@ -88,7 +96,13 @@ internal sealed class RingBuffer : IDisposable
     /// <param name="count">Maximum bytes to read.</param>
     /// <returns>Number of bytes actually read.</returns>
     /// <exception cref="ArgumentOutOfRangeException">If bytesFromEnd exceeds available data.</exception>
-    public int ReadFromEnd(long bytesFromEnd, byte[] buffer, int offset, int count)
+    public int ReadFromEnd(long bytesFromEnd, byte[] buffer, int offset, int count) =>
+        ReadFromEnd(bytesFromEnd, buffer.AsSpan(offset, count));
+
+    /// <summary>
+    /// Reads data from the buffer at a logical position relative to the end.
+    /// </summary>
+    public int ReadFromEnd(long bytesFromEnd, Span<byte> destination)
     {
         ThrowIfDisposed();
 
@@ -100,7 +114,7 @@ internal sealed class RingBuffer : IDisposable
             );
         }
 
-        if (bytesFromEnd <= 0 || count <= 0)
+        if (bytesFromEnd <= 0 || destination.IsEmpty)
         {
             return 0;
         }
@@ -108,15 +122,17 @@ internal sealed class RingBuffer : IDisposable
         // Calculate starting index in circular buffer
         // _writePos is where next byte would be written (one past last valid byte)
         int bufferIndex = (int)((_writePos - bytesFromEnd + _capacity) % _capacity);
-        int availableFromBuffer = (int)Math.Min(bytesFromEnd, count);
+        int availableFromBuffer = (int)Math.Min(bytesFromEnd, destination.Length);
 
         // Read from rolling buffer (may wrap around)
         int firstPart = Math.Min(availableFromBuffer, _capacity - bufferIndex);
-        Array.Copy(_buffer!, bufferIndex, buffer, offset, firstPart);
+        _buffer.AsSpan(bufferIndex, firstPart).CopyTo(destination);
         if (firstPart < availableFromBuffer)
         {
             // Wrap around
-            Array.Copy(_buffer!, 0, buffer, offset + firstPart, availableFromBuffer - firstPart);
+            _buffer
+                .AsSpan(0, availableFromBuffer - firstPart)
+                .CopyTo(destination.Slice(firstPart));
         }
 
         return availableFromBuffer;

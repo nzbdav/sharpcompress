@@ -99,7 +99,17 @@ public partial class EntryStream : Stream
     public override int Read(byte[] buffer, int offset, int count)
     {
         var read = _stream.Read(buffer, offset, count);
-        if (read <= 0)
+        if (read <= 0 && count > 0)
+        {
+            _completed = true;
+        }
+        return read;
+    }
+
+    public override int Read(Span<byte> buffer)
+    {
+        var read = _stream.Read(buffer);
+        if (read <= 0 && buffer.Length > 0)
         {
             _completed = true;
         }

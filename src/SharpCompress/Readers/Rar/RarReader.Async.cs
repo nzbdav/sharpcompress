@@ -12,6 +12,16 @@ namespace SharpCompress.Readers.Rar;
 
 public abstract partial class RarReader
 {
+    public override async ValueTask DisposeAsync()
+    {
+        if (!_disposed)
+        {
+            DisposeUnpackInstances();
+            _disposed = true;
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// Creates the compressed read stream for the current entry.
     /// Multi-volume readers override this to load additional volumes asynchronously.

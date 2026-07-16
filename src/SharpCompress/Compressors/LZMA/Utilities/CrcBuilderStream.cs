@@ -1,9 +1,12 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using SharpCompress.Common;
 
 namespace SharpCompress.Compressors.LZMA.Utilities;
 
+[Obsolete("Unused by SharpCompress; will be removed in a future major version.")]
 internal partial class CrcBuilderStream : Stream
 {
     private readonly Stream _mTarget;
@@ -59,6 +62,13 @@ internal partial class CrcBuilderStream : Stream
 
     public override int Read(byte[] buffer, int offset, int count) =>
         throw new ArchiveOperationException();
+
+    public override int Read(Span<byte> buffer) => throw new ArchiveOperationException();
+
+    public override ValueTask<int> ReadAsync(
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    ) => throw new ArchiveOperationException();
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

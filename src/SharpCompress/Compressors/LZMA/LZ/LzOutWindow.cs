@@ -218,7 +218,9 @@ internal partial class OutWindow : IDisposable
 
     public bool HasPending => _pendingLen > 0;
 
-    public int Read(byte[] buffer, int offset, int count)
+    public int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+    public int Read(Span<byte> buffer)
     {
         if (_streamPos >= _pos)
         {
@@ -226,11 +228,11 @@ internal partial class OutWindow : IDisposable
         }
 
         var size = _pos - _streamPos;
-        if (size > count)
+        if (size > buffer.Length)
         {
-            size = count;
+            size = buffer.Length;
         }
-        Buffer.BlockCopy(_buffer, _streamPos, buffer, offset, size);
+        _buffer.AsSpan(_streamPos, size).CopyTo(buffer);
         _streamPos += size;
         if (_streamPos >= _windowSize)
         {

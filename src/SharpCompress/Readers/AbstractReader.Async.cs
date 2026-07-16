@@ -17,16 +17,22 @@ public abstract partial class AbstractReader<TEntry, TVolume>
         if (_entriesForCurrentReadStreamAsync is not null)
         {
             await _entriesForCurrentReadStreamAsync.DisposeAsync().ConfigureAwait(false);
+            _entriesForCurrentReadStreamAsync = null;
         }
 
-        // If Volume implements IAsyncDisposable, use async disposal
-        if (Volume is IAsyncDisposable asyncDisposable)
+        _entriesForCurrentReadStream?.Dispose();
+        _entriesForCurrentReadStream = null;
+
+        if (_disposeVolume)
         {
-            await asyncDisposable.DisposeAsync().ConfigureAwait(false);
-        }
-        else
-        {
-            Volume?.Dispose();
+            if (Volume is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                Volume?.Dispose();
+            }
         }
     }
 

@@ -134,7 +134,7 @@ public partial class LzmaStream
                 Properties[0] = headerBuffer[0];
                 _inputPosition++;
 
-                _decoder = new Decoder();
+                _decoder ??= new Decoder();
                 _decoder.SetDecoderProperties(Properties);
             }
             else if (_needProps)
@@ -143,7 +143,7 @@ public partial class LzmaStream
             }
             else if (control >= 0xA0)
             {
-                _decoder = new Decoder();
+                _decoder ??= new Decoder();
                 _decoder.SetDecoderProperties(Properties);
             }
 
