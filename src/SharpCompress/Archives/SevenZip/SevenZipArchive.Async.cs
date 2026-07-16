@@ -129,11 +129,14 @@ public partial class SevenZipArchive
 
     public override async ValueTask<bool> IsSolidAsync()
     {
-        var entries = await EntriesAsync
-            .Where(x => !x.IsDirectory)
-            .ToListAsync()
-            .ConfigureAwait(false);
-        return entries.GroupBy(x => x.FilePart.Folder).Any(folder => folder.Skip(1).Any());
+        var entries = await EntriesAsync.ToListAsync().ConfigureAwait(false);
+        if (_isSolid is not null && !HasPendingWritableEntries(entries))
+        {
+            return _isSolid.Value;
+        }
+
+        _isSolid = ComputeIsSolid(entries);
+        return _isSolid.Value;
     }
 
     public override async ValueTask DisposeAsync()

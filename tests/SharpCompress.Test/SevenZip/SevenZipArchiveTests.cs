@@ -307,6 +307,26 @@ public class SevenZipArchiveTests : ArchiveTests
     }
 
     [Fact]
+    public void SevenZipArchive_DirectoryOnly_IsEncryptedAndIsSolid_ReturnFalse()
+    {
+        using var archive = SevenZipArchive.CreateArchive();
+        archive.AddDirectoryEntry("dir1", DateTime.UtcNow);
+        archive.AddDirectoryEntry("dir2/sub", DateTime.UtcNow);
+
+        Assert.False(archive.IsEncrypted);
+        Assert.False(archive.IsSolid);
+    }
+
+    [Fact]
+    public void SevenZipArchive_Empty_IsEncryptedAndIsSolid_ReturnFalse()
+    {
+        using var archive = SevenZipArchive.CreateArchive();
+
+        Assert.False(archive.IsEncrypted);
+        Assert.False(archive.IsSolid);
+    }
+
+    [Fact]
     public void SevenZipArchive_TestSolidDetection()
     {
         using var oneBlockSolidArchive = SevenZipArchive.OpenArchive(
