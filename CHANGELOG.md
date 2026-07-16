@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.51.1](https://github.com/nzbdav/sharpcompress/compare/v0.51.0...v0.51.1) (2026-07-16)
+
+
+### Bug Fixes
+
+* **core:** async disposal gaps leak RAR unpack windows and volumes ([50a14bf](https://github.com/nzbdav/sharpcompress/commit/50a14bf252498cbabed53d63050c736e5fcd1f31))
+* **core:** EntryStream falsely marks entry completed on zero-length reads ([84f49f8](https://github.com/nzbdav/sharpcompress/commit/84f49f84d9203cfcfbf33b51b87626dd549f5e70))
+* **lzma:** CrcCheckStream pool/dispose/dead-work bugs ([9f922fb](https://github.com/nzbdav/sharpcompress/commit/9f922fb6e8eac9b02c03d72f8bdb68ad7b62c213))
+* **sevenzip:** SevenZipArchive property bugs and per-access LINQ ([7106460](https://github.com/nzbdav/sharpcompress/commit/7106460bcce4792ffbdd36bdf4d63d09bf19e3e7))
+
+
+### Performance Improvements
+
+* **core:** route Crc32Stream/checksum CRC through SIMD Crc32Helper ([842332a](https://github.com/nzbdav/sharpcompress/commit/842332a418a70bc4f270ec2c22647332aeac0cc8))
+* **io:** SourceStream O(parts) rescans, LINQ Length, dispose modernization ([fc89ae0](https://github.com/nzbdav/sharpcompress/commit/fc89ae0abae64d2526e051ec4dbff6426a9a7231))
+* **lzma:** reuse LZMA2 Decoder across chunk state resets ([a8d8092](https://github.com/nzbdav/sharpcompress/commit/a8d809270b5b8ff953517c356c912a264121db98))
+* pass3 performance and quality audit ([#103](https://github.com/nzbdav/sharpcompress/issues/103)–[#116](https://github.com/nzbdav/sharpcompress/issues/116)) ([0a9c58f](https://github.com/nzbdav/sharpcompress/commit/0a9c58f90bbe1651ad99371e8a91b4450646e365))
+* **sevenzip:** cache 7z AES key derivation ([0ea554a](https://github.com/nzbdav/sharpcompress/commit/0ea554ad7f9df7b6b58e73fffae66f60f83cc9ee))
+* **stream:** eliminate per-call allocations in SharpCompressStream async ring-buffer reads ([6c3a951](https://github.com/nzbdav/sharpcompress/commit/6c3a951beb8022d313abf8c0fc3efc9ea560197e))
+* **stream:** implement Read(Span)/ReadAsync(Memory) on hot-path stream wrappers ([d1fca5f](https://github.com/nzbdav/sharpcompress/commit/d1fca5fdb76dd43f18602bf9e2939bb931de1a90))
+
 ## [0.51.0](https://github.com/nzbdav/sharpcompress/compare/v0.50.1...v0.51.0) (2026-07-13)
 
 
