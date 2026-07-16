@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -150,29 +151,13 @@ internal static partial class Utility
     public static string TrimNulls(this string source) => source.Replace('\0', ' ').Trim();
 
     /// <summary>
-    /// Swap the endianness of a UINT32
-    /// </summary>
-    /// <param name="number">The UINT32 you want to swap his endianness</param>
-    /// <returns>Return the new UINT32 in the other endianness format</returns>
-    public static uint SwapUINT32(uint number) =>
-        (number >> 24)
-        | ((number << 8) & 0x00FF0000)
-        | ((number >> 8) & 0x0000FF00)
-        | (number << 24);
-
-    /// <summary>
     /// Insert a little endian UINT32 into a byte array
     /// </summary>
     /// <param name="buffer">The buffer to insert into</param>
     /// <param name="number">The UINT32 to insert</param>
     /// <param name="offset">Offset of the buffer to insert into</param>
-    public static void SetLittleUInt32(ref byte[] buffer, uint number, long offset)
-    {
-        buffer[offset] = (byte)(number);
-        buffer[offset + 1] = (byte)(number >> 8);
-        buffer[offset + 2] = (byte)(number >> 16);
-        buffer[offset + 3] = (byte)(number >> 24);
-    }
+    public static void SetLittleUInt32(byte[] buffer, uint number, long offset) =>
+        BinaryPrimitives.WriteUInt32LittleEndian(buffer.AsSpan((int)offset), number);
 
     /// <summary>
     /// Insert a big endian UINT32 into a byte array
@@ -180,13 +165,8 @@ internal static partial class Utility
     /// <param name="buffer">The buffer to insert into</param>
     /// <param name="number">The UINT32 to insert</param>
     /// <param name="offset">Offset of the buffer to insert into</param>
-    public static void SetBigUInt32(ref byte[] buffer, uint number, long offset)
-    {
-        buffer[offset] = (byte)(number >> 24);
-        buffer[offset + 1] = (byte)(number >> 16);
-        buffer[offset + 2] = (byte)(number >> 8);
-        buffer[offset + 3] = (byte)number;
-    }
+    public static void SetBigUInt32(byte[] buffer, uint number, long offset) =>
+        BinaryPrimitives.WriteUInt32BigEndian(buffer.AsSpan((int)offset), number);
 
     public static string ReplaceInvalidFileNameChars(string fileName)
     {

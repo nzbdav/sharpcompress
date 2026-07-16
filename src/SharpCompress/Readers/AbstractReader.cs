@@ -10,7 +10,7 @@ using SharpCompress.IO;
 namespace SharpCompress.Readers;
 
 /// <summary>
-/// A generic push reader that reads unseekable comrpessed streams.
+/// A generic push reader that reads unseekable compressed streams.
 /// </summary>
 public abstract partial class AbstractReader<TEntry, TVolume> : IReader, IAsyncReader
     where TEntry : Entry

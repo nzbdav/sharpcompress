@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +42,10 @@ internal partial class RarCrcStream : RarStream
         }
         else if (
             !disableCRC
-            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
             && count != 0
         )
         {
@@ -65,7 +69,10 @@ internal partial class RarCrcStream : RarStream
         }
         else if (
             !disableCRC
-            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
             && buffer.Length != 0
         )
         {

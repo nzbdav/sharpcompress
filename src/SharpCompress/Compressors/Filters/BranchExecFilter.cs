@@ -5,6 +5,7 @@
  */
 
 using System;
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using SharpCompress.Common;
 
@@ -154,14 +155,14 @@ public sealed class BranchExecFilter
 
                 if (BitConverter.IsLittleEndian)
                 {
-                    inst = Utility.SwapUINT32(inst);
+                    inst = BinaryPrimitives.ReverseEndianness(inst);
                 }
 
                 inst -= (uint)(ip + i);
                 inst &= 0x03FFFFFF;
                 inst |= 0x48000000;
 
-                Utility.SetBigUInt32(ref data, inst, (i - 4));
+                Utility.SetBigUInt32(data, inst, i - 4);
             }
         }
     }
@@ -196,7 +197,7 @@ public sealed class BranchExecFilter
             inst &= 0x00FFFFFF;
             inst |= 0xEB000000;
 
-            Utility.SetLittleUInt32(ref data, inst, i - 4);
+            Utility.SetLittleUInt32(data, inst, i - 4);
         }
     }
 
@@ -286,7 +287,7 @@ public sealed class BranchExecFilter
                         raw &= ~((uint)0x8FFFFF << (int)m);
                         raw |= (inst << (int)m);
 
-                        Utility.SetLittleUInt32(ref data, raw, iterator);
+                        Utility.SetLittleUInt32(data, raw, iterator);
                     }
                 } while (++m <= 4);
             }
@@ -325,7 +326,7 @@ public sealed class BranchExecFilter
 
             if (BitConverter.IsLittleEndian)
             {
-                inst = Utility.SwapUINT32(inst);
+                inst = BinaryPrimitives.ReverseEndianness(inst);
             }
 
             inst <<= 2;
@@ -337,7 +338,7 @@ public sealed class BranchExecFilter
             inst >>= 2;
             inst |= 0x40000000;
 
-            Utility.SetBigUInt32(ref data, inst, (i - 4));
+            Utility.SetBigUInt32(data, inst, i - 4);
         }
     }
 }

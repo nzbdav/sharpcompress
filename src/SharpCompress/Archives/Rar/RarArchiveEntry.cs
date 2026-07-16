@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -70,7 +71,7 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
                 {
                     throw new InvalidOperationException("Sequence contains no matching element");
                 }
-                _crc = BitConverter.ToUInt32(match.FileCrc.NotNull(), 0);
+                _crc = BinaryPrimitives.ReadUInt32LittleEndian(match.FileCrc.NotNull().AsSpan());
             }
             return _crc.Value;
         }
@@ -109,7 +110,6 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
         if (
             !archive.IsSolid
             && EncryptedStoredRarEntryStream.TryCreate(parts, out var encryptedStoredStream)
-            && encryptedStoredStream is not null
         )
         {
             return encryptedStoredStream;
@@ -117,16 +117,12 @@ public partial class RarArchiveEntry : RarEntry, IArchiveEntry
 
         // Fast path: stored (m0), non-encrypted, non-solid entries over seekable volumes.
         // Solid archives keep the slow path so solid single-stream accounting is unchanged.
-        if (
-            !archive.IsSolid
-            && StoredRarEntryStream.TryCreate(parts, out var storedStream)
-            && storedStream is not null
-        )
+        if (!archive.IsSolid && StoredRarEntryStream.TryCreate(parts, out var storedStream))
         {
             return storedStream;
         }
 
-        var readStream = new MultiVolumeReadOnlyStream(Parts.Cast<RarFilePart>());
+        var readStream = new MultiVolumeReadOnlyStream(parts);
         var isSolidArchive = archive.IsSolid;
         var unpack = archive.AcquireUnpackForEntry(IsRarV3, isSolidArchive, out var ownsUnpack);
         Action? onDispose = isSolidArchive ? archive.ReleaseSolidEntryStream : null;

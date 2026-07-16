@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,11 +42,6 @@ internal partial class RarCrcStream : RarStream
 
     // Async methods moved to RarCrcStream.Async.cs
 
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-    }
-
     public uint GetCrc() => ~currentCrc;
 
     public void ResetCrc() => currentCrc = 0xffffffff;
@@ -59,7 +55,10 @@ internal partial class RarCrcStream : RarStream
         }
         else if (
             !disableCRC
-            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
             && count != 0
         )
         {
@@ -79,7 +78,10 @@ internal partial class RarCrcStream : RarStream
         }
         else if (
             !disableCRC
-            && GetCrc() != BitConverter.ToUInt32(readStream.NotNull().CurrentCrc.NotNull(), 0)
+            && GetCrc()
+                != BinaryPrimitives.ReadUInt32LittleEndian(
+                    readStream.NotNull().CurrentCrc.NotNull().AsSpan()
+                )
             && buffer.Length != 0
         )
         {

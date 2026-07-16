@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -440,40 +441,40 @@ public class UtilityTests
 
     #endregion
 
-    #region SwapUINT32 Tests
+    #region ReverseEndianness Tests
 
     [Fact]
-    public void SwapUINT32_SimpleValue_SwapsEndianness()
+    public void ReverseEndianness_SimpleValue_SwapsEndianness()
     {
         uint value = 0x12345678;
 
-        var result = Utility.SwapUINT32(value);
+        var result = BinaryPrimitives.ReverseEndianness(value);
 
         Assert.Equal(0x78563412u, result);
     }
 
     [Fact]
-    public void SwapUINT32_Zero_ReturnsZero()
+    public void ReverseEndianness_Zero_ReturnsZero()
     {
-        var result = Utility.SwapUINT32(0);
+        var result = BinaryPrimitives.ReverseEndianness(0u);
 
         Assert.Equal(0u, result);
     }
 
     [Fact]
-    public void SwapUINT32_MaxValue_SwapsCorrectly()
+    public void ReverseEndianness_MaxValue_SwapsCorrectly()
     {
-        var result = Utility.SwapUINT32(uint.MaxValue);
+        var result = BinaryPrimitives.ReverseEndianness(uint.MaxValue);
 
         Assert.Equal(uint.MaxValue, result);
     }
 
     [Fact]
-    public void SwapUINT32_Involution_SwappingTwiceReturnsOriginal()
+    public void ReverseEndianness_Involution_SwappingTwiceReturnsOriginal()
     {
         uint value = 0x12345678;
 
-        var result = Utility.SwapUINT32(Utility.SwapUINT32(value));
+        var result = BinaryPrimitives.ReverseEndianness(BinaryPrimitives.ReverseEndianness(value));
 
         Assert.Equal(value, result);
     }
@@ -488,7 +489,7 @@ public class UtilityTests
         byte[] buffer = new byte[10];
         uint value = 0x12345678;
 
-        Utility.SetLittleUInt32(ref buffer, value, 2);
+        Utility.SetLittleUInt32(buffer, value, 2);
 
         Assert.Equal(0x78, buffer[2]);
         Assert.Equal(0x56, buffer[3]);
@@ -502,7 +503,7 @@ public class UtilityTests
         byte[] buffer = new byte[10];
         uint value = 0xDEADBEEF;
 
-        Utility.SetLittleUInt32(ref buffer, value, 5);
+        Utility.SetLittleUInt32(buffer, value, 5);
 
         Assert.Equal(0xEF, buffer[5]);
         Assert.Equal(0xBE, buffer[6]);
@@ -520,7 +521,7 @@ public class UtilityTests
         byte[] buffer = new byte[10];
         uint value = 0x12345678;
 
-        Utility.SetBigUInt32(ref buffer, value, 2);
+        Utility.SetBigUInt32(buffer, value, 2);
 
         Assert.Equal(0x12, buffer[2]);
         Assert.Equal(0x34, buffer[3]);
@@ -534,7 +535,7 @@ public class UtilityTests
         byte[] buffer = new byte[10];
         uint value = 0xDEADBEEF;
 
-        Utility.SetBigUInt32(ref buffer, value, 5);
+        Utility.SetBigUInt32(buffer, value, 5);
 
         Assert.Equal(0xDE, buffer[5]);
         Assert.Equal(0xAD, buffer[6]);

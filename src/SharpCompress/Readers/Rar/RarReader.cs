@@ -10,7 +10,7 @@ using SharpCompress.Compressors.Rar;
 namespace SharpCompress.Readers.Rar;
 
 /// <summary>
-/// This class faciliates Reading a Rar Archive in a non-seekable forward-only manner
+/// This class facilitates Reading a Rar Archive in a non-seekable forward-only manner
 /// </summary>
 public abstract partial class RarReader : AbstractReader<RarReaderEntry, RarVolume>
 {
