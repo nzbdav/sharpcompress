@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.52.0](https://github.com/nzbdav/sharpcompress/compare/v0.51.1...v0.52.0) (2026-07-18)
+
+
+### Features
+
+* public metadata APIs for streaming consumers ([95be1ad](https://github.com/nzbdav/sharpcompress/commit/95be1adc786b1ad6c6bdb93098b5cb2b187646f9))
+* **rar:** add public RarKeyDerivation.DeriveKey API ([a9f4b95](https://github.com/nzbdav/sharpcompress/commit/a9f4b95bcf6d14475c36d757f0d80e15db07023f))
+* **rar:** expose typed public header interfaces for streaming consumers ([29abac6](https://github.com/nzbdav/sharpcompress/commit/29abac661cb9d8f4c7eafe0f7d0b9fc7415d7a46))
+* **sevenzip:** public packed byte ranges and AES-first CompressionType ([6796c3e](https://github.com/nzbdav/sharpcompress/commit/6796c3e7cb4a921b482c5ed834bde75e7abe89e5))
+
+
+### Bug Fixes
+
+* **rar:** avoid required-member metadata on RarDerivedKey ([76c028d](https://github.com/nzbdav/sharpcompress/commit/76c028d1c04eb018cee87452d51ce96088d00803))
+* **rar:** defer seekable packed-data skip until next header advance ([de7ddc6](https://github.com/nzbdav/sharpcompress/commit/de7ddc6555629480d002c931abee76728288c457))
+
 ## [0.51.1](https://github.com/nzbdav/sharpcompress/compare/v0.51.0...v0.51.1) (2026-07-16)
 
 
