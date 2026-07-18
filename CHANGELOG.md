@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.53.0](https://github.com/nzbdav/sharpcompress/compare/v0.52.0...v0.53.0) (2026-07-18)
+
+
+### Features
+
+* **rar:** add RarHeaderReadException for truncation vs corruption ([344b465](https://github.com/nzbdav/sharpcompress/commit/344b465c67e8738eff31f4735b9990026c0170ad)), closes [#119](https://github.com/nzbdav/sharpcompress/issues/119)
+* **rar:** typed RarHeaderReadException for header-parse failures ([591b06c](https://github.com/nzbdav/sharpcompress/commit/591b06ce117324f4c00365a9201e8e20d9786181))
+
 ## [0.52.0](https://github.com/nzbdav/sharpcompress/compare/v0.51.1...v0.52.0) (2026-07-18)
 
 
