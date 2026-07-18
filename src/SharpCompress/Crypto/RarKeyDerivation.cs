@@ -8,9 +8,20 @@ namespace SharpCompress.Crypto;
 /// <summary>
 /// Derived AES key material for a RAR entry.
 /// </summary>
-/// <param name="Key">AES key (16 bytes for RAR3/RAR4, 32 bytes for RAR5).</param>
-/// <param name="Iv">AES initialization vector (16 bytes).</param>
-public sealed record RarDerivedKey(byte[] Key, byte[] Iv);
+public sealed class RarDerivedKey
+{
+    public RarDerivedKey(byte[] key, byte[] iv)
+    {
+        Key = key;
+        Iv = iv;
+    }
+
+    /// <summary>AES key (16 bytes for RAR3/RAR4, 32 bytes for RAR5).</summary>
+    public byte[] Key { get; }
+
+    /// <summary>AES initialization vector (16 bytes).</summary>
+    public byte[] Iv { get; }
+}
 
 /// <summary>
 /// Public entry point for deriving RAR AES keys from a password without extracting the archive.
