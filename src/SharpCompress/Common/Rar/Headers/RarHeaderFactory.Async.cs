@@ -13,6 +13,7 @@ public partial class RarHeaderFactory
 {
     public async IAsyncEnumerable<IRarHeader> ReadHeadersAsync(Stream stream)
     {
+        _pendingSkipPosition = null;
         var markHeader = await MarkHeader
             .ReadAsync(
                 stream,
@@ -79,6 +80,10 @@ public partial class RarHeaderFactory
         CancellationToken cancellationToken
     )
     {
+        // Reposition past the previous header's packed data before reading the next header.
+        // Deferred in seekable mode so stopping after a match performs no data seek.
+        ApplyPendingSkip(stream);
+
         // The per-header salt/IV read mirrors the previous readers, which read it eagerly and
         // let a short read surface; only the header block fill is treated as a graceful end.
         var decryptor = await CreateHeaderDecryptorAsync(stream, cancellationToken)
@@ -151,6 +156,14 @@ public partial class RarHeaderFactory
                     var fh = FileHeader.Create(header, buffer, HeaderType.Service);
                     if (fh.FileName == "CMT")
                     {
+                        // Expose the comment as a readable substream. In seekable mode also
+                        // record a deferred skip so the stream is repositioned past the comment
+                        // on the next advance even when the consumer never reads it.
+                        if (StreamingMode == StreamingMode.Seekable)
+                        {
+                            fh.DataStartPosition = stream.Position;
+                            _pendingSkipPosition = fh.DataStartPosition + fh.CompressedSize;
+                        }
                         fh.PackedStream = new ReadOnlySubStream(stream, fh.CompressedSize);
                     }
                     else
@@ -175,8 +188,10 @@ public partial class RarHeaderFactory
                     {
                         case StreamingMode.Seekable:
                             {
+                                // Defer the seek past packed data until the next advance so
+                                // stop-after-match performs no data seek.
                                 fh.DataStartPosition = stream.Position;
-                                stream.Position += fh.CompressedSize;
+                                _pendingSkipPosition = fh.DataStartPosition + fh.CompressedSize;
                             }
                             break;
                         case StreamingMode.Streaming:
@@ -241,8 +256,9 @@ public partial class RarHeaderFactory
         {
             case StreamingMode.Seekable:
                 {
+                    // Defer the seek past packed data until the next advance.
                     fh.DataStartPosition = stream.Position;
-                    stream.Position += fh.CompressedSize;
+                    _pendingSkipPosition = fh.DataStartPosition + fh.CompressedSize;
                 }
                 break;
             case StreamingMode.Streaming:
