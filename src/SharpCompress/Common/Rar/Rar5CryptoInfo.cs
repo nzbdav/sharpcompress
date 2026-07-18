@@ -48,6 +48,26 @@ internal class Rar5CryptoInfo
         return cryptoInfo;
     }
 
+    /// <summary>
+    /// Builds a crypto-info instance from already-parsed values (used by the public
+    /// key-derivation API to reconstruct the KDF inputs from an <c>IRarCryptoInfo</c>).
+    /// </summary>
+    internal static Rar5CryptoInfo FromValues(
+        int lg2Count,
+        byte[] salt,
+        byte[] initV,
+        bool usePswCheck,
+        byte[]? pswCheck
+    ) =>
+        new()
+        {
+            LG2Count = lg2Count,
+            Salt = salt,
+            InitV = initV,
+            UsePswCheck = usePswCheck,
+            PswCheck = pswCheck ?? [],
+        };
+
     public void ReadInitV(RarBlockBuffer reader) =>
         InitV = reader.ReadBytes(EncryptionConstV5.SIZE_INITV);
 

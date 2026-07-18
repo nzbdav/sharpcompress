@@ -85,6 +85,17 @@ internal sealed class SevenZipWritableArchiveEntry : SevenZipArchiveEntry, IWrit
 
     internal override IEnumerable<FilePart> Parts => throw new NotImplementedException();
 
+    public override bool TryGetPackedByteRange(out long startOffset, out long length)
+    {
+        startOffset = 0;
+        length = 0;
+        return false;
+    }
+
+    public override long FolderStartOffset => 0;
+
+    public override byte[]? AesCoderProperties => null;
+
     Stream IWritableArchiveEntry.Stream => stream ?? Stream.Null;
 
     public override Stream OpenEntryStream()

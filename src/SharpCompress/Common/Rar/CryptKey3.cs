@@ -22,6 +22,31 @@ internal class CryptKey3 : ICryptKey
 
     public ICryptoTransform Transformer(byte[] salt)
     {
+        var (aesKey, aesIV) = DeriveKeyAndIv(salt);
+        try
+        {
+            var aes = Aes.Create();
+            aes.KeySize = AES_128;
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.None;
+            aes.Key = aesKey;
+            aes.IV = aesIV;
+            return aes.CreateDecryptor();
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(aesKey);
+            CryptographicOperations.ZeroMemory(aesIV);
+        }
+    }
+
+    /// <summary>
+    /// Derives the RAR3/RAR4 AES-128 key and IV from the password and per-file salt using the
+    /// SHA-1 based key schedule (UTF-16LE password, matching unrar's WideToRaw).
+    /// The returned arrays are freshly allocated and owned by the caller.
+    /// </summary>
+    internal (byte[] Key, byte[] Iv) DeriveKeyAndIv(byte[] salt)
+    {
         var aesIV = new byte[EncryptionConstV5.SIZE_INITV];
 
         var passwordBytes = Encoding.Unicode.GetBytes(_password); // UTF-16LE, matches unrar WideToRaw
@@ -75,23 +100,10 @@ internal class CryptKey3 : ICryptKey
             }
         }
 
-        try
-        {
-            var aes = Aes.Create();
-            aes.KeySize = AES_128;
-            aes.Mode = CipherMode.CBC;
-            aes.Padding = PaddingMode.None;
-            aes.Key = aesKey;
-            aes.IV = aesIV;
-            return aes.CreateDecryptor();
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(passwordBytes);
-            CryptographicOperations.ZeroMemory(rawPassword);
-            CryptographicOperations.ZeroMemory(aesKey);
-            CryptographicOperations.ZeroMemory(aesIV);
-            CryptographicOperations.ZeroMemory(digest);
-        }
+        CryptographicOperations.ZeroMemory(passwordBytes);
+        CryptographicOperations.ZeroMemory(rawPassword);
+        digest.Clear();
+
+        return (aesKey, aesIV);
     }
 }
