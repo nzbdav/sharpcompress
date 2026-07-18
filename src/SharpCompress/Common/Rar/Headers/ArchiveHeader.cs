@@ -2,7 +2,7 @@ using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Common.Rar.Headers;
 
-internal sealed class ArchiveHeader : RarHeader
+internal sealed class ArchiveHeader : RarHeader, IRarArchiveHeader
 {
     public static ArchiveHeader Create(RarHeader header, RarBlockBuffer reader) =>
         CreateChild<ArchiveHeader>(header, reader, HeaderType.Archive);
@@ -54,4 +54,6 @@ internal sealed class ArchiveHeader : RarHeader
         IsRar5 ? VolumeNumber is null : HasFlag(ArchiveFlagsV4.FIRST_VOLUME);
 
     public bool IsSolid => HasFlag(IsRar5 ? ArchiveFlagsV5.SOLID : ArchiveFlagsV4.SOLID);
+
+    int? IRarArchiveHeader.VolumeNumber => VolumeNumber;
 }

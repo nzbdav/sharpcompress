@@ -7,9 +7,10 @@ using size_t = System.UInt32;
 
 namespace SharpCompress.Common.Rar.Headers;
 
-internal class FileHeader : RarHeader
+internal class FileHeader : RarHeader, IRarFileHeader
 {
     private byte[]? _hash;
+    private IRarCryptoInfo? _cryptoInfoView;
 
     public static FileHeader Create(
         RarHeader header,
@@ -437,4 +438,44 @@ internal class FileHeader : RarHeader
     internal DateTime? FileLastAccessedTime { get; private set; }
 
     internal DateTime? FileArchivedTime { get; private set; }
+
+    /// <summary>
+    /// Public-facing encryption view for consumers that need to derive an AES key without
+    /// reaching into internal salt/crypto fields. Built lazily and cached.
+    /// </summary>
+    internal IRarCryptoInfo? CryptoInfo
+    {
+        get
+        {
+            if (_cryptoInfoView is not null)
+            {
+                return _cryptoInfoView;
+            }
+
+            if (Rar5CryptoInfo is not null)
+            {
+                _cryptoInfoView = RarCryptoInfoView.ForRar5(Rar5CryptoInfo);
+            }
+            else if (R4Salt is not null)
+            {
+                _cryptoInfoView = RarCryptoInfoView.ForRar3(R4Salt);
+            }
+
+            return _cryptoInfoView;
+        }
+    }
+
+    string IRarFileHeader.FileName => FileName ?? string.Empty;
+    bool IRarFileHeader.IsDirectory => IsDirectory;
+    byte IRarFileHeader.CompressionMethod => CompressionMethod;
+    bool IRarFileHeader.IsStored => IsStored;
+    long IRarFileHeader.CompressedSize => CompressedSize;
+    long IRarFileHeader.UncompressedSize => UncompressedSize;
+    long IRarFileHeader.DataStartPosition => DataStartPosition;
+    long IRarFileHeader.AdditionalDataSize => AdditionalDataSize;
+    bool IRarFileHeader.IsEncrypted => IsEncrypted;
+    bool IRarFileHeader.IsSolid => IsSolid;
+    bool IRarFileHeader.IsSplitBefore => IsSplitBefore;
+    bool IRarFileHeader.IsSplitAfter => IsSplitAfter;
+    IRarCryptoInfo? IRarFileHeader.CryptoInfo => CryptoInfo;
 }

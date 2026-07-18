@@ -2,7 +2,7 @@ using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Common.Rar.Headers;
 
-internal sealed class EndArchiveHeader : RarHeader
+internal sealed class EndArchiveHeader : RarHeader, IRarEndArchiveHeader
 {
     public static EndArchiveHeader Create(RarHeader header, RarBlockBuffer reader) =>
         CreateChild<EndArchiveHeader>(header, reader, HeaderType.EndArchive);
@@ -34,4 +34,6 @@ internal sealed class EndArchiveHeader : RarHeader
     internal int? ArchiveCrc { get; private set; }
 
     internal short? VolumeNumber { get; private set; }
+
+    int? IRarEndArchiveHeader.VolumeNumber => VolumeNumber;
 }
