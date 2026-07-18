@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpCompress.Common.Rar;
 
 namespace SharpCompress.Common.Rar.Headers;
 
@@ -24,7 +25,10 @@ internal partial class MarkHeader : IRarHeader
         {
             return (byte)b;
         }
-        throw new IncompleteArchiveException("Unexpected end of stream.");
+        throw new RarHeaderReadException(
+            "Unexpected end of stream while reading RAR signature.",
+            truncated: true
+        );
     }
 
     public static MarkHeader Read(Stream stream, bool leaveStreamOpen, bool lookForHeader)
@@ -108,8 +112,9 @@ internal partial class MarkHeader : IRarHeader
                             continue;
                         }
 
-                        throw new InvalidFormatException(
-                            "Rar format version pre-4 is unsupported."
+                        throw new RarHeaderReadException(
+                            "Rar format version pre-4 is unsupported.",
+                            truncated: false
                         );
                     }
                 }
@@ -120,15 +125,27 @@ internal partial class MarkHeader : IRarHeader
                 }
             }
         }
+        catch (RarHeaderReadException)
+        {
+            if (!leaveStreamOpen)
+            {
+                stream.Dispose();
+            }
+            throw;
+        }
         catch (Exception e)
         {
             if (!leaveStreamOpen)
             {
                 stream.Dispose();
             }
-            throw new InvalidFormatException("Error trying to read rar signature.", e);
+            throw new RarHeaderReadException(
+                "Error trying to read rar signature.",
+                truncated: false,
+                e
+            );
         }
 
-        throw new InvalidFormatException("Rar signature not found");
+        throw new RarHeaderReadException("Rar signature not found", truncated: false);
     }
 }

@@ -261,6 +261,24 @@ SharpCompress supports multiple archive and compression formats:
 - Validate behavior for both seekable and non-seekable streams.
 - Ensure stream position assumptions are explicit and tested.
 
+## RAR header-read exception contract
+
+`RarHeaderFactory.ReadHeaders` / `ReadHeadersAsync` surface parse failures as
+`SharpCompress.Common.Rar.RarHeaderReadException` (see issue #119):
+
+| `Truncated` | Meaning | Typical causes |
+|-------------|---------|----------------|
+| `true` | Stream ended before a complete header could be read, or seek past end while skipping packed data | Signature-scan EOF, mid-header EOF, deferred data-skip past `Length` |
+| `false` | Corrupt or unsupported header content | Header CRC mismatch, unknown header code, signature not found after a full scan, pre-RAR4 format |
+
+Prefer matching `RarHeaderReadException` over raw BCL types
+(`ArgumentOutOfRangeException`, `EndOfStreamException`,
+`IncompleteArchiveException`). Successful parses are unchanged.
+
+Mid-enumeration EOF while filling the next header block ends the enumeration
+gracefully (archives may omit EndArchive). Signature-scan EOF and seek-past-end
+during packed-data skip still throw with `Truncated = true`.
+
 ## Common Pitfalls
 
 1. **Don't mix Archive and Reader APIs** - Archive needs seekable stream, Reader doesn't

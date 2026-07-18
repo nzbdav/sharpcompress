@@ -105,7 +105,7 @@ internal class RarHeader : IRarHeader
         var b = (IsRar5 ? crc32 : (ushort)crc32) == HeaderCrc;
         if (!b)
         {
-            throw new InvalidFormatException("rar header crc mismatch");
+            throw new RarHeaderReadException("rar header crc mismatch", truncated: false);
         }
     }
 

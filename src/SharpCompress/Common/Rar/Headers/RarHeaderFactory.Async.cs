@@ -11,6 +11,7 @@ namespace SharpCompress.Common.Rar.Headers;
 
 public partial class RarHeaderFactory
 {
+    /// <inheritdoc cref="ReadHeaders"/>
     public async IAsyncEnumerable<IRarHeader> ReadHeadersAsync(Stream stream)
     {
         _pendingSkipPosition = null;
@@ -94,6 +95,13 @@ public partial class RarHeaderFactory
             buffer = await RarBlockBuffer
                 .ReadHeaderBlockAsync(stream, _isRar5, decryptor, cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (RarHeaderReadException ex) when (ex.Truncated)
+        {
+            // Archives may end without an EndArchive marker; treat mid-enumeration EOF as
+            // graceful end of headers (same soft-end as the pre-#119 InvalidFormatException path).
+            decryptor?.Dispose();
+            return null;
         }
         catch (InvalidFormatException)
         {
@@ -240,7 +248,10 @@ public partial class RarHeaderFactory
                 }
                 default:
                 {
-                    throw new InvalidFormatException("Unknown Rar Header: " + header.HeaderCode);
+                    throw new RarHeaderReadException(
+                        "Unknown Rar Header: " + header.HeaderCode,
+                        truncated: false
+                    );
                 }
             }
         }

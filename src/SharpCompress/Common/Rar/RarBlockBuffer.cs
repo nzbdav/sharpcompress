@@ -337,7 +337,11 @@ internal sealed class RarBlockBuffer : IDisposable
         }
         catch (EndOfStreamException e)
         {
-            throw new InvalidFormatException("Unexpected end of stream reading rar header.", e);
+            throw new RarHeaderReadException(
+                "Unexpected end of stream reading rar header.",
+                truncated: true,
+                e
+            );
         }
     }
 
@@ -353,7 +357,11 @@ internal sealed class RarBlockBuffer : IDisposable
         }
         catch (EndOfStreamException e)
         {
-            throw new InvalidFormatException("Unexpected end of stream reading rar header.", e);
+            throw new RarHeaderReadException(
+                "Unexpected end of stream reading rar header.",
+                truncated: true,
+                e
+            );
         }
     }
 
