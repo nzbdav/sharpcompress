@@ -3,7 +3,7 @@
     <AssemblyTitle>SharpCompress - Pure C# Decompression/Compression</AssemblyTitle>
     <NeutralLanguage>en-US</NeutralLanguage>
     <!-- x-release-please-start-version -->
-    <Version>0.52.0</Version>
+    <Version>0.53.0</Version>
     <!-- x-release-please-end -->
     <Authors>Adam Hathcock; nzbdav contributors</Authors>
     <Title>NzbDav.SharpCompress</Title>
