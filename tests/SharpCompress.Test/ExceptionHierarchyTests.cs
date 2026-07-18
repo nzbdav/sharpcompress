@@ -38,6 +38,13 @@ public class ExceptionHierarchyTests
             typeof(SharpCompressException).IsAssignableFrom(typeof(IncompleteArchiveException))
         );
 
+        // Verify that RarHeaderReadException inherits from SharpCompressException
+        Assert.True(
+            typeof(SharpCompressException).IsAssignableFrom(
+                typeof(SharpCompress.Common.Rar.RarHeaderReadException)
+            )
+        );
+
         // Verify that ReaderCancelledException inherits from SharpCompressException
         Assert.True(
             typeof(SharpCompressException).IsAssignableFrom(typeof(ReaderCancelledException))

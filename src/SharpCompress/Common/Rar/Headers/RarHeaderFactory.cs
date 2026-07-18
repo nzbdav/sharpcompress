@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using SharpCompress.Common.Rar;
@@ -28,6 +29,35 @@ public partial class RarHeaderFactory
     public StreamingMode StreamingMode { get; }
     public bool IsEncrypted { get; private set; }
 
+    /// <summary>
+    /// Enumerates RAR headers from <paramref name="stream"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Header-parse failures are surfaced as <see cref="RarHeaderReadException"/>:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>
+    /// <see cref="RarHeaderReadException.Truncated"/> = <c>true</c> — unexpected EOF while
+    /// reading the signature, or seek-past-end while skipping packed data.
+    /// </item>
+    /// <item>
+    /// <see cref="RarHeaderReadException.Truncated"/> = <c>false</c> — CRC mismatch, unknown
+    /// header code, missing signature after a full scan, or unsupported format.
+    /// </item>
+    /// </list>
+    /// <para>
+    /// Prefer matching <see cref="RarHeaderReadException"/> over raw BCL types
+    /// (<see cref="ArgumentOutOfRangeException"/>, <see cref="EndOfStreamException"/>,
+    /// <see cref="IncompleteArchiveException"/>).
+    /// </para>
+    /// <para>
+    /// Mid-enumeration EOF while filling the next header block (after a successful mark /
+    /// prior headers) ends the enumeration gracefully (returns) for back-compat with archives
+    /// that omit an EndArchive marker. Signature-scan EOF and seek-past-end during packed-data
+    /// skip still throw with <see cref="RarHeaderReadException.Truncated"/> = <c>true</c>.
+    /// </para>
+    /// </remarks>
     public IEnumerable<IRarHeader> ReadHeaders(Stream stream)
     {
         _pendingSkipPosition = null;
@@ -88,6 +118,14 @@ public partial class RarHeaderFactory
         try
         {
             buffer = RarBlockBuffer.ReadHeaderBlock(stream, _isRar5, decryptor);
+        }
+        catch (RarHeaderReadException ex) when (ex.Truncated)
+        {
+            // Archives may end without an EndArchive marker; treat mid-enumeration EOF as
+            // graceful end of headers (same soft-end as the pre-#119 InvalidFormatException path).
+            // MarkHeader / ApplyPendingSkip still throw Truncated for true early truncation.
+            decryptor?.Dispose();
+            return null;
         }
         catch (InvalidFormatException)
         {
@@ -232,7 +270,10 @@ public partial class RarHeaderFactory
                 }
                 default:
                 {
-                    throw new InvalidFormatException("Unknown Rar Header: " + header.HeaderCode);
+                    throw new RarHeaderReadException(
+                        "Unknown Rar Header: " + header.HeaderCode,
+                        truncated: false
+                    );
                 }
             }
         }
@@ -264,10 +305,24 @@ public partial class RarHeaderFactory
 
     private void ApplyPendingSkip(Stream stream)
     {
-        if (_pendingSkipPosition is { } position)
+        if (_pendingSkipPosition is not { } position)
+        {
+            return;
+        }
+
+        try
         {
             stream.Position = position;
-            _pendingSkipPosition = null;
         }
+        catch (ArgumentOutOfRangeException e)
+        {
+            throw new RarHeaderReadException(
+                $"Failed to skip packed data to position {position} (seek past stream end).",
+                truncated: true,
+                e
+            );
+        }
+
+        _pendingSkipPosition = null;
     }
 }
