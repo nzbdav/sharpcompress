@@ -37,6 +37,22 @@ internal abstract class DecoderStream2 : Stream
 
 internal static class DecoderStreamHelper
 {
+    /// <summary>
+    /// Hard cap on coder bind-pair recursion. Malformed folders that pass
+    /// <see cref="CFolder.CheckStructure"/> (or bypass it) must not exhaust the stack.
+    /// </summary>
+    internal const int MaxCoderChainDepth = 64;
+
+    internal static void EnsureCoderChainDepth(int depth)
+    {
+        if (depth > MaxCoderChainDepth)
+        {
+            throw new InvalidFormatException(
+                $"7z coder chain exceeds maximum depth of {MaxCoderChainDepth}."
+            );
+        }
+    }
+
     private static int FindCoderIndexForOutStreamIndex(CFolder folderInfo, int outStreamIndex)
     {
         for (var coderIndex = 0; coderIndex < folderInfo._coders.Count; coderIndex++)
@@ -100,9 +116,12 @@ internal static class DecoderStreamHelper
         Stream[] outStreams,
         CFolder folderInfo,
         int coderIndex,
-        IPasswordProvider pass
+        IPasswordProvider pass,
+        int depth = 0
     )
     {
+        EnsureCoderChainDepth(depth);
+
         var coderInfo = folderInfo._coders[coderIndex];
         if (coderInfo._numOutStreams != 1)
         {
@@ -144,7 +163,8 @@ internal static class DecoderStreamHelper
                     outStreams,
                     folderInfo,
                     otherCoderIndex,
-                    pass
+                    pass,
+                    depth + 1
                 );
 
                 //inStreamSizes[i] = folderInfo.UnpackSizes[pairedOutIndex];
@@ -189,9 +209,12 @@ internal static class DecoderStreamHelper
         CFolder folderInfo,
         int coderIndex,
         IPasswordProvider pass,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int depth = 0
     )
     {
+        EnsureCoderChainDepth(depth);
+
         var coderInfo = folderInfo._coders[coderIndex];
         if (coderInfo._numOutStreams != 1)
         {
@@ -234,7 +257,8 @@ internal static class DecoderStreamHelper
                         folderInfo,
                         otherCoderIndex,
                         pass,
-                        cancellationToken
+                        cancellationToken,
+                        depth + 1
                     )
                     .ConfigureAwait(false);
 
