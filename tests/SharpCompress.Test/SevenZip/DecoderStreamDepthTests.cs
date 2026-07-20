@@ -10,7 +10,8 @@ public class DecoderStreamDepthTests
     public void EnsureCoderChainDepth_AllowsDepthAtLimit()
     {
         var exception = Record.Exception(() =>
-            DecoderStreamHelper.EnsureCoderChainDepth(DecoderStreamHelper.MaxCoderChainDepth));
+            DecoderStreamHelper.EnsureCoderChainDepth(DecoderStreamHelper.MaxCoderChainDepth)
+        );
         Assert.Null(exception);
     }
 
@@ -18,7 +19,8 @@ public class DecoderStreamDepthTests
     public void EnsureCoderChainDepth_ThrowsInvalidFormatException_WhenDepthExceeded()
     {
         var exception = Assert.Throws<InvalidFormatException>(() =>
-            DecoderStreamHelper.EnsureCoderChainDepth(DecoderStreamHelper.MaxCoderChainDepth + 1));
+            DecoderStreamHelper.EnsureCoderChainDepth(DecoderStreamHelper.MaxCoderChainDepth + 1)
+        );
 
         Assert.Contains("maximum depth", exception.Message);
     }
