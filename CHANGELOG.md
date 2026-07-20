@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.53.1](https://github.com/nzbdav/sharpcompress/compare/v0.53.0...v0.53.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **7z:** bound decoder-stream coder-chain recursion ([be98ec3](https://github.com/nzbdav/sharpcompress/commit/be98ec3c47fb269deb4a2604bc7133eeeb94cc8d))
+* **7z:** bound decoder-stream recursion to prevent stack overflow ([8c61264](https://github.com/nzbdav/sharpcompress/commit/8c61264f8cb72154675f03f535e82d2109e5a1b4))
+* **deps:** bump the github-actions group with 2 updates ([d5fe559](https://github.com/nzbdav/sharpcompress/commit/d5fe55983ba3b8effc5f30e3d1992845300c805e))
+* **deps:** bump the github-actions group with 2 updates ([dfebdd2](https://github.com/nzbdav/sharpcompress/commit/dfebdd2485565c257d242f0781ac96ba6dba1e47))
+* **deps:** Bump the nuget-minor-and-patch group with 1 update ([f380ec6](https://github.com/nzbdav/sharpcompress/commit/f380ec6ea5f196cf609debf9a532ea90dcd107fe))
+* **deps:** Bump the nuget-minor-and-patch group with 1 update ([7147d62](https://github.com/nzbdav/sharpcompress/commit/7147d62ae77832ca0cbed05ceb71ff4ea3a27f02))
+* **deps:** refresh transitive package locks for System.IO.Hashing 10.0.9 ([ec6625c](https://github.com/nzbdav/sharpcompress/commit/ec6625cdf90bc67575c4bcf44781e9b236bfd7bb))
+
 ## [0.53.0](https://github.com/nzbdav/sharpcompress/compare/v0.52.0...v0.53.0) (2026-07-18)
 
 
