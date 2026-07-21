@@ -26,6 +26,14 @@ public interface IRarFileHeader : IRarHeader
     /// <summary>Uncompressed size of the entry.</summary>
     long UncompressedSize { get; }
 
+    /// <summary>
+    /// True when the archive header marks the uncompressed size as unknown
+    /// (RAR5 <c>UNPACKED_SIZE_UNKNOWN</c>, or the RAR4 <c>0xffffffff</c> sentinel).
+    /// When true, <see cref="UncompressedSize"/> may still expose an internal unpack
+    /// sentinel (<see cref="long.MaxValue"/>) and must not be treated as a real file size.
+    /// </summary>
+    bool IsUncompressedSizeUnknown { get; }
+
     /// <summary>Absolute stream offset of the packed bytes (seekable mode only).</summary>
     long DataStartPosition { get; }
 
