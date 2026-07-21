@@ -37,7 +37,8 @@ internal class FileHeader : RarHeader, IRarFileHeader
         var lvalue = checked((long)reader.ReadRarVInt());
 
         // long.MaxValue causes the unpack code to finish when the input stream is exhausted
-        UncompressedSize = HasFlag(FileFlagsV5.UNPACKED_SIZE_UNKNOWN) ? long.MaxValue : lvalue;
+        IsUncompressedSizeUnknown = HasFlag(FileFlagsV5.UNPACKED_SIZE_UNKNOWN);
+        UncompressedSize = IsUncompressedSizeUnknown ? long.MaxValue : lvalue;
 
         FileAttributes = reader.ReadRarVIntUInt32();
 
@@ -219,6 +220,8 @@ internal class FileHeader : RarHeader, IRarFileHeader
         {
             if (lowUncompressedSize == 0xffffffff)
             {
+                // RAR4 unknown-size sentinel: map to long.MaxValue for unpack compatibility.
+                IsUncompressedSizeUnknown = true;
                 lowUncompressedSize = 0xffffffff;
                 highUncompressedkSize = int.MaxValue;
             }
@@ -416,6 +419,7 @@ internal class FileHeader : RarHeader, IRarFileHeader
     internal uint FileAttributes { get; private set; }
     internal long CompressedSize { get; private set; }
     internal long UncompressedSize { get; private set; }
+    public bool IsUncompressedSizeUnknown { get; private set; }
     internal string? FileName { get; private set; }
     internal byte[]? SubData { get; private set; }
     internal int RecoverySectors { get; private set; }
@@ -471,6 +475,7 @@ internal class FileHeader : RarHeader, IRarFileHeader
     bool IRarFileHeader.IsStored => IsStored;
     long IRarFileHeader.CompressedSize => CompressedSize;
     long IRarFileHeader.UncompressedSize => UncompressedSize;
+    bool IRarFileHeader.IsUncompressedSizeUnknown => IsUncompressedSizeUnknown;
     long IRarFileHeader.DataStartPosition => DataStartPosition;
     long IRarFileHeader.AdditionalDataSize => AdditionalDataSize;
     bool IRarFileHeader.IsEncrypted => IsEncrypted;
