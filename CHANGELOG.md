@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.54.0](https://github.com/nzbdav/sharpcompress/compare/v0.53.1...v0.54.0) (2026-07-21)
+
+
+### Features
+
+* **rar:** expose IsUncompressedSizeUnknown on file headers ([253dc9e](https://github.com/nzbdav/sharpcompress/commit/253dc9ea03aa083dd3ca7ceedacdd3598c6bf86d))
+* **rar:** expose IsUncompressedSizeUnknown on file headers ([110578b](https://github.com/nzbdav/sharpcompress/commit/110578b4cee4606ca6425986d16f83b4424aaeda))
+
 ## [0.53.1](https://github.com/nzbdav/sharpcompress/compare/v0.53.0...v0.53.1) (2026-07-20)
 
 
